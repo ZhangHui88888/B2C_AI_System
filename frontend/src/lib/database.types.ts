@@ -43,6 +43,8 @@ export interface Database {
           price: number;
           compare_price: number | null;
           cost: number | null;
+          sku: string | null;
+          stock_quantity: number | null;
           main_image_url: string | null;
           images: string[] | null;
           category_id: string | null;
@@ -97,8 +99,9 @@ export interface Database {
           items: Json;
           subtotal: number;
           shipping_cost: number;
+          discount_amount: number;
           total: number;
-          status: 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled' | 'refunded';
+          status: 'pending' | 'paid' | 'failed' | 'shipped' | 'delivered' | 'cancelled' | 'refunded';
           payment_intent_id: string | null;
           tracking_number: string | null;
           tracking_url: string | null;

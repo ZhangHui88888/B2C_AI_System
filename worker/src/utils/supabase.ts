@@ -42,4 +42,5 @@ export const Tables = {
   KNOWLEDGE_BASE: 'knowledge_base',
   SETTINGS: 'settings',
   CONTENT_LIBRARY: 'content_library',
+  STRIPE_EVENTS: 'stripe_events',
 } as const;

@@ -1,0 +1,210 @@
+---
+---
+
+<div id="chat-widget" class="fixed bottom-4 right-4 z-50">
+  <button
+    id="chat-toggle"
+    class="w-14 h-14 bg-primary-600 hover:bg-primary-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-200"
+    aria-label="Open chat"
+  >
+    <svg id="chat-icon-open" xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+    </svg>
+    <svg id="chat-icon-close" xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  </button>
+
+  <div
+    id="chat-window"
+    class="hidden absolute bottom-16 right-0 w-80 sm:w-96 h-[28rem] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden"
+  >
+    <div class="bg-primary-600 text-white px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+        <span class="font-semibold text-sm">AI Assistant</span>
+      </div>
+      <button id="chat-minimize" class="text-white/80 hover:text-white">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+    </div>
+
+    <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-3">
+      <div class="flex justify-start">
+        <div class="bg-gray-100 rounded-2xl rounded-bl-md px-4 py-2 max-w-[85%] text-sm text-gray-800">
+          Hello! How can I help you today?
+        </div>
+      </div>
+    </div>
+
+    <div id="chat-typing" class="hidden px-4 pb-2">
+      <div class="flex items-center gap-1 text-gray-400 text-xs">
+        <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0ms"></span>
+        <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 150ms"></span>
+        <span class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 300ms"></span>
+        <span class="ml-1">AI is typing...</span>
+      </div>
+    </div>
+
+    <form id="chat-form" class="p-3 border-t border-gray-100">
+      <div class="flex items-center gap-2">
+        <input
+          id="chat-input"
+          type="text"
+          placeholder="Type your message..."
+          class="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-full focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          autocomplete="off"
+        />
+        <button
+          type="submit"
+          id="chat-send"
+          class="w-10 h-10 bg-primary-600 hover:bg-primary-700 text-white rounded-full flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+          </svg>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  import { api } from '@lib/api';
+
+  const widget = document.getElementById('chat-widget');
+  const toggle = document.getElementById('chat-toggle');
+  const window_ = document.getElementById('chat-window');
+  const minimize = document.getElementById('chat-minimize');
+  const form = document.getElementById('chat-form');
+  const input = document.getElementById('chat-input') as HTMLInputElement;
+  const messages = document.getElementById('chat-messages');
+  const typing = document.getElementById('chat-typing');
+  const sendBtn = document.getElementById('chat-send');
+  const iconOpen = document.getElementById('chat-icon-open');
+  const iconClose = document.getElementById('chat-icon-close');
+
+  let isOpen = false;
+  let sessionId = localStorage.getItem('chat_session_id') || crypto.randomUUID();
+  localStorage.setItem('chat_session_id', sessionId);
+
+  function toggleChat() {
+    isOpen = !isOpen;
+    window_?.classList.toggle('hidden', !isOpen);
+    iconOpen?.classList.toggle('hidden', isOpen);
+    iconClose?.classList.toggle('hidden', !isOpen);
+    if (isOpen) {
+      input?.focus();
+      scrollToBottom();
+    }
+  }
+
+  function scrollToBottom() {
+    if (messages) {
+      messages.scrollTop = messages.scrollHeight;
+    }
+  }
+
+  function addMessage(content: string, isUser: boolean) {
+    if (!messages) return;
+    const wrapper = document.createElement('div');
+    wrapper.className = `flex ${isUser ? 'justify-end' : 'justify-start'}`;
+    
+    const bubble = document.createElement('div');
+    bubble.className = isUser
+      ? 'bg-primary-600 text-white rounded-2xl rounded-br-md px-4 py-2 max-w-[85%] text-sm'
+      : 'bg-gray-100 rounded-2xl rounded-bl-md px-4 py-2 max-w-[85%] text-sm text-gray-800';
+    bubble.textContent = content;
+    
+    wrapper.appendChild(bubble);
+    messages.appendChild(wrapper);
+    scrollToBottom();
+    return bubble;
+  }
+
+  function setTyping(show: boolean) {
+    typing?.classList.toggle('hidden', !show);
+    scrollToBottom();
+  }
+
+  function setInputEnabled(enabled: boolean) {
+    if (input) input.disabled = !enabled;
+    if (sendBtn) {
+      sendBtn.toggleAttribute('disabled', !enabled);
+    }
+  }
+
+  async function sendMessage(message: string) {
+    if (!message.trim()) return;
+    
+    addMessage(message, true);
+    if (input) input.value = '';
+    setInputEnabled(false);
+    setTyping(true);
+
+    try {
+      // Use streaming for better UX
+      let responseBubble: HTMLElement | undefined;
+      let fullResponse = '';
+
+      await api.streamMessage(message, sessionId, (chunk) => {
+        if (!responseBubble) {
+          setTyping(false);
+          responseBubble = addMessage('', false);
+        }
+        if (responseBubble) {
+          fullResponse += chunk;
+          responseBubble.textContent = fullResponse;
+          scrollToBottom();
+        }
+      });
+
+      // If no streaming response received, fall back to regular API
+      if (!responseBubble) {
+        setTyping(false);
+        const res = await api.sendMessage(message, sessionId);
+        if (res.success && res.data?.reply) {
+          addMessage(res.data.reply, false);
+        } else {
+          addMessage('Sorry, I encountered an issue. Please try again.', false);
+        }
+      }
+    } catch (error) {
+      console.error('Chat error:', error);
+      setTyping(false);
+      addMessage('Sorry, I encountered an issue. Please try again.', false);
+    } finally {
+      setInputEnabled(true);
+      input?.focus();
+    }
+  }
+
+  toggle?.addEventListener('click', toggleChat);
+  minimize?.addEventListener('click', toggleChat);
+
+  form?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const message = input?.value || '';
+    sendMessage(message);
+  });
+
+  // Close on escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isOpen) {
+      toggleChat();
+    }
+  });
+</script>
+
+<style>
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+  
+  #chat-typing span {
+    animation: bounce 0.6s infinite;
+  }
+</style>

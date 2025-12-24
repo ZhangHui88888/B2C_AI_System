@@ -302,6 +302,7 @@ npm run deploy
 | `/api/cart/validate` | POST | 验证购物车 |
 | `/api/orders/create` | POST | 创建订单 |
 | `/api/orders/:id` | GET | 获取订单详情 |
+| `/api/stripe/webhook` | POST | Stripe Webhook（签名校验、更新订单状态） |
 | `/api/chat` | POST | AI 对话（单次响应） |
 | `/api/chat/stream` | POST | AI 对话（流式响应） |
 

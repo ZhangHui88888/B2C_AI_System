@@ -35,7 +35,7 @@ const breadcrumbItems = [
                 <input id="confirm-email" class="input mt-2" type="email" autocomplete="email" />
               </div>
               <button id="confirm-load" class="btn-primary py-2 px-4 text-sm" type="button">Load order</button>
-              <div class="text-xs text-gray-500">Note: order creation is not implemented yet in Stage 2. This page mainly supports order lookup.</div>
+              <div class="text-xs text-gray-500">Tip: after payment, it may take a moment for status to update.</div>
               <a href="/order" class="text-sm text-primary-600 hover:text-primary-700">Go to order lookup</a>
             </div>
           </div>
@@ -96,8 +96,8 @@ const breadcrumbItems = [
                   .map((it) => {
                     const name = it.name || it.title || it.productName || it.productId || 'Item';
                     const qty = Number(it.quantity || 1);
-                    const priceNum = Number(it.price);
-                    const price = Number.isFinite(priceNum) ? formatPrice(priceNum) : (it.price ?? '');
+                    const unitPriceNum = Number(it.unit_price ?? it.price);
+                    const price = Number.isFinite(unitPriceNum) ? formatPrice(unitPriceNum) : (it.unit_price ?? it.price ?? '');
                     return `<tr class="border-t border-gray-100"><td class="py-2 pr-4 text-gray-900 font-medium">${name}</td><td class="py-2 pr-4">${Number.isFinite(qty) ? qty : ''}</td><td class="py-2">${price}</td></tr>`;
                   })
                   .join('')}

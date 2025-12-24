@@ -3,6 +3,7 @@
 import '@styles/global.css';
 import Header from '@components/layout/Header.astro';
 import Footer from '@components/layout/Footer.astro';
+import ChatWidget from '@components/chat/ChatWidget.astro';
 import { supabase } from '@lib/supabase';
 import { canonicalFor, shouldNoIndex } from '@lib/seo';
 
@@ -72,5 +73,8 @@ const { data: categories } = await supabase
     
     <!-- Footer placeholder - to be implemented in Step 2.1 -->
     <Footer siteName={siteName} />
+    
+    <!-- AI Chat Widget -->
+    <ChatWidget />
   </body>
 </html>

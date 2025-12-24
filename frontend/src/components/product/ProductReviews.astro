@@ -1,0 +1,430 @@
+---
+export interface Props {
+  productId: string;
+  productName?: string;
+}
+
+const { productId, productName } = Astro.props;
+---
+
+<div class="product-reviews" data-product-id={productId}>
+  <!-- Reviews Summary -->
+  <div class="mb-8">
+    <h3 class="text-xl font-bold text-gray-900 mb-4">Customer Reviews</h3>
+    
+    <div class="flex flex-col md:flex-row gap-8">
+      <!-- Average Rating -->
+      <div class="text-center md:text-left">
+        <div class="text-5xl font-bold text-gray-900" id="average-rating">0.0</div>
+        <div class="flex justify-center md:justify-start gap-1 my-2" id="average-stars">
+          {[1, 2, 3, 4, 5].map(() => (
+            <svg class="w-5 h-5 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+            </svg>
+          ))}
+        </div>
+        <div class="text-sm text-gray-500"><span id="total-reviews">0</span> reviews</div>
+      </div>
+
+      <!-- Rating Distribution -->
+      <div class="flex-1 max-w-md">
+        {[5, 4, 3, 2, 1].map((rating) => (
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-sm text-gray-600 w-8">{rating} star</span>
+            <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div 
+                class="h-full bg-yellow-400 rounded-full transition-all duration-300"
+                id={`rating-bar-${rating}`}
+                style="width: 0%"
+              ></div>
+            </div>
+            <span class="text-sm text-gray-500 w-8" id={`rating-count-${rating}`}>0</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+
+  <!-- Write Review Button -->
+  <div class="mb-6">
+    <button 
+      id="write-review-btn"
+      class="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+    >
+      Write a Review
+    </button>
+  </div>
+
+  <!-- Sort Options -->
+  <div class="flex items-center gap-4 mb-6">
+    <span class="text-sm text-gray-600">Sort by:</span>
+    <select id="review-sort" class="px-3 py-1 border border-gray-300 rounded-lg text-sm">
+      <option value="newest">Newest</option>
+      <option value="highest">Highest Rated</option>
+      <option value="lowest">Lowest Rated</option>
+      <option value="helpful">Most Helpful</option>
+    </select>
+  </div>
+
+  <!-- Reviews List -->
+  <div id="reviews-list" class="space-y-6">
+    <div class="text-center py-8 text-gray-500">Loading reviews...</div>
+  </div>
+
+  <!-- Load More -->
+  <div id="load-more-container" class="text-center mt-6 hidden">
+    <button id="load-more-btn" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+      Load More Reviews
+    </button>
+  </div>
+</div>
+
+<!-- Write Review Modal -->
+<div id="review-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+  <div class="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <div class="p-6 border-b border-gray-200">
+      <h3 class="text-lg font-semibold text-gray-900">Write a Review</h3>
+      <p class="text-sm text-gray-500 mt-1">{productName || 'Product'}</p>
+    </div>
+    <form id="review-form" class="p-6 space-y-4">
+      <!-- Rating -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Your Rating *</label>
+        <div class="flex gap-1" id="rating-input">
+          {[1, 2, 3, 4, 5].map((star) => (
+            <button
+              type="button"
+              class="rating-star p-1 text-gray-300 hover:text-yellow-400 transition-colors"
+              data-rating={star}
+            >
+              <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+            </button>
+          ))}
+        </div>
+        <input type="hidden" id="rating-value" name="rating" required />
+      </div>
+
+      <!-- Name -->
+      <div>
+        <label for="reviewer-name" class="block text-sm font-medium text-gray-700 mb-1">Your Name *</label>
+        <input
+          type="text"
+          id="reviewer-name"
+          name="reviewer_name"
+          required
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          placeholder="John Doe"
+        />
+      </div>
+
+      <!-- Email -->
+      <div>
+        <label for="reviewer-email" class="block text-sm font-medium text-gray-700 mb-1">Email (for verified purchase badge)</label>
+        <input
+          type="email"
+          id="reviewer-email"
+          name="reviewer_email"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          placeholder="john@example.com"
+        />
+      </div>
+
+      <!-- Title -->
+      <div>
+        <label for="review-title" class="block text-sm font-medium text-gray-700 mb-1">Review Title</label>
+        <input
+          type="text"
+          id="review-title"
+          name="title"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          placeholder="Summarize your experience"
+        />
+      </div>
+
+      <!-- Content -->
+      <div>
+        <label for="review-content" class="block text-sm font-medium text-gray-700 mb-1">Your Review *</label>
+        <textarea
+          id="review-content"
+          name="content"
+          rows="4"
+          required
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          placeholder="Share your experience with this product..."
+        ></textarea>
+      </div>
+
+      <div class="text-xs text-gray-500">
+        * Required fields. Your review will be visible after moderation.
+      </div>
+    </form>
+    <div class="p-6 border-t border-gray-200 flex justify-end gap-3">
+      <button id="cancel-review" type="button" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+        Cancel
+      </button>
+      <button id="submit-review" type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
+        Submit Review
+      </button>
+    </div>
+  </div>
+</div>
+
+<script define:vars={{ productId }}>
+  const API_BASE = import.meta.env?.PUBLIC_API_URL || 'http://localhost:8787';
+  let currentPage = 1;
+  let totalPages = 1;
+  let currentSort = 'newest';
+
+  // Load reviews stats
+  async function loadStats() {
+    try {
+      const res = await fetch(`${API_BASE}/api/reviews/stats/${productId}`);
+      const json = await res.json();
+      if (json.success && json.data) {
+        const stats = json.data;
+        
+        // Update average
+        document.getElementById('average-rating').textContent = stats.average_rating?.toFixed(1) || '0.0';
+        document.getElementById('total-reviews').textContent = stats.total_reviews || '0';
+        
+        // Update stars
+        const avgStars = Math.round(stats.average_rating || 0);
+        const starsContainer = document.getElementById('average-stars');
+        if (starsContainer) {
+          starsContainer.querySelectorAll('svg').forEach((star, i) => {
+            star.classList.toggle('text-yellow-400', i < avgStars);
+            star.classList.toggle('text-gray-300', i >= avgStars);
+          });
+        }
+        
+        // Update distribution bars
+        const total = stats.total_reviews || 1;
+        for (let i = 1; i <= 5; i++) {
+          const count = stats[`rating_${i}`] || 0;
+          const bar = document.getElementById(`rating-bar-${i}`);
+          const countEl = document.getElementById(`rating-count-${i}`);
+          if (bar) bar.style.width = `${(count / total) * 100}%`;
+          if (countEl) countEl.textContent = count;
+        }
+      }
+    } catch (err) {
+      console.error('Error loading stats:', err);
+    }
+  }
+
+  // Load reviews
+  async function loadReviews(page = 1, sort = 'newest') {
+    const container = document.getElementById('reviews-list');
+    if (!container) return;
+
+    if (page === 1) {
+      container.innerHTML = '<div class="text-center py-8 text-gray-500">Loading reviews...</div>';
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/reviews/product/${productId}?page=${page}&limit=10&sort=${sort}`);
+      const json = await res.json();
+
+      if (json.success) {
+        totalPages = json.pagination?.totalPages || 1;
+        currentPage = page;
+        currentSort = sort;
+
+        if (page === 1) {
+          container.innerHTML = '';
+        }
+
+        if (json.data && json.data.length > 0) {
+          json.data.forEach(review => {
+            container.appendChild(createReviewCard(review));
+          });
+        } else if (page === 1) {
+          container.innerHTML = '<div class="text-center py-8 text-gray-500">No reviews yet. Be the first to review!</div>';
+        }
+
+        // Show/hide load more button
+        const loadMoreContainer = document.getElementById('load-more-container');
+        if (loadMoreContainer) {
+          loadMoreContainer.classList.toggle('hidden', currentPage >= totalPages);
+        }
+      }
+    } catch (err) {
+      console.error('Error loading reviews:', err);
+      container.innerHTML = '<div class="text-center py-8 text-red-500">Failed to load reviews</div>';
+    }
+  }
+
+  // Create review card
+  function createReviewCard(review) {
+    const div = document.createElement('div');
+    div.className = 'border-b border-gray-200 pb-6';
+    
+    const stars = Array(5).fill(0).map((_, i) => 
+      `<svg class="w-4 h-4 ${i < review.rating ? 'text-yellow-400' : 'text-gray-300'}" fill="currentColor" viewBox="0 0 20 20">
+        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+      </svg>`
+    ).join('');
+
+    div.innerHTML = `
+      <div class="flex items-start gap-4">
+        <div class="flex-1">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="font-medium text-gray-900">${review.reviewer_name || 'Anonymous'}</span>
+            ${review.is_verified_purchase ? '<span class="text-xs px-2 py-0.5 bg-green-100 text-green-800 rounded">Verified Purchase</span>' : ''}
+          </div>
+          <div class="flex items-center gap-2 mb-2">
+            <div class="flex gap-0.5">${stars}</div>
+            <span class="text-sm text-gray-500">${new Date(review.created_at).toLocaleDateString()}</span>
+          </div>
+          ${review.title ? `<h4 class="font-medium text-gray-900 mb-1">${review.title}</h4>` : ''}
+          <p class="text-gray-600">${review.content || ''}</p>
+          
+          ${review.merchant_reply ? `
+            <div class="mt-4 p-3 bg-gray-50 rounded-lg">
+              <p class="text-sm font-medium text-gray-700 mb-1">Seller Response:</p>
+              <p class="text-sm text-gray-600">${review.merchant_reply}</p>
+            </div>
+          ` : ''}
+          
+          <div class="mt-3 flex items-center gap-4">
+            <button class="helpful-btn text-sm text-gray-500 hover:text-gray-700" data-id="${review.id}" data-helpful="true">
+              Helpful (${review.helpful_count || 0})
+            </button>
+            <button class="helpful-btn text-sm text-gray-500 hover:text-gray-700" data-id="${review.id}" data-helpful="false">
+              Not Helpful (${review.not_helpful_count || 0})
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Add helpful vote handlers
+    div.querySelectorAll('.helpful-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const isHelpful = btn.dataset.helpful === 'true';
+        try {
+          await fetch(`${API_BASE}/api/reviews/${id}/vote`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_helpful: isHelpful })
+          });
+          btn.textContent = isHelpful ? `Helpful (${(review.helpful_count || 0) + 1})` : `Not Helpful (${(review.not_helpful_count || 0) + 1})`;
+        } catch (err) {
+          console.error('Vote error:', err);
+        }
+      });
+    });
+
+    return div;
+  }
+
+  // Initialize
+  loadStats();
+  loadReviews();
+
+  // Sort change handler
+  document.getElementById('review-sort')?.addEventListener('change', (e) => {
+    loadReviews(1, e.target.value);
+  });
+
+  // Load more handler
+  document.getElementById('load-more-btn')?.addEventListener('click', () => {
+    loadReviews(currentPage + 1, currentSort);
+  });
+
+  // Modal handlers
+  const modal = document.getElementById('review-modal');
+  const writeBtn = document.getElementById('write-review-btn');
+  const cancelBtn = document.getElementById('cancel-review');
+  const submitBtn = document.getElementById('submit-review');
+  let selectedRating = 0;
+
+  writeBtn?.addEventListener('click', () => {
+    modal?.classList.remove('hidden');
+    modal?.classList.add('flex');
+  });
+
+  cancelBtn?.addEventListener('click', () => {
+    modal?.classList.add('hidden');
+    modal?.classList.remove('flex');
+  });
+
+  modal?.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+  });
+
+  // Rating stars interaction
+  document.querySelectorAll('.rating-star').forEach(star => {
+    star.addEventListener('click', () => {
+      selectedRating = parseInt(star.dataset.rating);
+      document.getElementById('rating-value').value = selectedRating;
+      
+      document.querySelectorAll('.rating-star').forEach((s, i) => {
+        s.classList.toggle('text-yellow-400', i < selectedRating);
+        s.classList.toggle('text-gray-300', i >= selectedRating);
+      });
+    });
+
+    star.addEventListener('mouseenter', () => {
+      const rating = parseInt(star.dataset.rating);
+      document.querySelectorAll('.rating-star').forEach((s, i) => {
+        s.classList.toggle('text-yellow-400', i < rating);
+        s.classList.toggle('text-gray-300', i >= rating);
+      });
+    });
+  });
+
+  document.getElementById('rating-input')?.addEventListener('mouseleave', () => {
+    document.querySelectorAll('.rating-star').forEach((s, i) => {
+      s.classList.toggle('text-yellow-400', i < selectedRating);
+      s.classList.toggle('text-gray-300', i >= selectedRating);
+    });
+  });
+
+  // Submit review
+  submitBtn?.addEventListener('click', async () => {
+    const form = document.getElementById('review-form');
+    const formData = new FormData(form);
+    
+    if (!selectedRating) {
+      alert('Please select a rating');
+      return;
+    }
+
+    const data = {
+      product_id: productId,
+      rating: selectedRating,
+      reviewer_name: formData.get('reviewer_name'),
+      reviewer_email: formData.get('reviewer_email') || undefined,
+      title: formData.get('title') || undefined,
+      content: formData.get('content'),
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/api/reviews`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (res.ok) {
+        modal?.classList.add('hidden');
+        modal?.classList.remove('flex');
+        form?.reset();
+        selectedRating = 0;
+        alert('Thank you! Your review has been submitted and will be visible after moderation.');
+      } else {
+        throw new Error('Failed to submit');
+      }
+    } catch (err) {
+      console.error('Submit error:', err);
+      alert('Failed to submit review. Please try again.');
+    }
+  });
+</script>

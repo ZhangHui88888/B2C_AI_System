@@ -1,0 +1,181 @@
+---
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { supabase } from '@lib/supabase';
+
+// Get current settings
+const { data: settings } = await supabase
+  .from('settings')
+  .select('key, value');
+
+const settingsMap = new Map<string, any>();
+settings?.forEach((s) => settingsMap.set(s.key, s.value));
+
+const aiEnabled = settingsMap.get('ai_enabled') === true || settingsMap.get('ai_enabled') === 'true';
+const aiSystemPrompt = settingsMap.get('ai_system_prompt') || '';
+const aiWelcomeMessage = settingsMap.get('ai_welcome_message') || 'Hello! How can I help you today?';
+const aiHandoffKeywords = settingsMap.get('ai_handoff_keywords') || ['complaint', 'refund', 'human'];
+const storeName = settingsMap.get('store_name') || '';
+const notifyEmail = settingsMap.get('notify_email') || '';
+---
+
+<AdminLayout title="Settings" activePage="settings">
+  <div class="max-w-3xl space-y-6">
+    <!-- Store Settings -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">Store Settings</h2>
+      
+      <form id="store-form" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Store Name</label>
+          <input type="text" name="store_name" value={storeName} class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="Your Store Name" />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Notification Email</label>
+          <input type="email" name="notify_email" value={notifyEmail} class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="orders@yourstore.com" />
+          <p class="text-xs text-gray-500 mt-1">Receive order notifications at this email</p>
+        </div>
+
+        <button type="submit" class="px-4 py-2 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 transition-colors">
+          Save Store Settings
+        </button>
+      </form>
+    </div>
+
+    <!-- AI Settings -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-gray-900">AI Customer Service</h2>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="ai-toggle" class="sr-only peer" checked={aiEnabled} />
+          <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+          <span class="ml-2 text-sm font-medium text-gray-700">Enabled</span>
+        </label>
+      </div>
+      
+      <form id="ai-form" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Welcome Message</label>
+          <input type="text" name="ai_welcome_message" value={aiWelcomeMessage} class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">System Prompt</label>
+          <textarea name="ai_system_prompt" rows="4" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="Custom instructions for the AI assistant...">{aiSystemPrompt}</textarea>
+          <p class="text-xs text-gray-500 mt-1">Use {'{brand_name}'} as a placeholder for your store name</p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Human Handoff Keywords</label>
+          <input type="text" name="ai_handoff_keywords" value={aiHandoffKeywords.join(', ')} class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" />
+          <p class="text-xs text-gray-500 mt-1">Comma-separated keywords that trigger human support flag</p>
+        </div>
+
+        <button type="submit" class="px-4 py-2 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 transition-colors">
+          Save AI Settings
+        </button>
+      </form>
+    </div>
+
+    <!-- Danger Zone -->
+    <div class="bg-white rounded-xl shadow-sm border border-red-200 p-6">
+      <h2 class="text-lg font-semibold text-red-600 mb-4">Danger Zone</h2>
+      
+      <div class="space-y-4">
+        <div class="flex items-center justify-between p-4 bg-red-50 rounded-lg">
+          <div>
+            <p class="font-medium text-gray-900">Clear All Conversations</p>
+            <p class="text-sm text-gray-500">Delete all AI chat history</p>
+          </div>
+          <button id="clear-chats-btn" class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors">
+            Clear
+          </button>
+        </div>
+
+        <div class="flex items-center justify-between p-4 bg-red-50 rounded-lg">
+          <div>
+            <p class="font-medium text-gray-900">Reset Knowledge Base</p>
+            <p class="text-sm text-gray-500">Delete all knowledge entries</p>
+          </div>
+          <button id="reset-kb-btn" class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors">
+            Reset
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = import.meta.env.PUBLIC_API_URL || '';
+
+    async function updateSetting(key: string, value: any) {
+      const res = await fetch(`${API_URL}/api/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, value }),
+      });
+      return res.ok;
+    }
+
+    // Store settings form
+    document.getElementById('store-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target as HTMLFormElement;
+      const formData = new FormData(form);
+      
+      const results = await Promise.all([
+        updateSetting('store_name', formData.get('store_name')),
+        updateSetting('notify_email', formData.get('notify_email')),
+      ]);
+      
+      if (results.every(Boolean)) {
+        alert('Settings saved!');
+      } else {
+        alert('Failed to save some settings');
+      }
+    });
+
+    // AI toggle
+    document.getElementById('ai-toggle')?.addEventListener('change', async (e) => {
+      const enabled = (e.target as HTMLInputElement).checked;
+      await updateSetting('ai_enabled', enabled);
+    });
+
+    // AI settings form
+    document.getElementById('ai-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target as HTMLFormElement;
+      const formData = new FormData(form);
+      
+      const keywords = (formData.get('ai_handoff_keywords') as string)
+        .split(',')
+        .map(k => k.trim())
+        .filter(Boolean);
+      
+      const results = await Promise.all([
+        updateSetting('ai_welcome_message', formData.get('ai_welcome_message')),
+        updateSetting('ai_system_prompt', formData.get('ai_system_prompt')),
+        updateSetting('ai_handoff_keywords', keywords),
+      ]);
+      
+      if (results.every(Boolean)) {
+        alert('AI settings saved!');
+      } else {
+        alert('Failed to save some settings');
+      }
+    });
+
+    // Danger zone
+    document.getElementById('clear-chats-btn')?.addEventListener('click', async () => {
+      if (!confirm('Are you sure? This will delete ALL chat conversations.')) return;
+      // Would need a backend endpoint for this
+      alert('Feature not yet implemented');
+    });
+
+    document.getElementById('reset-kb-btn')?.addEventListener('click', async () => {
+      if (!confirm('Are you sure? This will delete ALL knowledge base entries.')) return;
+      // Would need a backend endpoint for this
+      alert('Feature not yet implemented');
+    });
+  </script>
+</AdminLayout>

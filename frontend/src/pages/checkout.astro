@@ -14,6 +14,7 @@ const breadcrumbItems = [
 <Layout title="Checkout" description="Complete your purchase.">
   <Fragment slot="head">
     <BreadcrumbSchema items={breadcrumbItems} />
+    <script src="https://js.stripe.com/v3/"></script>
   </Fragment>
 
   <main class="container-custom">
@@ -33,7 +34,7 @@ const breadcrumbItems = [
           <div class="card p-5">
             <div class="flex items-center justify-between">
               <div class="text-sm font-semibold text-gray-900">Checkout steps</div>
-              <div class="text-xs text-gray-500">Stage 2: payment is placeholder</div>
+              <div class="text-xs text-gray-500">Step 1: info → Step 2: payment → Step 3: confirm</div>
             </div>
             <div class="mt-4 grid grid-cols-3 gap-2 text-xs">
               <div class="px-3 py-2 rounded-lg bg-primary-50 text-primary-700 font-semibold text-center">1. Info</div>
@@ -45,7 +46,7 @@ const breadcrumbItems = [
           <div class="card p-5">
             <div class="flex items-center justify-between gap-3">
               <div class="font-semibold text-gray-900">Step 1: Information</div>
-              <div class="text-xs text-gray-500">Payment placeholder (API not enabled yet)</div>
+              <div class="text-xs text-gray-500">We will collect payment after placing the order.</div>
             </div>
 
             <form id="checkout-form" class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -80,7 +81,7 @@ const breadcrumbItems = [
 
               <div class="sm:col-span-2 pt-2 flex flex-col sm:flex-row gap-3">
                 <a href="/cart" class="btn-outline py-2 px-4 text-sm text-center">Back to cart</a>
-                <button id="co-submit" class="btn-primary py-2 px-4 text-sm" type="submit">Place order (placeholder)</button>
+                <button id="co-submit" class="btn-primary py-2 px-4 text-sm" type="submit">Continue to payment</button>
               </div>
             </form>
 
@@ -89,6 +90,22 @@ const breadcrumbItems = [
             </div>
 
             <div id="checkout-alert" class="hidden mt-6 card p-4 border border-amber-200 bg-amber-50 text-amber-900"></div>
+          </div>
+
+          <div id="payment-card" class="hidden card p-5">
+            <div class="flex items-center justify-between gap-3">
+              <div class="font-semibold text-gray-900">Step 2: Payment</div>
+              <div id="payment-status" class="text-xs text-gray-500"></div>
+            </div>
+
+            <div id="payment-element" class="mt-6"></div>
+
+            <div id="payment-message" class="hidden mt-4 text-sm text-amber-900"></div>
+
+            <div class="mt-6 flex flex-col sm:flex-row gap-3">
+              <button id="pay-now" class="btn-primary py-2 px-4 text-sm" type="button">Pay now</button>
+              <a href="/cart" class="btn-outline py-2 px-4 text-sm text-center">Edit cart</a>
+            </div>
           </div>
 
           <div class="mt-6">
@@ -140,6 +157,19 @@ const breadcrumbItems = [
     const emptyCtaEl = document.getElementById('co-empty-cta');
     const submitBtn = document.getElementById('co-submit');
 
+    const paymentCard = document.getElementById('payment-card');
+    const paymentEl = document.getElementById('payment-element');
+    const paymentMsgEl = document.getElementById('payment-message');
+    const payNowBtn = document.getElementById('pay-now');
+    const paymentStatusEl = document.getElementById('payment-status');
+
+    const stripePk = import.meta.env.PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+    const stripeReturnBase = import.meta.env.PUBLIC_SITE_URL || window.location.origin;
+
+    let stripe = null;
+    let elements = null;
+    let currentOrder = null;
+
     function setAlert(message) {
       if (!alertEl) return;
       if (!message) {
@@ -149,6 +179,22 @@ const breadcrumbItems = [
       }
       alertEl.classList.remove('hidden');
       alertEl.textContent = message;
+    }
+
+    function setPaymentMessage(message) {
+      if (!paymentMsgEl) return;
+      if (!message) {
+        paymentMsgEl.classList.add('hidden');
+        paymentMsgEl.textContent = '';
+        return;
+      }
+      paymentMsgEl.classList.remove('hidden');
+      paymentMsgEl.textContent = message;
+    }
+
+    function setPaymentStatus(message) {
+      if (!paymentStatusEl) return;
+      paymentStatusEl.textContent = message || '';
     }
 
     function renderSummary() {
@@ -224,7 +270,7 @@ const breadcrumbItems = [
       const res = await api.createOrder(orderData);
 
       if (!res.success) {
-        setAlert(res.error || 'Order creation is not available yet. This is expected in Stage 2.');
+        setAlert(res.error || 'Failed to create order.');
         return;
       }
 
@@ -234,18 +280,89 @@ const breadcrumbItems = [
       }
 
       const orderId = res.data?.orderId;
+      const clientSecret = res.data?.clientSecret;
+
+      if (!orderId || !clientSecret) {
+        setAlert('Order created but payment is unavailable (missing Stripe client secret).');
+        return;
+      }
+
+      if (!stripePk) {
+        setAlert('Missing Stripe publishable key (PUBLIC_STRIPE_PUBLISHABLE_KEY).');
+        return;
+      }
+
+      if (!window.Stripe) {
+        setAlert('Stripe.js failed to load. Please refresh and try again.');
+        return;
+      }
+
+      if (!paymentCard || !paymentEl) {
+        setAlert('Payment UI is not available.');
+        return;
+      }
+
+      currentOrder = { orderId, email: payload.email };
+      stripe = window.Stripe(stripePk);
+      elements = stripe.elements({ clientSecret });
+
+      const paymentElement = elements.create('payment');
+      paymentElement.mount(paymentEl);
+
+      paymentCard.classList.remove('hidden');
+      setPaymentStatus(`Order ${orderId} created. Complete payment to confirm.`);
+      setPaymentMessage('');
+      setAlert('');
+
+      if (submitBtn) {
+        submitBtn.toggleAttribute('disabled', true);
+        submitBtn.classList.add('opacity-50');
+        submitBtn.classList.add('pointer-events-none');
+      }
+    }
+
+    async function confirmPayment() {
+      if (!stripe || !elements || !currentOrder) {
+        setPaymentMessage('Payment is not ready yet.');
+        return;
+      }
+
+      if (payNowBtn) {
+        payNowBtn.toggleAttribute('disabled', true);
+        payNowBtn.classList.add('opacity-50');
+        payNowBtn.classList.add('pointer-events-none');
+      }
+
+      setPaymentMessage('');
+      setPaymentStatus('Processing payment...');
+
+      const u = new URL('/order-confirm', stripeReturnBase);
+      u.searchParams.set('orderId', currentOrder.orderId);
+      u.searchParams.set('email', currentOrder.email);
+
+      const result = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: u.toString(),
+        },
+        redirect: 'if_required',
+      });
+
+      if (result.error) {
+        setPaymentStatus('Payment failed');
+        setPaymentMessage(result.error.message || 'Payment failed.');
+        if (payNowBtn) {
+          payNowBtn.toggleAttribute('disabled', false);
+          payNowBtn.classList.remove('opacity-50');
+          payNowBtn.classList.remove('pointer-events-none');
+        }
+        return;
+      }
+
       clearCart();
       renderSummary();
 
-      if (orderId) {
-        const u = new URL(window.location.href);
-        u.pathname = '/order-confirm';
-        u.searchParams.set('orderId', orderId);
-        u.searchParams.set('email', payload.email);
-        window.location.href = u.pathname + u.search;
-      } else {
-        setAlert('Order created. You can track it on the order lookup page.');
-      }
+      window.location.href = u.pathname + u.search;
     }
 
     form?.addEventListener('submit', async (e) => {
@@ -268,17 +385,13 @@ const breadcrumbItems = [
       await placeOrder({ email, name, phone, address, city, zip, country });
     });
 
+    payNowBtn?.addEventListener('click', async () => {
+      await confirmPayment();
+    });
+
     window.addEventListener('cart-updated', () => {
       renderSummary();
     });
-
-    const initialCart = getCart();
-    if (initialCart.items.length > 0) {
-      const validation = await api.validateCart(initialCart.items);
-      if (validation.success && validation.data && !validation.data.valid) {
-        setAlert('Some items may be unavailable or changed. Please validate your cart.');
-      }
-    }
 
     renderSummary();
   </script>

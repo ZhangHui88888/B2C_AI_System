@@ -1,0 +1,429 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Get brand_id (in real app, from auth context)
+const brandId = Astro.cookies.get('brand_id')?.value || '00000000-0000-0000-0000-000000000001';
+
+// Fetch reviews with product info
+const { data: reviews, error } = await supabase
+  .from('reviews')
+  .select(`
+    *,
+    products:product_id (id, name, slug, images)
+  `)
+  .eq('brand_id', brandId)
+  .order('created_at', { ascending: false })
+  .limit(50);
+
+// Get stats
+const { data: pendingCount } = await supabase
+  .from('reviews')
+  .select('id', { count: 'exact', head: true })
+  .eq('brand_id', brandId)
+  .eq('status', 'pending');
+
+const { data: approvedCount } = await supabase
+  .from('reviews')
+  .select('id', { count: 'exact', head: true })
+  .eq('brand_id', brandId)
+  .eq('status', 'approved');
+
+const stats = {
+  pending: pendingCount || 0,
+  approved: approvedCount || 0,
+  total: (reviews || []).length,
+};
+---
+
+<AdminLayout title="Reviews" activePage="reviews">
+  <div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">Reviews</h1>
+        <p class="text-gray-500 mt-1">Manage product reviews and ratings</p>
+      </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">Pending</p>
+            <p class="text-xl font-bold text-gray-900" id="pending-count">{stats.pending}</p>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">Approved</p>
+            <p class="text-xl font-bold text-gray-900">{stats.approved}</p>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+            </svg>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">Total Reviews</p>
+            <p class="text-xl font-bold text-gray-900">{stats.total}</p>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">Verified</p>
+            <p class="text-xl font-bold text-gray-900">{(reviews || []).filter(r => r.is_verified_purchase).length}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-lg shadow-sm p-4 border border-gray-100">
+      <div class="flex flex-wrap gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+          <select id="filter-status" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            <option value="">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+            <option value="spam">Spam</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Rating</label>
+          <select id="filter-rating" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            <option value="">All Ratings</option>
+            <option value="5">5 Stars</option>
+            <option value="4">4 Stars</option>
+            <option value="3">3 Stars</option>
+            <option value="2">2 Stars</option>
+            <option value="1">1 Star</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reviews List -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Review</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rating</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200" id="reviews-table">
+            {reviews && reviews.length > 0 ? (
+              reviews.map((review) => (
+                <tr class="hover:bg-gray-50 review-row" data-id={review.id} data-status={review.status} data-rating={review.rating}>
+                  <td class="px-6 py-4">
+                    <div class="flex items-start gap-3">
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                          <p class="text-sm font-medium text-gray-900">{review.reviewer_name || 'Anonymous'}</p>
+                          {review.is_verified_purchase && (
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                              Verified
+                            </span>
+                          )}
+                        </div>
+                        {review.title && <p class="text-sm font-medium text-gray-700 mt-1">{review.title}</p>}
+                        <p class="text-sm text-gray-500 mt-1 line-clamp-2">{review.content || 'No content'}</p>
+                        {review.merchant_reply && (
+                          <div class="mt-2 p-2 bg-gray-50 rounded text-sm">
+                            <p class="text-xs text-gray-500 mb-1">Your reply:</p>
+                            <p class="text-gray-700">{review.merchant_reply}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4">
+                    <div class="flex items-center gap-2">
+                      {review.products?.images?.[0] && (
+                        <img src={review.products.images[0]} alt="" class="w-10 h-10 rounded object-cover" />
+                      )}
+                      <span class="text-sm text-gray-900">{review.products?.name || 'Unknown'}</span>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4">
+                    <div class="flex items-center gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <svg class={`w-4 h-4 ${star <= review.rating ? 'text-yellow-400' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                      ))}
+                    </div>
+                  </td>
+                  <td class="px-6 py-4">
+                    <select 
+                      class="status-select px-2 py-1 text-xs rounded-full border-0 font-medium cursor-pointer"
+                      data-id={review.id}
+                      style={`background-color: ${
+                        review.status === 'approved' ? '#DEF7EC' : 
+                        review.status === 'pending' ? '#FEF3C7' : 
+                        review.status === 'rejected' ? '#FEE2E2' : '#E5E7EB'
+                      }; color: ${
+                        review.status === 'approved' ? '#03543F' : 
+                        review.status === 'pending' ? '#92400E' : 
+                        review.status === 'rejected' ? '#991B1B' : '#374151'
+                      }`}
+                    >
+                      <option value="pending" selected={review.status === 'pending'}>Pending</option>
+                      <option value="approved" selected={review.status === 'approved'}>Approved</option>
+                      <option value="rejected" selected={review.status === 'rejected'}>Rejected</option>
+                      <option value="spam" selected={review.status === 'spam'}>Spam</option>
+                    </select>
+                  </td>
+                  <td class="px-6 py-4 text-sm text-gray-500">
+                    {new Date(review.created_at).toLocaleDateString()}
+                  </td>
+                  <td class="px-6 py-4 text-right">
+                    <div class="flex items-center justify-end gap-2">
+                      <button
+                        class="reply-btn p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                        data-id={review.id}
+                        data-name={review.reviewer_name || 'Anonymous'}
+                        title="Reply"
+                      >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                        </svg>
+                      </button>
+                      <button
+                        class="delete-btn p-1 text-gray-400 hover:text-red-600 transition-colors"
+                        data-id={review.id}
+                        title="Delete"
+                      >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colspan="6" class="px-6 py-12 text-center text-gray-500">
+                  No reviews found
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reply Modal -->
+  <div id="reply-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4">
+      <div class="p-6 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-gray-900">Reply to Review</h3>
+        <p class="text-sm text-gray-500 mt-1">From: <span id="reply-reviewer-name"></span></p>
+      </div>
+      <div class="p-6">
+        <textarea
+          id="reply-content"
+          rows="4"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          placeholder="Write your reply..."
+        ></textarea>
+      </div>
+      <div class="p-6 border-t border-gray-200 flex justify-end gap-3">
+        <button id="cancel-reply" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+          Cancel
+        </button>
+        <button id="submit-reply" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
+          Send Reply
+        </button>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  const API_BASE = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+
+  // Filter functionality
+  const filterStatus = document.getElementById('filter-status') as HTMLSelectElement;
+  const filterRating = document.getElementById('filter-rating') as HTMLSelectElement;
+
+  function applyFilters() {
+    const status = filterStatus?.value;
+    const rating = filterRating?.value;
+    const rows = document.querySelectorAll('.review-row');
+
+    rows.forEach((row) => {
+      const rowStatus = row.getAttribute('data-status');
+      const rowRating = row.getAttribute('data-rating');
+      
+      let show = true;
+      if (status && rowStatus !== status) show = false;
+      if (rating && rowRating !== rating) show = false;
+      
+      (row as HTMLElement).style.display = show ? '' : 'none';
+    });
+  }
+
+  filterStatus?.addEventListener('change', applyFilters);
+  filterRating?.addEventListener('change', applyFilters);
+
+  // Status change
+  document.querySelectorAll('.status-select').forEach((select) => {
+    select.addEventListener('change', async (e) => {
+      const target = e.target as HTMLSelectElement;
+      const id = target.getAttribute('data-id');
+      const newStatus = target.value;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/reviews/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus }),
+        });
+
+        if (!res.ok) throw new Error('Failed to update');
+
+        // Update styling
+        const colors = {
+          approved: { bg: '#DEF7EC', text: '#03543F' },
+          pending: { bg: '#FEF3C7', text: '#92400E' },
+          rejected: { bg: '#FEE2E2', text: '#991B1B' },
+          spam: { bg: '#E5E7EB', text: '#374151' },
+        };
+        const color = colors[newStatus as keyof typeof colors];
+        target.style.backgroundColor = color.bg;
+        target.style.color = color.text;
+
+        // Update row data attribute
+        target.closest('.review-row')?.setAttribute('data-status', newStatus);
+      } catch (err) {
+        console.error('Error updating status:', err);
+        alert('Failed to update review status');
+      }
+    });
+  });
+
+  // Delete review
+  document.querySelectorAll('.delete-btn').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      const target = e.currentTarget as HTMLElement;
+      const id = target.getAttribute('data-id');
+
+      if (!confirm('Are you sure you want to delete this review?')) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/reviews/${id}`, {
+          method: 'DELETE',
+        });
+
+        if (!res.ok) throw new Error('Failed to delete');
+
+        target.closest('.review-row')?.remove();
+      } catch (err) {
+        console.error('Error deleting review:', err);
+        alert('Failed to delete review');
+      }
+    });
+  });
+
+  // Reply modal
+  const replyModal = document.getElementById('reply-modal');
+  const replyContent = document.getElementById('reply-content') as HTMLTextAreaElement;
+  const replyReviewerName = document.getElementById('reply-reviewer-name');
+  let currentReplyId: string | null = null;
+
+  document.querySelectorAll('.reply-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      const target = e.currentTarget as HTMLElement;
+      currentReplyId = target.getAttribute('data-id');
+      const name = target.getAttribute('data-name');
+
+      if (replyReviewerName) replyReviewerName.textContent = name || 'Anonymous';
+      if (replyContent) replyContent.value = '';
+      replyModal?.classList.remove('hidden');
+      replyModal?.classList.add('flex');
+    });
+  });
+
+  document.getElementById('cancel-reply')?.addEventListener('click', () => {
+    replyModal?.classList.add('hidden');
+    replyModal?.classList.remove('flex');
+    currentReplyId = null;
+  });
+
+  document.getElementById('submit-reply')?.addEventListener('click', async () => {
+    if (!currentReplyId || !replyContent?.value.trim()) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/reviews/${currentReplyId}/reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reply: replyContent.value.trim() }),
+      });
+
+      if (!res.ok) throw new Error('Failed to send reply');
+
+      replyModal?.classList.add('hidden');
+      replyModal?.classList.remove('flex');
+      window.location.reload();
+    } catch (err) {
+      console.error('Error sending reply:', err);
+      alert('Failed to send reply');
+    }
+  });
+
+  // Close modal on backdrop click
+  replyModal?.addEventListener('click', (e) => {
+    if (e.target === replyModal) {
+      replyModal.classList.add('hidden');
+      replyModal.classList.remove('flex');
+    }
+  });
+</script>
+
+<style>
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+</style>
