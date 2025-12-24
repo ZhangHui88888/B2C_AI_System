@@ -278,22 +278,127 @@ npm run deploy
 
 ## 📊 功能特性
 
-### 第一阶段 - MVP
-- [x] 产品目录
-- [x] 购物车
-- [ ] Stripe 结算
-- [ ] 订单管理
-- [ ] AI 智能客服（RAG）
-- [ ] 管理后台
+### 第一阶段 - 基础电商 ✅
+- [x] 产品目录（列表、详情、分类）
+- [x] 购物车（添加、修改、删除）
+- [x] Stripe 结算（PaymentIntent、Webhook）
+- [x] 订单管理（状态流转、库存扣减）
+- [x] 邮件通知（Resend）
 
-### 第二阶段 - 扩展
-- [ ] 多品牌支持
-- [ ] AI 内容生成
-- [ ] 数据分析看板
-- [ ] SEO 自动化
+### 第二阶段 - AI 能力 ✅
+- [x] AI 智能客服（RAG + 流式响应）
+- [x] 知识库管理（向量检索）
+- [x] AI 内容生成（视频脚本、营销文案）
+
+### 第三阶段 - 管理后台 ✅
+- [x] 产品管理
+- [x] 订单管理
+- [x] 评价管理（审核、回复、购买者验证）
+- [x] 作者管理（E-E-A-T）
+- [x] 数据分析看板
+- [x] 系统设置
+
+### 第四阶段 - 待开发
+- [ ] AI 视频生成集成
+- [ ] 高级 SEO 工具
+- [ ] 邀请评价邮件
+
+## 🔄 完整功能流程图
+
+```mermaid
+flowchart TB
+    subgraph 用户端
+        U[用户浏览器] --> |访问| FE[前端页面]
+        FE --> |浏览产品| PROD[产品列表/详情]
+        FE --> |购物| CART[购物车]
+        FE --> |结算| CHECKOUT[结算支付]
+        FE --> |咨询| CHAT[AI 客服]
+        FE --> |评价| REVIEW[产品评价]
+    end
+
+    subgraph 管理后台
+        ADMIN[/admin] --> DASH[仪表盘]
+        ADMIN --> ANALYTICS[数据分析]
+        ADMIN --> PROD_MGR[产品管理]
+        ADMIN --> ORDER_MGR[订单管理]
+        ADMIN --> REVIEW_MGR[评价管理]
+        ADMIN --> CONTENT[AI 内容生成]
+        ADMIN --> AUTHORS[作者管理]
+        ADMIN --> KB[知识库管理]
+        ADMIN --> SETTINGS[系统设置]
+    end
+
+    subgraph API层
+        API[Cloudflare Workers]
+        API --> |brand_id 隔离| DB[(Supabase)]
+    end
+
+    subgraph AI服务
+        DEEPSEEK[DeepSeek API]
+        DEEPSEEK --> |RAG| VECTOR[向量检索]
+        DEEPSEEK --> |生成| SCRIPT[视频脚本]
+        DEEPSEEK --> |生成| COPY[营销文案]
+    end
+
+    subgraph 外部服务
+        STRIPE[Stripe 支付]
+        RESEND[Resend 邮件]
+    end
+
+    %% 连接
+    PROD --> API
+    CART --> API
+    CHECKOUT --> API --> STRIPE
+    CHAT --> API --> DEEPSEEK
+    REVIEW --> API
+    
+    ANALYTICS --> API
+    CONTENT --> API --> DEEPSEEK
+    ORDER_MGR --> API --> RESEND
+    REVIEW_MGR --> API
+```
+
+### 功能模块详解
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              DTC 内容电商系统                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
+│  │  产品模块   │  │  订单模块   │  │  AI 客服    │  │  内容生成   │        │
+│  ├─────────────┤  ├─────────────┤  ├─────────────┤  ├─────────────┤        │
+│  │ • 产品列表  │  │ • 购物车    │  │ • RAG 检索  │  │ • 视频脚本  │        │
+│  │ • 产品详情  │  │ • 订单创建  │  │ • 流式响应  │  │ • 营销文案  │        │
+│  │ • 分类管理  │  │ • 支付处理  │  │ • 知识库    │  │ • 多平台    │        │
+│  │ • 库存管理  │  │ • 状态流转  │  │ • 多语言    │  │ • 多语气    │        │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘        │
+│                                                                             │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
+│  │  评价系统   │  │  作者管理   │  │  数据分析   │  │  系统设置   │        │
+│  ├─────────────┤  ├─────────────┤  ├─────────────┤  ├─────────────┤        │
+│  │ • 评价列表  │  │ • 作者 CRUD │  │ • 销售概览  │  │ • 店铺信息  │        │
+│  │ • 审核管理  │  │ • 资质证书  │  │ • 趋势图表  │  │ • AI 配置   │        │
+│  │ • 商家回复  │  │ • 社交链接  │  │ • 产品排行  │  │ • 通知邮箱  │        │
+│  │ • 购买验证  │  │ • E-E-A-T   │  │ • 转化漏斗  │  │ • 转人工词  │        │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘        │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+数据流向：
+                                                                              
+  用户请求 ──► Cloudflare Workers ──► 品牌识别 ──► API 路由 ──► Supabase     
+                     │                                │                       
+                     │                                ├──► DeepSeek (AI)      
+                     │                                ├──► Stripe (支付)      
+                     │                                └──► Resend (邮件)      
+                     │                                                        
+                     └──► KV 缓存 (品牌信息)                                  
+```
 
 ## 📝 API 接口
 
+### 产品和订单
 | 接口 | 方法 | 说明 |
 |------|------|------|
 | `/api/products/list` | POST | 获取产品列表（支持筛选） |
@@ -302,9 +407,28 @@ npm run deploy
 | `/api/cart/validate` | POST | 验证购物车 |
 | `/api/orders/create` | POST | 创建订单 |
 | `/api/orders/:id` | GET | 获取订单详情 |
-| `/api/stripe/webhook` | POST | Stripe Webhook（签名校验、更新订单状态） |
+| `/api/stripe/webhook` | POST | Stripe Webhook |
+
+### AI 功能
+| 接口 | 方法 | 说明 |
+|------|------|------|
 | `/api/chat` | POST | AI 对话（单次响应） |
 | `/api/chat/stream` | POST | AI 对话（流式响应） |
+| `/api/knowledge` | GET/POST/PUT/DELETE | 知识库 CRUD |
+| `/api/content/generate/script` | POST | 生成视频脚本 |
+| `/api/content/generate/copy` | POST | 生成营销文案 |
+
+### 管理功能
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/api/analytics/overview` | GET | 销售概览 |
+| `/api/analytics/sales` | GET | 销售趋势 |
+| `/api/analytics/products` | GET | 产品排行 |
+| `/api/analytics/funnel` | GET | 转化漏斗 |
+| `/api/authors` | GET/POST/PUT/DELETE | 作者管理 |
+| `/api/reviews` | GET/POST/PUT/DELETE | 评价管理 |
+| `/api/reviews/:id/reply` | POST | 商家回复评价 |
+| `/api/settings` | GET/POST | 系统设置 |
 
 ## 📄 许可证
 
