@@ -1,0 +1,26 @@
+---
+export interface Props {
+  author: {
+    name: string;
+    slug: string;
+    avatar?: string;
+    bio?: string;
+  };
+}
+
+const { author } = Astro.props;
+---
+
+<div class="flex items-center gap-3">
+  <a href={`/author/${author.slug}`} class="h-10 w-10 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center">
+    {author.avatar ? (
+      <img src={author.avatar} alt={author.name} class="h-full w-full object-cover" />
+    ) : (
+      <span class="text-sm font-semibold text-gray-600">{author.name.slice(0, 1)}</span>
+    )}
+  </a>
+  <div>
+    <a href={`/author/${author.slug}`} class="text-sm font-semibold text-gray-900 hover:text-primary-600">{author.name}</a>
+    {author.bio && <div class="text-sm text-gray-600 line-clamp-2">{author.bio}</div>}
+  </div>
+</div>

@@ -1,0 +1,13 @@
+---
+export interface Props {
+  certifications?: string[];
+}
+
+const { certifications = ['CE', 'FCC', 'FDA'] } = Astro.props;
+---
+
+<div class="flex flex-wrap items-center gap-2">
+  {certifications.map((c) => (
+    <span class="badge-info">{c}</span>
+  ))}
+</div>

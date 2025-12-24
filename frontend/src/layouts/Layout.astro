@@ -1,0 +1,76 @@
+---
+// Main Layout - placeholder for Step 2.1
+import '@styles/global.css';
+import Header from '@components/layout/Header.astro';
+import Footer from '@components/layout/Footer.astro';
+import { supabase } from '@lib/supabase';
+import { canonicalFor, shouldNoIndex } from '@lib/seo';
+
+export interface Props {
+  title: string;
+  description?: string;
+  image?: string;
+  lang?: string;
+}
+
+const { title, description = 'DTC E-commerce Store', image, lang = 'en' } = Astro.props;
+const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+const fullTitle = `${title} | ${siteName}`;
+
+const canonicalUrl = canonicalFor(Astro.url, siteUrl);
+const noindex = shouldNoIndex(Astro.url);
+
+const { data: categories } = await supabase
+  .from('categories')
+  .select('id, name, slug, parent_id, sort_order, is_active')
+  .eq('is_active', true)
+  .order('sort_order', { ascending: true });
+---
+
+<!DOCTYPE html>
+<html lang={lang}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalUrl} />
+    {noindex && <meta name="robots" content="noindex,follow" />}
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonicalUrl} />
+    {image && <meta property="og:image" content={image} />}
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    {image && <meta name="twitter:image" content={image} />}
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet" />
+    
+    <title>{fullTitle}</title>
+    <slot name="head" />
+  </head>
+  <body class="min-h-screen flex flex-col">
+    <!-- Header placeholder - to be implemented in Step 2.1 -->
+    <Header siteName={siteName} categories={categories || []} />
+    
+    <!-- Main content -->
+    <main class="flex-1">
+      <slot />
+    </main>
+    
+    <!-- Footer placeholder - to be implemented in Step 2.1 -->
+    <Footer siteName={siteName} />
+  </body>
+</html>

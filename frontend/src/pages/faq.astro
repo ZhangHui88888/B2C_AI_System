@@ -1,0 +1,47 @@
+---
+import Layout from '@layouts/Layout.astro';
+import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
+import FAQSchema from '@components/seo/FAQSchema.astro';
+import QABlock from '@components/geo/QABlock.astro';
+import { faqs } from '@lib/content';
+
+const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+
+const breadcrumbItems = [
+  { name: 'Home', url: siteUrl },
+  { name: 'FAQ', url: new URL('/faq', siteUrl).toString() },
+];
+
+const schemaFaqs = faqs.map((f) => ({ question: f.question, answer: f.answer }));
+
+const grouped = faqs.reduce((acc, item) => {
+  const key = item.category || 'General';
+  acc[key] = acc[key] || [];
+  acc[key].push({ question: item.question, answer: item.answer });
+  return acc;
+}, {} as Record<string, { question: string; answer: string }[]>);
+---
+
+<Layout title="FAQ" description={`Answers to common questions about ${siteName}.`}>
+  <Fragment slot="head">
+    <BreadcrumbSchema items={breadcrumbItems} />
+    <FAQSchema faqs={schemaFaqs} />
+  </Fragment>
+
+  <main class="container-custom">
+    <section class="section">
+      <h1>FAQ</h1>
+      <p class="mt-3 text-gray-600 max-w-2xl">Quick answers about shipping, returns, and payments.</p>
+
+      <div class="mt-10 space-y-10">
+        {Object.entries(grouped).map(([category, items]) => (
+          <div>
+            <h2 class="mb-4">{category}</h2>
+            <QABlock items={items} />
+          </div>
+        ))}
+      </div>
+    </section>
+  </main>
+</Layout>

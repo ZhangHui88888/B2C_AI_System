@@ -1,0 +1,51 @@
+---
+export interface Props {
+  images: string[];
+  alt: string;
+}
+
+const { images, alt } = Astro.props;
+const safeImages = (images || []).filter(Boolean);
+const primary = safeImages[0];
+---
+
+<div class="grid grid-cols-1 gap-4">
+  <div class="aspect-square bg-gray-100 rounded-xl overflow-hidden flex items-center justify-center">
+    {primary ? (
+      <img id="gallery-main" src={primary} alt={alt} class="h-full w-full object-cover" />
+    ) : (
+      <div class="text-sm text-gray-400">No image</div>
+    )}
+  </div>
+
+  {safeImages.length > 1 && (
+    <div class="flex gap-3 overflow-x-auto pb-1">
+      {safeImages.map((img) => (
+        <button
+          type="button"
+          class="gallery-thumb h-16 w-16 rounded-lg overflow-hidden bg-gray-100 border border-gray-200 hover:border-primary-500 shrink-0"
+          data-img={img}
+          aria-label="View image"
+        >
+          <img src={img} alt={alt} class="h-full w-full object-cover" loading="lazy" />
+        </button>
+      ))}
+    </div>
+  )}
+</div>
+
+<script type="module">
+  const root = document.currentScript?.closest('div');
+  const main = root?.querySelector('#gallery-main');
+  if (!main) {
+    // no main image
+  } else {
+    root?.querySelectorAll('.gallery-thumb').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const img = btn.getAttribute('data-img');
+        if (!img) return;
+        main.setAttribute('src', img);
+      });
+    });
+  }
+</script>

@@ -1,0 +1,66 @@
+---
+import Layout from '@layouts/Layout.astro';
+import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
+import SSLBadge from '@components/trust/SSLBadge.astro';
+
+const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+
+const breadcrumbItems = [
+  { name: 'Home', url: siteUrl },
+  { name: 'Returns', url: new URL('/returns', siteUrl).toString() },
+];
+---
+
+<Layout title="Returns & Refunds" description={`Returns policy for ${siteName}.`}>
+  <Fragment slot="head">
+    <BreadcrumbSchema items={breadcrumbItems} />
+  </Fragment>
+
+  <main class="container-custom">
+    <section class="section">
+      <div class="flex items-end justify-between gap-4">
+        <div>
+          <h1>Returns & Refunds</h1>
+          <p class="mt-3 text-gray-600 max-w-2xl">Clear steps, clear timelines. Please read before requesting a return.</p>
+        </div>
+        <SSLBadge />
+      </div>
+
+      <div class="mt-8 prose prose-gray max-w-none">
+        <h2>Return window</h2>
+        <p>Returns are accepted within 30 days of delivery unless otherwise stated on the product page.</p>
+
+        <h2>Eligibility</h2>
+        <ul>
+          <li>Item must be unused and in original packaging.</li>
+          <li>Proof of purchase may be required.</li>
+          <li>Some items may be non-returnable for hygiene or safety reasons (listed on product page).</li>
+        </ul>
+
+        <h2>How to start a return</h2>
+        <ol>
+          <li>Go to <a href="/contact">Contact</a> and include your order ID + email.</li>
+          <li>Describe the reason (wrong size, defective, changed mind, etc.).</li>
+          <li>We will send instructions and a return address.</li>
+        </ol>
+
+        <h2>Refund processing</h2>
+        <ul>
+          <li>After we receive and inspect your return, refunds are issued to the original payment method.</li>
+          <li>Refund timing depends on your bank/payment provider (usually 5-10 business days).</li>
+        </ul>
+
+        <h2>Damaged or incorrect items</h2>
+        <p>
+          If your order arrives damaged or incorrect, contact us within 48 hours of delivery. Include photos of the package and item.
+        </p>
+
+        <h2>Shipping costs</h2>
+        <p>
+          Return shipping fees may apply unless the item is defective or incorrect.
+        </p>
+      </div>
+    </section>
+  </main>
+</Layout>

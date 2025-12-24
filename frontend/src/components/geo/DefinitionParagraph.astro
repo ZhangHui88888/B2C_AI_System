@@ -1,0 +1,12 @@
+---
+export interface Props {
+  term: string;
+  definition: string;
+}
+
+const { term, definition } = Astro.props;
+---
+
+<p class="text-gray-700">
+  <strong>{term}</strong> is {definition}
+</p>

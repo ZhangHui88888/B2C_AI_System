@@ -1,0 +1,121 @@
+---
+---
+
+<div id="mini-cart" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+  <div id="mini-cart-overlay" class="absolute inset-0 bg-black/40"></div>
+  <aside class="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-xl flex flex-col">
+    <div class="p-4 border-b border-gray-200 flex items-center justify-between">
+      <h3 class="text-lg font-display font-bold">Cart</h3>
+      <button id="mini-cart-close" type="button" class="p-2 rounded-lg hover:bg-gray-100" aria-label="Close cart">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <div id="mini-cart-items" class="flex-1 overflow-auto p-4 space-y-4"></div>
+
+    <div class="p-4 border-t border-gray-200 space-y-3">
+      <div class="flex items-center justify-between text-sm">
+        <span class="text-gray-600">Subtotal</span>
+        <span id="mini-cart-subtotal" class="font-semibold text-gray-900">$0.00</span>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <a href="/cart" class="btn-outline text-sm py-2">View cart</a>
+        <a href="/checkout" class="btn-primary text-sm py-2">Checkout</a>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script type="module">
+  import { getCart, updateCartItemQuantity, removeFromCart, formatPrice } from '@lib/cart';
+
+  const root = document.getElementById('mini-cart');
+  const overlay = document.getElementById('mini-cart-overlay');
+  const closeBtn = document.getElementById('mini-cart-close');
+  const itemsEl = document.getElementById('mini-cart-items');
+  const subtotalEl = document.getElementById('mini-cart-subtotal');
+
+  function open() {
+    if (!root) return;
+    root.classList.remove('hidden');
+    root.setAttribute('aria-hidden', 'false');
+    render();
+  }
+
+  function close() {
+    if (!root) return;
+    root.classList.add('hidden');
+    root.setAttribute('aria-hidden', 'true');
+  }
+
+  function render() {
+    if (!itemsEl || !subtotalEl) return;
+
+    const cart = getCart();
+    subtotalEl.textContent = formatPrice(cart.subtotal);
+
+    if (cart.items.length === 0) {
+      itemsEl.innerHTML = `<div class="text-center py-10 text-gray-500">Your cart is empty.</div>`;
+      return;
+    }
+
+    itemsEl.innerHTML = cart.items
+      .map(
+        (item) => `
+          <div class="flex gap-3">
+            <a href="/products/${item.slug}" class="h-16 w-16 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center shrink-0">
+              ${item.image ? `<img src="${item.image}" alt="${item.name}" class="h-full w-full object-cover" />` : `<span class="text-xs text-gray-400">No image</span>`}
+            </a>
+            <div class="flex-1">
+              <div class="flex items-start justify-between gap-2">
+                <a href="/products/${item.slug}" class="font-medium text-gray-900 line-clamp-1">${item.name}</a>
+                <button class="mini-cart-remove p-1 rounded hover:bg-gray-100" data-id="${item.productId}" aria-label="Remove">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div class="text-sm text-gray-500 mt-1">${formatPrice(item.price)} each</div>
+              <div class="mt-2 flex items-center gap-2">
+                <button class="mini-cart-qty btn-ghost py-1 px-2" data-id="${item.productId}" data-delta="-1">-</button>
+                <span class="text-sm font-medium w-6 text-center">${item.quantity}</span>
+                <button class="mini-cart-qty btn-ghost py-1 px-2" data-id="${item.productId}" data-delta="1">+</button>
+                <span class="ml-auto text-sm font-semibold text-gray-900">${formatPrice(item.price * item.quantity)}</span>
+              </div>
+            </div>
+          </div>
+        `
+      )
+      .join('');
+
+    itemsEl.querySelectorAll('.mini-cart-qty').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        const delta = Number(btn.getAttribute('data-delta'));
+        if (!id || !Number.isFinite(delta)) return;
+        const cartNow = getCart();
+        const itemNow = cartNow.items.find((x) => x.productId === id);
+        if (!itemNow) return;
+        updateCartItemQuantity(id, itemNow.quantity + delta);
+        render();
+      });
+    });
+
+    itemsEl.querySelectorAll('.mini-cart-remove').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        if (!id) return;
+        removeFromCart(id);
+        render();
+      });
+    });
+  }
+
+  overlay?.addEventListener('click', close);
+  closeBtn?.addEventListener('click', close);
+
+  window.addEventListener('mini-cart-open', open);
+  window.addEventListener('cart-updated', render);
+</script>

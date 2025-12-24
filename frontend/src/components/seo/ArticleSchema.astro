@@ -1,0 +1,27 @@
+---
+export interface Props {
+  headline: string;
+  description?: string;
+  url: string;
+  image?: string;
+  datePublished?: string;
+  dateModified?: string;
+  authorName?: string;
+}
+
+const { headline, description, url, image, datePublished, dateModified, authorName } = Astro.props;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Article',
+  headline,
+  description: description || undefined,
+  url,
+  image: image || undefined,
+  datePublished: datePublished || undefined,
+  dateModified: dateModified || undefined,
+  author: authorName ? { '@type': 'Person', name: authorName } : undefined,
+};
+---
+
+<script type="application/ld+json">{JSON.stringify(jsonLd)}</script>

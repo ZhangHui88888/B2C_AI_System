@@ -1,0 +1,137 @@
+---
+// Homepage - to be implemented in Step 2.1
+import Layout from '@layouts/Layout.astro';
+import { supabase } from '@lib/supabase';
+import ProductCard from '@components/catalog/ProductCard.astro';
+import CategoryCard from '@components/catalog/CategoryCard.astro';
+import MediaMentions from '@components/trust/MediaMentions.astro';
+import ThirdPartyReviews from '@components/trust/ThirdPartyReviews.astro';
+
+const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
+
+const [{ data: featuredProducts }, { data: categories }] = await Promise.all([
+  supabase
+    .from('products')
+    .select('*')
+    .eq('is_active', true)
+    .eq('is_featured', true)
+    .order('created_at', { ascending: false })
+    .limit(8),
+  supabase
+    .from('categories')
+    .select('*')
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true })
+    .limit(12),
+]);
+---
+
+<Layout title="Home" description={`Shop curated products at ${siteName}.`}> 
+  <main>
+    <section class="section">
+      <div class="container-custom">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
+          <div>
+            <h1 class="mb-6">
+              <span class="gradient-text">Premium picks</span>
+              <br />
+              for everyday use
+            </h1>
+            <p class="text-xl text-gray-600 max-w-xl">
+              Discover best‑value products, backed by clear policies and secure checkout.
+            </p>
+            <div class="mt-8 flex flex-col sm:flex-row gap-3">
+              <a href="/products" class="btn-primary">Shop products</a>
+              <a href="/about" class="btn-outline">Learn more</a>
+            </div>
+            <div class="mt-8">
+              <ThirdPartyReviews label="Customer rating" rating={4.8} url="#" />
+            </div>
+          </div>
+
+          <div class="card overflow-hidden">
+            <div class="aspect-[16/10] bg-gradient-to-br from-primary-50 via-white to-secondary-50 flex items-center justify-center">
+              <div class="text-center p-8">
+                <div class="text-sm text-gray-500">Free shipping over $50</div>
+                <div class="mt-3 text-2xl font-display font-bold text-gray-900">Limited‑time deals</div>
+                <div class="mt-2 text-gray-600">Save on featured items this week.</div>
+                <a href="/products?sort=newest" class="mt-6 inline-flex btn-secondary">See what’s new</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section pt-0">
+      <div class="container-custom">
+        <div class="flex items-end justify-between gap-4 mb-6">
+          <h2>Featured products</h2>
+          <a href="/products" class="text-primary-600 hover:text-primary-700 font-medium">View all</a>
+        </div>
+
+        <div class="relative">
+          <div id="featured-scroll" class="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
+            {(featuredProducts || []).map((p) => (
+              <div class="min-w-[260px] max-w-[260px] snap-start">
+                <ProductCard product={p} />
+              </div>
+            ))}
+          </div>
+
+          <div class="mt-4 flex items-center justify-center gap-2">
+            <button id="featured-prev" class="btn-ghost py-2 px-4 text-sm" type="button">Prev</button>
+            <button id="featured-next" class="btn-ghost py-2 px-4 text-sm" type="button">Next</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section pt-0">
+      <div class="container-custom">
+        <div class="flex items-end justify-between gap-4 mb-6">
+          <h2>Shop by category</h2>
+          <a href="/products" class="text-primary-600 hover:text-primary-700 font-medium">Browse</a>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {(categories || []).slice(0, 8).map((c) => (
+            <CategoryCard category={c} />
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <MediaMentions />
+
+    <section class="section">
+      <div class="container-custom">
+        <div class="card p-8 md:p-12 bg-gradient-to-br from-gray-50 to-white">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
+            <div>
+              <h2>Get deals and guides</h2>
+              <p class="mt-3 text-gray-600">
+                Subscribe to receive product drops, buying checklists, and exclusive offers.
+              </p>
+            </div>
+            <form class="flex flex-col sm:flex-row gap-3" onsubmit="return false;">
+              <input class="input" type="email" placeholder="Your email" required />
+              <button class="btn-primary" type="submit">Subscribe</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    const scroller = document.getElementById('featured-scroll');
+    const prev = document.getElementById('featured-prev');
+    const next = document.getElementById('featured-next');
+    function scrollByCard(dir) {
+      if (!scroller) return;
+      scroller.scrollBy({ left: dir * 280, behavior: 'smooth' });
+    }
+    prev?.addEventListener('click', () => scrollByCard(-1));
+    next?.addEventListener('click', () => scrollByCard(1));
+  </script>
+</Layout>

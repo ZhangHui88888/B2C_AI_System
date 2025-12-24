@@ -1,0 +1,174 @@
+---
+import Layout from '@layouts/Layout.astro';
+import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
+
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+const breadcrumbItems = [
+  { name: 'Home', url: siteUrl },
+  { name: 'Order confirmation', url: new URL('/order-confirm', siteUrl).toString() },
+];
+---
+
+<Layout title="Order confirmation" description="View your order confirmation.">
+  <Fragment slot="head">
+    <BreadcrumbSchema items={breadcrumbItems} />
+  </Fragment>
+
+  <main class="container-custom">
+    <section class="section">
+      <h1>Order confirmation</h1>
+      <p class="mt-3 text-gray-600">If you have an order ID, we can display the latest status here.</p>
+
+      <div id="confirm-alert" class="hidden mt-6 card p-4 border border-amber-200 bg-amber-50 text-amber-900"></div>
+
+      <div class="mt-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div class="lg:col-span-5">
+          <div class="card p-5">
+            <div class="font-semibold text-gray-900">Lookup</div>
+            <div class="mt-4 space-y-4">
+              <div>
+                <label class="text-sm font-medium text-gray-900">Order ID</label>
+                <input id="confirm-order-id" class="input mt-2" type="text" />
+              </div>
+              <div>
+                <label class="text-sm font-medium text-gray-900">Email</label>
+                <input id="confirm-email" class="input mt-2" type="email" autocomplete="email" />
+              </div>
+              <button id="confirm-load" class="btn-primary py-2 px-4 text-sm" type="button">Load order</button>
+              <div class="text-xs text-gray-500">Note: order creation is not implemented yet in Stage 2. This page mainly supports order lookup.</div>
+              <a href="/order" class="text-sm text-primary-600 hover:text-primary-700">Go to order lookup</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="lg:col-span-7">
+          <div class="card p-5">
+            <div class="font-semibold text-gray-900">Order details</div>
+            <div id="confirm-result" class="mt-4 text-sm text-gray-700">No order loaded.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { api } from '@lib/api';
+    import { formatPrice } from '@lib/cart';
+
+    const alertEl = document.getElementById('confirm-alert');
+    const resultEl = document.getElementById('confirm-result');
+    const idEl = document.getElementById('confirm-order-id');
+    const emailEl = document.getElementById('confirm-email');
+    const loadBtn = document.getElementById('confirm-load');
+
+    function setAlert(message) {
+      if (!alertEl) return;
+      if (!message) {
+        alertEl.classList.add('hidden');
+        alertEl.textContent = '';
+        return;
+      }
+      alertEl.classList.remove('hidden');
+      alertEl.textContent = message;
+    }
+
+    function renderOrder(order) {
+      if (!resultEl) return;
+      const shipping = order.shipping_address || null;
+      const items = Array.isArray(order.items) ? order.items : null;
+
+      const totalNum = Number(order.total);
+      const total = Number.isFinite(totalNum) ? formatPrice(totalNum) : (order.total ?? '');
+
+      const itemsHtml = items
+        ? `
+          <div class="mt-3 overflow-x-auto">
+            <table class="min-w-full text-sm">
+              <thead>
+                <tr class="text-left text-gray-500">
+                  <th class="py-2 pr-4">Item</th>
+                  <th class="py-2 pr-4">Qty</th>
+                  <th class="py-2">Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${items
+                  .map((it) => {
+                    const name = it.name || it.title || it.productName || it.productId || 'Item';
+                    const qty = Number(it.quantity || 1);
+                    const priceNum = Number(it.price);
+                    const price = Number.isFinite(priceNum) ? formatPrice(priceNum) : (it.price ?? '');
+                    return `<tr class="border-t border-gray-100"><td class="py-2 pr-4 text-gray-900 font-medium">${name}</td><td class="py-2 pr-4">${Number.isFinite(qty) ? qty : ''}</td><td class="py-2">${price}</td></tr>`;
+                  })
+                  .join('')}
+              </tbody>
+            </table>
+          </div>
+        `
+        : `<pre class="mt-2 text-xs bg-gray-50 p-3 rounded-lg overflow-auto">${order.items ? JSON.stringify(order.items, null, 2) : ''}</pre>`;
+
+      const shippingHtml = shipping
+        ? `<pre class="mt-2 text-xs bg-gray-50 p-3 rounded-lg overflow-auto">${JSON.stringify(shipping, null, 2)}</pre>`
+        : `<div class="mt-2 text-sm text-gray-600">No shipping address.</div>`;
+
+      resultEl.innerHTML = `
+        <div class="space-y-3">
+          <div><span class="text-gray-500">Status:</span> <span class="font-semibold text-gray-900">${order.status || 'unknown'}</span></div>
+          <div><span class="text-gray-500">Order number:</span> <span class="font-semibold text-gray-900">${order.order_number || order.id}</span></div>
+          <div><span class="text-gray-500">Total:</span> <span class="font-semibold text-gray-900">${total}</span></div>
+          ${order.tracking_number ? `<div><span class="text-gray-500">Tracking:</span> <span class="font-semibold text-gray-900">${order.tracking_number}</span></div>` : ''}
+          ${order.tracking_url ? `<div><a class="text-primary-600 hover:text-primary-700" href="${order.tracking_url}" target="_blank" rel="noreferrer">Open tracking link</a></div>` : ''}
+          <details class="mt-2">
+            <summary class="cursor-pointer text-gray-900 font-semibold">Shipping address</summary>
+            ${shippingHtml}
+          </details>
+          <details>
+            <summary class="cursor-pointer text-gray-900 font-semibold">Items</summary>
+            ${itemsHtml}
+          </details>
+        </div>
+      `;
+    }
+
+    async function loadOrder(orderId, email) {
+      if (!resultEl) return;
+      setAlert('');
+      resultEl.textContent = 'Loading...';
+
+      const res = await api.getOrder(orderId, email);
+      if (!res.success || !res.data) {
+        resultEl.textContent = 'No result.';
+        setAlert(res.error || 'Order not found.');
+        return;
+      }
+
+      renderOrder(res.data.order);
+    }
+
+    function readQuery() {
+      const u = new URL(window.location.href);
+      return {
+        orderId: u.searchParams.get('orderId') || '',
+        email: u.searchParams.get('email') || '',
+      };
+    }
+
+    loadBtn?.addEventListener('click', async () => {
+      const orderId = String(idEl?.value || '').trim();
+      const email = String(emailEl?.value || '').trim();
+      if (!orderId || !email) {
+        setAlert('Order ID and email are required.');
+        return;
+      }
+      await loadOrder(orderId, email);
+    });
+
+    const q = readQuery();
+    if (idEl && q.orderId) idEl.value = q.orderId;
+    if (emailEl && q.email) emailEl.value = q.email;
+
+    if (q.orderId && q.email) {
+      await loadOrder(q.orderId, q.email);
+    }
+  </script>
+</Layout>

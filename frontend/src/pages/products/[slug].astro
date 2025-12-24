@@ -1,0 +1,229 @@
+---
+import Layout from '@layouts/Layout.astro';
+import { supabase } from '@lib/supabase';
+import ImageGallery from '@components/catalog/ImageGallery.astro';
+import AddToCartForm from '@components/catalog/AddToCartForm.astro';
+import ProductCard from '@components/catalog/ProductCard.astro';
+import ProductCertifications from '@components/trust/ProductCertifications.astro';
+import ThirdPartyReviews from '@components/trust/ThirdPartyReviews.astro';
+import PaymentBadges from '@components/trust/PaymentBadges.astro';
+import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
+import ProductSchema from '@components/seo/ProductSchema.astro';
+
+const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+
+export async function getStaticPaths() {
+  const { data: products } = await supabase
+    .from('products')
+    .select('slug')
+    .eq('is_active', true);
+
+  return (products || []).map((p) => ({ params: { slug: p.slug } }));
+}
+
+const { slug } = Astro.params;
+
+const { data: product } = await supabase
+  .from('products')
+  .select('*, categories(id, name, slug)')
+  .eq('slug', slug)
+  .eq('is_active', true)
+  .single();
+
+if (!product) {
+  return Astro.redirect('/products');
+}
+
+let relatedProducts: any[] = [];
+if (product.category_id) {
+  const { data: related } = await supabase
+    .from('products')
+    .select('*')
+    .eq('is_active', true)
+    .eq('category_id', product.category_id)
+    .neq('id', product.id)
+    .order('created_at', { ascending: false })
+    .limit(4);
+
+  relatedProducts = related || [];
+}
+
+const images = [product.main_image_url, ...(product.images || [])].filter(Boolean) as string[];
+
+const specsSource = (product.supplier_info && typeof product.supplier_info === 'object') ? product.supplier_info : {};
+const specsEntries = Object.entries(specsSource as Record<string, any>)
+  .filter(([k, v]) => k && v !== null && v !== undefined && String(v).trim() !== '')
+  .map(([k, v]) => {
+    const value = typeof v === 'string' ? v : Array.isArray(v) ? v.join(', ') : JSON.stringify(v);
+    return { key: k, value };
+  });
+
+const breadcrumbItems = [
+  { name: 'Home', url: siteUrl },
+  { name: 'Products', url: new URL('/products', siteUrl).toString() },
+];
+
+if (product.categories?.slug) {
+  breadcrumbItems.push({
+    name: product.categories.name,
+    url: new URL(`/category/${product.categories.slug}`, siteUrl).toString(),
+  });
+}
+
+breadcrumbItems.push({ name: product.name, url: new URL(`/products/${product.slug}`, siteUrl).toString() });
+---
+
+<Layout
+  title={product.seo_title || product.name}
+  description={product.seo_description || product.short_description || product.description || `Buy ${product.name} at ${siteName}.`}
+  image={product.main_image_url || undefined}
+>
+  <Fragment slot="head">
+    <BreadcrumbSchema items={breadcrumbItems} />
+    <ProductSchema product={product} siteUrl={siteUrl} />
+  </Fragment>
+
+  <main class="container-custom">
+    <section class="section">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
+        <div>
+          <ImageGallery images={images} alt={product.name} />
+          <div class="mt-6">
+            <ProductCertifications />
+          </div>
+        </div>
+
+        <div>
+          <div class="text-sm text-gray-500">
+            {product.categories?.slug ? (
+              <a href={`/category/${product.categories.slug}`} class="hover:text-primary-600">{product.categories.name}</a>
+            ) : (
+              <a href="/products" class="hover:text-primary-600">Products</a>
+            )}
+          </div>
+
+          <h1 class="mt-2">{product.name}</h1>
+
+          <div class="mt-4">
+            <ThirdPartyReviews label="Verified ratings" rating={4.8} url="#" />
+          </div>
+
+          <div class="mt-6 flex items-center gap-3">
+            <div class="text-3xl font-semibold text-gray-900">${Number(product.price).toFixed(2)}</div>
+            {product.compare_price && (
+              <div class="text-lg text-gray-500 line-through">${Number(product.compare_price).toFixed(2)}</div>
+            )}
+            {product.stock_status === 'out_of_stock' ? (
+              <span class="badge-error">Out of stock</span>
+            ) : product.stock_status === 'low_stock' ? (
+              <span class="badge-warning">Low stock</span>
+            ) : (
+              <span class="badge-success">In stock</span>
+            )}
+          </div>
+
+          <AddToCartForm product={product} />
+
+          <div class="mt-6">
+            <PaymentBadges />
+          </div>
+
+          {product.short_description && <p class="mt-8 text-gray-700 text-lg">{product.short_description}</p>}
+
+          <div class="mt-10">
+            <div class="flex flex-wrap gap-2 border-b border-gray-200">
+              <button type="button" class="tab-btn px-4 py-3 text-sm font-semibold text-gray-900 border-b-2 border-primary-600" data-tab="desc">Description</button>
+              <button type="button" class="tab-btn px-4 py-3 text-sm font-semibold text-gray-700 hover:text-gray-900" data-tab="specs">Specs</button>
+              <button type="button" class="tab-btn px-4 py-3 text-sm font-semibold text-gray-700 hover:text-gray-900" data-tab="ship">Shipping</button>
+            </div>
+
+            <div class="pt-6">
+              <div class="tab-panel" data-panel="desc">
+                <div class="prose prose-gray max-w-none">
+                  {product.description ? <Fragment set:html={product.description} /> : <p>Details coming soon.</p>}
+                </div>
+              </div>
+
+              <div class="tab-panel hidden" data-panel="specs">
+                {specsEntries.length === 0 ? (
+                  <div class="text-gray-600">Specs coming soon.</div>
+                ) : (
+                  <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                      <tbody>
+                        {specsEntries.map((row) => (
+                          <tr class="border-b border-gray-100">
+                            <td class="py-3 pr-6 font-semibold text-gray-900 whitespace-nowrap">{row.key}</td>
+                            <td class="py-3 text-gray-700">{row.value}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              <div class="tab-panel hidden" data-panel="ship">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div class="card p-5">
+                    <div class="font-semibold text-gray-900">Shipping</div>
+                    <div class="mt-2 text-gray-700">{product.shipping_time || 'Ships in 5-12 business days.'}</div>
+                  </div>
+                  <div class="card p-5">
+                    <div class="font-semibold text-gray-900">Returns</div>
+                    <div class="mt-2 text-gray-700">30-day returns. <a class="text-primary-600 hover:text-primary-700" href="/returns">Learn more</a></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {relatedProducts.length > 0 && (
+      <section class="section pt-0">
+        <div class="flex items-end justify-between gap-4 mb-6">
+          <h2>Related products</h2>
+          <a href="/products" class="text-primary-600 hover:text-primary-700 font-medium">View all</a>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {relatedProducts.map((p) => (
+            <ProductCard product={p} />
+          ))}
+        </div>
+      </section>
+    )}
+  </main>
+
+  <script type="module">
+    const root = document.currentScript?.closest('main');
+    const btns = root?.querySelectorAll('.tab-btn');
+    const panels = root?.querySelectorAll('.tab-panel');
+
+    function setActive(tab) {
+      btns?.forEach((b) => {
+        const isActive = b.getAttribute('data-tab') === tab;
+        b.classList.toggle('text-gray-900', isActive);
+        b.classList.toggle('text-gray-700', !isActive);
+        b.classList.toggle('border-b-2', isActive);
+        b.classList.toggle('border-primary-600', isActive);
+      });
+      panels?.forEach((p) => {
+        const isActive = p.getAttribute('data-panel') === tab;
+        p.classList.toggle('hidden', !isActive);
+      });
+    }
+
+    btns?.forEach((b) => {
+      b.addEventListener('click', () => {
+        const tab = b.getAttribute('data-tab');
+        if (!tab) return;
+        setActive(tab);
+      });
+    });
+
+    setActive('desc');
+  </script>
+</Layout>

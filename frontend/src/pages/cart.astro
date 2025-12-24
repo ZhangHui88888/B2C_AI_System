@@ -1,0 +1,225 @@
+---
+import Layout from '@layouts/Layout.astro';
+import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
+
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+const breadcrumbItems = [
+  { name: 'Home', url: siteUrl },
+  { name: 'Cart', url: new URL('/cart', siteUrl).toString() },
+];
+---
+
+<Layout title="Cart" description="Review items in your cart.">
+  <Fragment slot="head">
+    <BreadcrumbSchema items={breadcrumbItems} />
+  </Fragment>
+
+  <main class="container-custom">
+    <section class="section">
+      <h1>Cart</h1>
+      <p class="mt-3 text-gray-600">Review your items, adjust quantities, and proceed to checkout.</p>
+
+      <div id="cart-alert" class="hidden mt-6 card p-4 border border-amber-200 bg-amber-50 text-amber-900"></div>
+
+      <div class="mt-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div class="lg:col-span-8">
+          <div id="cart-items" class="space-y-4"></div>
+          <div id="cart-empty" class="hidden text-center py-16 text-gray-600">Your cart is empty.</div>
+        </div>
+
+        <aside class="lg:col-span-4">
+          <div class="card p-5 sticky top-24">
+            <div class="font-semibold text-gray-900">Summary</div>
+            <div class="mt-4 flex items-center justify-between text-sm">
+              <span class="text-gray-600">Subtotal</span>
+              <span id="cart-subtotal" class="font-semibold text-gray-900">$0.00</span>
+            </div>
+            <div class="mt-4">
+              <label class="text-sm font-medium text-gray-900">Discount code</label>
+              <div class="mt-2 flex gap-2">
+                <input id="cart-coupon" class="input py-2 flex-1" type="text" placeholder="Enter code" />
+                <button id="cart-coupon-apply" class="btn-outline py-2 px-4 text-sm" type="button">Apply</button>
+              </div>
+              <div class="mt-2 text-xs text-gray-500">Coupons will be validated in a later backend stage.</div>
+            </div>
+            <div class="mt-4 text-xs text-gray-500">Taxes and shipping calculated at checkout.</div>
+
+            <div class="mt-6 grid grid-cols-1 gap-3">
+              <button id="cart-validate" class="btn-outline py-2 text-sm" type="button">Validate cart</button>
+              <a id="cart-checkout" href="/checkout" class="btn-primary py-2 text-sm text-center">Checkout</a>
+              <button id="cart-clear" class="btn-ghost py-2 text-sm" type="button">Clear cart</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { api } from '@lib/api';
+    import { getCart, setCartItems, updateCartItemQuantity, removeFromCart, clearCart, formatPrice } from '@lib/cart';
+
+    const itemsEl = document.getElementById('cart-items');
+    const emptyEl = document.getElementById('cart-empty');
+    const subtotalEl = document.getElementById('cart-subtotal');
+    const validateBtn = document.getElementById('cart-validate');
+    const clearBtn = document.getElementById('cart-clear');
+    const alertEl = document.getElementById('cart-alert');
+    const checkoutLink = document.getElementById('cart-checkout');
+    const couponEl = document.getElementById('cart-coupon');
+    const couponApplyBtn = document.getElementById('cart-coupon-apply');
+
+    function setAlert(message) {
+      if (!alertEl) return;
+      if (!message) {
+        alertEl.classList.add('hidden');
+        alertEl.textContent = '';
+        return;
+      }
+      alertEl.classList.remove('hidden');
+      alertEl.textContent = message;
+    }
+
+    function render() {
+      if (!itemsEl || !subtotalEl || !emptyEl) return;
+
+      const cart = getCart();
+      subtotalEl.textContent = formatPrice(cart.subtotal);
+
+      const isEmpty = cart.items.length === 0;
+      if (checkoutLink) {
+        checkoutLink.classList.toggle('opacity-50', isEmpty);
+        checkoutLink.classList.toggle('pointer-events-none', isEmpty);
+        checkoutLink.setAttribute('aria-disabled', isEmpty ? 'true' : 'false');
+      }
+
+      if (cart.items.length === 0) {
+        itemsEl.innerHTML = '';
+        emptyEl.classList.remove('hidden');
+        return;
+      }
+
+      emptyEl.classList.add('hidden');
+      itemsEl.innerHTML = cart.items
+        .map((item) => {
+          const img = item.image
+            ? `<img src="${item.image}" alt="${item.name}" class="h-full w-full object-cover" loading="lazy" />`
+            : `<div class="h-full w-full flex items-center justify-center text-gray-400 text-sm">No image</div>`;
+
+          return `
+            <article class="card p-4">
+              <div class="flex gap-4">
+                <a href="/products/${item.slug}" class="h-20 w-20 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center shrink-0">
+                  ${img}
+                </a>
+                <div class="flex-1">
+                  <div class="flex items-start justify-between gap-4">
+                    <div>
+                      <a href="/products/${item.slug}" class="font-semibold text-gray-900 hover:text-primary-700">${item.name}</a>
+                      <div class="mt-1 text-sm text-gray-500">${formatPrice(item.price)} each</div>
+                    </div>
+                    <button class="cart-remove btn-ghost py-1 px-2 text-sm" type="button" data-id="${item.productId}">Remove</button>
+                  </div>
+
+                  <div class="mt-4 flex flex-wrap items-center gap-3">
+                    <div class="flex items-center gap-2">
+                      <button class="cart-qty btn-ghost py-1 px-2" type="button" data-id="${item.productId}" data-delta="-1">-</button>
+                      <span class="text-sm font-medium w-8 text-center">${item.quantity}</span>
+                      <button class="cart-qty btn-ghost py-1 px-2" type="button" data-id="${item.productId}" data-delta="1">+</button>
+                    </div>
+                    <div class="ml-auto text-sm font-semibold text-gray-900">${formatPrice(item.price * item.quantity)}</div>
+                  </div>
+                </div>
+              </div>
+            </article>
+          `;
+        })
+        .join('');
+
+      itemsEl.querySelectorAll('.cart-qty').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          const delta = Number(btn.getAttribute('data-delta'));
+          if (!id || !Number.isFinite(delta)) return;
+
+          const cartNow = getCart();
+          const itemNow = cartNow.items.find((x) => x.productId === id);
+          if (!itemNow) return;
+
+          updateCartItemQuantity(id, itemNow.quantity + delta);
+          setAlert('');
+          render();
+        });
+      });
+
+      itemsEl.querySelectorAll('.cart-remove').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id');
+          if (!id) return;
+          removeFromCart(id);
+          setAlert('');
+          render();
+        });
+      });
+    }
+
+    async function validateCart() {
+      const cart = getCart();
+      if (cart.items.length === 0) {
+        setAlert('Your cart is empty.');
+        return;
+      }
+
+      const res = await api.validateCart(cart.items);
+      if (!res.success || !res.data) {
+        setAlert(res.error || 'Failed to validate cart.');
+        return;
+      }
+
+      if (!res.data.valid) {
+        setAlert('Some items are no longer available or have changed. Please review your cart.');
+      } else {
+        setAlert('Cart validated successfully.');
+      }
+
+      const validated = res.data.items || [];
+      const nextItems = cart.items
+        .map((item) => {
+          const v = validated.find((x) => x.productId === item.productId);
+          if (!v || v.valid === false) return null;
+          const current = Number(v.currentPrice);
+          return {
+            ...item,
+            price: Number.isFinite(current) ? current : item.price,
+            quantity: item.quantity,
+          };
+        })
+        .filter(Boolean);
+
+      setCartItems(nextItems);
+      render();
+    }
+
+    validateBtn?.addEventListener('click', validateCart);
+
+    couponApplyBtn?.addEventListener('click', () => {
+      const code = String(couponEl?.value || '').trim();
+      if (!code) {
+        setAlert('Please enter a discount code.');
+        return;
+      }
+      setAlert('Coupon validation is not available yet (Stage 3 API).');
+    });
+    clearBtn?.addEventListener('click', () => {
+      clearCart();
+      setAlert('');
+      render();
+    });
+
+    window.addEventListener('cart-updated', () => {
+      render();
+    });
+
+    render();
+  </script>
+</Layout>

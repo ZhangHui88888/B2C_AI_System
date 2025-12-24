@@ -1,0 +1,285 @@
+---
+import Layout from '@layouts/Layout.astro';
+import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
+import PaymentBadges from '@components/trust/PaymentBadges.astro';
+import SSLBadge from '@components/trust/SSLBadge.astro';
+
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+const breadcrumbItems = [
+  { name: 'Home', url: siteUrl },
+  { name: 'Checkout', url: new URL('/checkout', siteUrl).toString() },
+];
+---
+
+<Layout title="Checkout" description="Complete your purchase.">
+  <Fragment slot="head">
+    <BreadcrumbSchema items={breadcrumbItems} />
+  </Fragment>
+
+  <main class="container-custom">
+    <section class="section">
+      <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+        <div>
+          <h1>Checkout</h1>
+          <p class="mt-3 text-gray-600">Enter your details and review your order.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <SSLBadge />
+        </div>
+      </div>
+
+      <div class="mt-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div class="lg:col-span-7">
+          <div class="card p-5">
+            <div class="flex items-center justify-between">
+              <div class="text-sm font-semibold text-gray-900">Checkout steps</div>
+              <div class="text-xs text-gray-500">Stage 2: payment is placeholder</div>
+            </div>
+            <div class="mt-4 grid grid-cols-3 gap-2 text-xs">
+              <div class="px-3 py-2 rounded-lg bg-primary-50 text-primary-700 font-semibold text-center">1. Info</div>
+              <div class="px-3 py-2 rounded-lg bg-gray-50 text-gray-700 font-semibold text-center">2. Payment</div>
+              <div class="px-3 py-2 rounded-lg bg-gray-50 text-gray-700 font-semibold text-center">3. Confirm</div>
+            </div>
+          </div>
+
+          <div class="card p-5">
+            <div class="flex items-center justify-between gap-3">
+              <div class="font-semibold text-gray-900">Step 1: Information</div>
+              <div class="text-xs text-gray-500">Payment placeholder (API not enabled yet)</div>
+            </div>
+
+            <form id="checkout-form" class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="sm:col-span-2">
+                <label class="text-sm font-medium text-gray-900">Email</label>
+                <input id="co-email" class="input mt-2" type="email" autocomplete="email" required />
+              </div>
+              <div>
+                <label class="text-sm font-medium text-gray-900">Full name</label>
+                <input id="co-name" class="input mt-2" type="text" autocomplete="name" required />
+              </div>
+              <div>
+                <label class="text-sm font-medium text-gray-900">Phone</label>
+                <input id="co-phone" class="input mt-2" type="tel" autocomplete="tel" />
+              </div>
+              <div class="sm:col-span-2">
+                <label class="text-sm font-medium text-gray-900">Address</label>
+                <input id="co-address" class="input mt-2" type="text" autocomplete="street-address" required />
+              </div>
+              <div>
+                <label class="text-sm font-medium text-gray-900">City</label>
+                <input id="co-city" class="input mt-2" type="text" autocomplete="address-level2" required />
+              </div>
+              <div>
+                <label class="text-sm font-medium text-gray-900">Postal code</label>
+                <input id="co-zip" class="input mt-2" type="text" autocomplete="postal-code" required />
+              </div>
+              <div class="sm:col-span-2">
+                <label class="text-sm font-medium text-gray-900">Country</label>
+                <input id="co-country" class="input mt-2" type="text" autocomplete="country-name" required />
+              </div>
+
+              <div class="sm:col-span-2 pt-2 flex flex-col sm:flex-row gap-3">
+                <a href="/cart" class="btn-outline py-2 px-4 text-sm text-center">Back to cart</a>
+                <button id="co-submit" class="btn-primary py-2 px-4 text-sm" type="submit">Place order (placeholder)</button>
+              </div>
+            </form>
+
+            <div id="co-empty-cta" class="hidden mt-6 card p-4 border border-gray-200 bg-gray-50 text-gray-800">
+              Your cart is empty. <a class="text-primary-600 hover:text-primary-700" href="/products">Browse products</a>.
+            </div>
+
+            <div id="checkout-alert" class="hidden mt-6 card p-4 border border-amber-200 bg-amber-50 text-amber-900"></div>
+          </div>
+
+          <div class="mt-6">
+            <PaymentBadges />
+          </div>
+        </div>
+
+        <aside class="lg:col-span-5">
+          <div class="card p-5 sticky top-24">
+            <div class="font-semibold text-gray-900">Order summary</div>
+            <div id="co-items" class="mt-4 space-y-3"></div>
+            <div id="co-empty" class="hidden mt-6 text-gray-600">Your cart is empty.</div>
+
+            <div class="mt-6 border-t border-gray-200 pt-4 space-y-2 text-sm">
+              <div class="flex items-center justify-between">
+                <span class="text-gray-600">Subtotal</span>
+                <span id="co-subtotal" class="font-semibold text-gray-900">$0.00</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-gray-600">Shipping</span>
+                <span class="text-gray-900">Calculated later</span>
+              </div>
+              <div class="flex items-center justify-between pt-2 border-t border-gray-200">
+                <span class="text-gray-900 font-semibold">Total</span>
+                <span id="co-total" class="text-gray-900 font-semibold">$0.00</span>
+              </div>
+            </div>
+
+            <div class="mt-6">
+              <a href="/order" class="text-sm text-primary-600 hover:text-primary-700">Track an order</a>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { api } from '@lib/api';
+    import { getCart, clearCart, formatPrice } from '@lib/cart';
+
+    const itemsEl = document.getElementById('co-items');
+    const emptyEl = document.getElementById('co-empty');
+    const subtotalEl = document.getElementById('co-subtotal');
+    const totalEl = document.getElementById('co-total');
+
+    const form = document.getElementById('checkout-form');
+    const alertEl = document.getElementById('checkout-alert');
+    const emptyCtaEl = document.getElementById('co-empty-cta');
+    const submitBtn = document.getElementById('co-submit');
+
+    function setAlert(message) {
+      if (!alertEl) return;
+      if (!message) {
+        alertEl.classList.add('hidden');
+        alertEl.textContent = '';
+        return;
+      }
+      alertEl.classList.remove('hidden');
+      alertEl.textContent = message;
+    }
+
+    function renderSummary() {
+      if (!itemsEl || !subtotalEl || !totalEl || !emptyEl) return;
+
+      const cart = getCart();
+      subtotalEl.textContent = formatPrice(cart.subtotal);
+      totalEl.textContent = formatPrice(cart.subtotal);
+
+      const isEmpty = cart.items.length === 0;
+      if (submitBtn) {
+        submitBtn.toggleAttribute('disabled', isEmpty);
+        submitBtn.classList.toggle('opacity-50', isEmpty);
+        submitBtn.classList.toggle('pointer-events-none', isEmpty);
+      }
+      if (emptyCtaEl) emptyCtaEl.classList.toggle('hidden', !isEmpty);
+
+      if (cart.items.length === 0) {
+        itemsEl.innerHTML = '';
+        emptyEl.classList.remove('hidden');
+        return;
+      }
+
+      emptyEl.classList.add('hidden');
+      itemsEl.innerHTML = cart.items
+        .map((item) => {
+          return `
+            <div class="flex items-start justify-between gap-3">
+              <div class="text-sm">
+                <div class="font-medium text-gray-900">${item.name}</div>
+                <div class="text-gray-500">Qty ${item.quantity}</div>
+              </div>
+              <div class="text-sm font-semibold text-gray-900">${formatPrice(item.price * item.quantity)}</div>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    async function placeOrder(payload) {
+      const cart = getCart();
+      if (cart.items.length === 0) {
+        setAlert('Your cart is empty.');
+        return;
+      }
+
+      const validation = await api.validateCart(cart.items);
+      if (!validation.success || !validation.data) {
+        setAlert(validation.error || 'Failed to validate cart.');
+        return;
+      }
+
+      if (!validation.data.valid) {
+        setAlert('Some items are no longer available. Please go back to cart and update.');
+        return;
+      }
+
+      const orderData = {
+        customer: {
+          email: payload.email,
+          name: payload.name,
+          phone: payload.phone,
+        },
+        shippingAddress: {
+          address: payload.address,
+          city: payload.city,
+          postalCode: payload.zip,
+          country: payload.country,
+        },
+        items: cart.items,
+      };
+
+      const res = await api.createOrder(orderData);
+
+      if (!res.success) {
+        setAlert(res.error || 'Order creation is not available yet. This is expected in Stage 2.');
+        return;
+      }
+
+      if (!res.data) {
+        setAlert('Order creation returned no data.');
+        return;
+      }
+
+      const orderId = res.data?.orderId;
+      clearCart();
+      renderSummary();
+
+      if (orderId) {
+        const u = new URL(window.location.href);
+        u.pathname = '/order-confirm';
+        u.searchParams.set('orderId', orderId);
+        u.searchParams.set('email', payload.email);
+        window.location.href = u.pathname + u.search;
+      } else {
+        setAlert('Order created. You can track it on the order lookup page.');
+      }
+    }
+
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      setAlert('');
+
+      const email = String(document.getElementById('co-email')?.value || '').trim();
+      const name = String(document.getElementById('co-name')?.value || '').trim();
+      const phone = String(document.getElementById('co-phone')?.value || '').trim();
+      const address = String(document.getElementById('co-address')?.value || '').trim();
+      const city = String(document.getElementById('co-city')?.value || '').trim();
+      const zip = String(document.getElementById('co-zip')?.value || '').trim();
+      const country = String(document.getElementById('co-country')?.value || '').trim();
+
+      if (!email || !name || !address || !city || !zip || !country) {
+        setAlert('Please fill in all required fields.');
+        return;
+      }
+
+      await placeOrder({ email, name, phone, address, city, zip, country });
+    });
+
+    window.addEventListener('cart-updated', () => {
+      renderSummary();
+    });
+
+    const initialCart = getCart();
+    if (initialCart.items.length > 0) {
+      const validation = await api.validateCart(initialCart.items);
+      if (validation.success && validation.data && !validation.data.valid) {
+        setAlert('Some items may be unavailable or changed. Please validate your cart.');
+      }
+    }
+
+    renderSummary();
+  </script>
+</Layout>

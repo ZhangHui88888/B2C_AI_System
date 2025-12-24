@@ -1,0 +1,96 @@
+---
+import Layout from '@layouts/Layout.astro';
+import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
+import PersonSchema from '@components/seo/PersonSchema.astro';
+import { authors, blogPosts, getAuthor } from '@lib/content';
+
+const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+
+export async function getStaticPaths() {
+  return authors.map((a) => ({ params: { slug: a.slug } }));
+}
+
+const { slug } = Astro.params;
+const author = slug ? getAuthor(slug) : undefined;
+
+if (!author) {
+  return Astro.redirect('/blog');
+}
+
+const authorUrl = new URL(`/author/${author.slug}`, siteUrl).toString();
+const sameAs = (author.socials || []).map((s) => s.url);
+
+const posts = blogPosts
+  .filter((p) => p.authorSlug === author.slug)
+  .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+
+const breadcrumbItems = [
+  { name: 'Home', url: siteUrl },
+  { name: 'Author', url: authorUrl },
+];
+---
+
+<Layout title={`${author.name} | ${siteName}`} description={author.bio || `About ${author.name}.`}>
+  <Fragment slot="head">
+    <BreadcrumbSchema items={breadcrumbItems} />
+    <PersonSchema
+      name={author.name}
+      url={authorUrl}
+      image={author.avatar}
+      sameAs={sameAs}
+      description={author.bio}
+    />
+  </Fragment>
+
+  <main class="container-custom">
+    <section class="section">
+      <div class="flex items-start gap-4">
+        <div class="h-16 w-16 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center shrink-0">
+          {author.avatar ? (
+            <img src={author.avatar} alt={author.name} class="h-full w-full object-cover" />
+          ) : (
+            <span class="text-xl font-semibold text-gray-600">{author.name.slice(0, 1)}</span>
+          )}
+        </div>
+        <div>
+          <h1 class="text-3xl">{author.name}</h1>
+          {author.bio && <p class="mt-2 text-gray-600 max-w-2xl">{author.bio}</p>}
+          {(author.credentials || []).length > 0 && (
+            <div class="mt-4 flex flex-wrap gap-2">
+              {author.credentials?.map((c) => (
+                <span class="badge" >{c}</span>
+              ))}
+            </div>
+          )}
+          {(author.socials || []).length > 0 && (
+            <div class="mt-4 flex flex-wrap gap-3 text-sm">
+              {author.socials?.map((s) => (
+                <a class="text-primary-600 hover:text-primary-700" href={s.url} target="_blank" rel="noreferrer">{s.label}</a>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div class="mt-10">
+        <h2>Articles</h2>
+        {posts.length === 0 ? (
+          <div class="mt-4 text-gray-600">No posts yet.</div>
+        ) : (
+          <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            {posts.map((p) => (
+              <article class="card p-5">
+                <a href={`/blog/${p.slug}`} class="block">
+                  <div class="text-sm text-gray-500">{p.category || 'Blog'}</div>
+                  <div class="mt-1 text-lg font-semibold text-gray-900">{p.title}</div>
+                  <div class="mt-2 text-sm text-gray-600">{p.description}</div>
+                </a>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  </main>
+</Layout>

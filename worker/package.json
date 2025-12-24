@@ -1,0 +1,22 @@
+{
+  "name": "dtc-ecommerce-worker",
+  "version": "1.0.0",
+  "description": "DTC E-commerce API powered by Cloudflare Workers",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "types": "wrangler types"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "stripe": "^17.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241127.0",
+    "typescript": "^5.6.0",
+    "wrangler": "^3.93.0"
+  }
+}

@@ -1,0 +1,60 @@
+---
+import Layout from '@layouts/Layout.astro';
+import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
+
+const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+
+const breadcrumbItems = [
+  { name: 'Home', url: siteUrl },
+  { name: 'Terms', url: new URL('/terms', siteUrl).toString() },
+];
+---
+
+<Layout title="Terms of Service" description={`Terms of service for ${siteName}.`}>
+  <Fragment slot="head">
+    <BreadcrumbSchema items={breadcrumbItems} />
+  </Fragment>
+
+  <main class="container-custom">
+    <section class="section">
+      <h1>Terms of Service</h1>
+      <div class="mt-8 prose prose-gray max-w-none">
+        <p>
+          These terms are a template and should be reviewed. By using {siteName}, you agree to the following.
+        </p>
+
+        <h2>Orders</h2>
+        <ul>
+          <li>Product availability may change without notice.</li>
+          <li>We may cancel an order if an item is out of stock or pricing is incorrect.</li>
+        </ul>
+
+        <h2>Payments</h2>
+        <p>
+          Payments are processed by a third-party provider. We do not store full card details on our servers.
+        </p>
+
+        <h2>Shipping</h2>
+        <p>
+          Shipping timelines are estimates. Please review <a href="/shipping">shipping policy</a>.
+        </p>
+
+        <h2>Returns</h2>
+        <p>
+          Returns are subject to our <a href="/returns">returns policy</a>.
+        </p>
+
+        <h2>Limitation of liability</h2>
+        <p>
+          To the fullest extent permitted by law, we are not liable for indirect damages arising from use of the site.
+        </p>
+
+        <h2>Contact</h2>
+        <p>
+          Questions? Contact us via <a href="/contact">contact page</a>.
+        </p>
+      </div>
+    </section>
+  </main>
+</Layout>

@@ -1,0 +1,58 @@
+---
+export interface Props {
+  product: {
+    id: string;
+    name: string;
+    slug: string;
+    price: number;
+    main_image_url: string | null;
+  };
+}
+
+const { product } = Astro.props;
+---
+
+<form class="mt-6" id={`add-to-cart-${product.id}`} onsubmit="return false;">
+  <div class="flex items-center gap-3">
+    <label class="text-sm text-gray-600" for={`qty-${product.id}`}>Qty</label>
+    <input
+      id={`qty-${product.id}`}
+      class="input py-2 w-24"
+      type="number"
+      min="1"
+      value="1"
+      inputmode="numeric"
+    />
+    <button class="btn-primary" type="button" data-product={JSON.stringify(product)}>
+      Add to cart
+    </button>
+  </div>
+</form>
+
+<script type="module">
+  import { addToCartItem } from '@lib/cart';
+
+  const form = document.currentScript?.previousElementSibling;
+  const button = form?.querySelector('button[data-product]');
+  const qtyInput = form?.querySelector('input[type="number"]');
+
+  button?.addEventListener('click', () => {
+    const raw = button.getAttribute('data-product');
+    if (!raw) return;
+    const qty = Number(qtyInput?.value || 1);
+    const product = JSON.parse(raw);
+
+    addToCartItem(
+      {
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        price: Number(product.price),
+        main_image_url: product.main_image_url || null,
+      },
+      Number.isFinite(qty) && qty > 0 ? qty : 1
+    );
+
+    window.dispatchEvent(new CustomEvent('mini-cart-open'));
+  });
+</script>

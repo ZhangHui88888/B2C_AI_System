@@ -1,0 +1,45 @@
+---
+export interface Props {
+  product: {
+    name: string;
+    slug: string;
+    description?: string | null;
+    price: number;
+    compare_price?: number | null;
+    main_image_url?: string | null;
+    images?: string[] | null;
+    stock_status?: string;
+  };
+  siteUrl: string;
+  currency?: string;
+}
+
+const { product, siteUrl, currency = 'USD' } = Astro.props;
+
+const url = new URL(`/products/${product.slug}`, siteUrl).toString();
+const images = [product.main_image_url, ...(product.images || [])].filter(Boolean) as string[];
+
+const availabilityMap: Record<string, string> = {
+  in_stock: 'https://schema.org/InStock',
+  low_stock: 'https://schema.org/LimitedAvailability',
+  out_of_stock: 'https://schema.org/OutOfStock',
+};
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: product.name,
+  description: product.description || undefined,
+  image: images.length ? images : undefined,
+  url,
+  offers: {
+    '@type': 'Offer',
+    url,
+    priceCurrency: currency,
+    price: String(product.price),
+    availability: availabilityMap[product.stock_status || 'in_stock'] || availabilityMap.in_stock,
+  },
+};
+---
+
+<script type="application/ld+json">{JSON.stringify(jsonLd)}</script>

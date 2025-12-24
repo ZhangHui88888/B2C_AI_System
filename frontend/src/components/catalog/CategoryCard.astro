@@ -1,0 +1,23 @@
+---
+import type { Category } from '@lib/database.types';
+
+export interface Props {
+  category: Category;
+}
+
+const { category } = Astro.props;
+---
+
+<a href={`/category/${category.slug}`} class="card block overflow-hidden">
+  <div class="aspect-[4/3] bg-gray-100">
+    {category.image_url ? (
+      <img src={category.image_url} alt={category.name} class="h-full w-full object-cover" loading="lazy" />
+    ) : (
+      <div class="h-full w-full flex items-center justify-center text-gray-400 text-sm">Category</div>
+    )}
+  </div>
+  <div class="p-4">
+    <div class="font-semibold text-gray-900">{category.name}</div>
+    {category.description && <div class="mt-1 text-sm text-gray-600 line-clamp-2">{category.description}</div>}
+  </div>
+</a>

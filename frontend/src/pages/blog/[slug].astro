@@ -1,0 +1,111 @@
+---
+import Layout from '@layouts/Layout.astro';
+import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
+import ArticleSchema from '@components/seo/ArticleSchema.astro';
+import AuthorInfo from '@components/geo/AuthorInfo.astro';
+import PublishDate from '@components/geo/PublishDate.astro';
+import Summary from '@components/geo/Summary.astro';
+import DefinitionParagraph from '@components/geo/DefinitionParagraph.astro';
+import { blogPosts, getPost, getAuthor } from '@lib/content';
+
+const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+
+export async function getStaticPaths() {
+  return blogPosts.map((p) => ({ params: { slug: p.slug } }));
+}
+
+const { slug } = Astro.params;
+const post = slug ? getPost(slug) : undefined;
+
+if (!post) {
+  return Astro.redirect('/blog');
+}
+
+const author = getAuthor(post.authorSlug);
+
+const breadcrumbItems = [
+  { name: 'Home', url: siteUrl },
+  { name: 'Blog', url: new URL('/blog', siteUrl).toString() },
+  { name: post.title, url: new URL(`/blog/${post.slug}`, siteUrl).toString() },
+];
+
+const url = new URL(`/blog/${post.slug}`, siteUrl).toString();
+
+function xmlEscape(s: string): string {
+  return s
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;');
+}
+
+function renderMarkdown(md: string): string {
+  const lines = (md || '').split('\n');
+  const blocks: string[] = [];
+  for (const line of lines) {
+    const t = line.trimEnd();
+    if (!t.trim()) continue;
+    if (t.startsWith('### ')) {
+      blocks.push(`<h3>${xmlEscape(t.slice(4).trim())}</h3>`);
+      continue;
+    }
+    if (t.startsWith('## ')) {
+      blocks.push(`<h2>${xmlEscape(t.slice(3).trim())}</h2>`);
+      continue;
+    }
+    if (t.startsWith('# ')) {
+      blocks.push(`<h1>${xmlEscape(t.slice(2).trim())}</h1>`);
+      continue;
+    }
+    blocks.push(`<p>${xmlEscape(t)}</p>`);
+  }
+  return blocks.join('\n');
+}
+
+const contentHtml = renderMarkdown(post.content);
+---
+
+<Layout title={post.title} description={post.description} image={post.heroImage}>
+  <Fragment slot="head">
+    <BreadcrumbSchema items={breadcrumbItems} />
+    <ArticleSchema
+      headline={post.title}
+      description={post.description}
+      url={url}
+      image={post.heroImage}
+      datePublished={post.publishedAt}
+      dateModified={post.updatedAt}
+      authorName={author?.name}
+    />
+  </Fragment>
+
+  <main class="container-custom">
+    <article class="section">
+      <div class="max-w-3xl">
+        <h1>{post.title}</h1>
+        <p class="mt-3 text-gray-600">{post.description}</p>
+
+        <div class="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          {author && <AuthorInfo author={{ name: author.name, slug: author.slug, avatar: author.avatar, bio: author.bio }} />}
+          <PublishDate publishedAt={post.publishedAt} updatedAt={post.updatedAt} />
+        </div>
+
+        {post.summary && (
+          <div class="mt-8">
+            <Summary text={post.summary} />
+          </div>
+        )}
+
+        <div class="mt-8">
+          <DefinitionParagraph term={post.title} definition={post.summary || post.description} />
+        </div>
+
+        <div class="mt-10 prose prose-gray max-w-none">
+          <Fragment set:html={contentHtml} />
+        </div>
+      </div>
+    </article>
+  </main>
+</Layout>

@@ -1,0 +1,333 @@
+---
+import Layout from '@layouts/Layout.astro';
+import { supabase } from '@lib/supabase';
+import ProductCard from '@components/catalog/ProductCard.astro';
+import CategoryCard from '@components/catalog/CategoryCard.astro';
+import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
+
+const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
+
+const pageSize = 12;
+
+const { data: categories } = await supabase
+  .from('categories')
+  .select('*')
+  .eq('is_active', true)
+  .order('sort_order', { ascending: true });
+
+const { data: initialProducts, count: totalCount } = await supabase
+  .from('products')
+  .select('*', { count: 'exact' })
+  .eq('is_active', true)
+  .order('created_at', { ascending: false })
+  .range(0, pageSize - 1);
+
+const { data: minPriceRows } = await supabase
+  .from('products')
+  .select('price')
+  .eq('is_active', true)
+  .order('price', { ascending: true })
+  .limit(1);
+
+const { data: maxPriceRows } = await supabase
+  .from('products')
+  .select('price')
+  .eq('is_active', true)
+  .order('price', { ascending: false })
+  .limit(1);
+
+const initialTotalPages = Math.max(1, Math.ceil((totalCount || 0) / pageSize));
+
+const initialMinPrice = minPriceRows?.[0]?.price !== undefined ? Number(minPriceRows?.[0]?.price) : undefined;
+const initialMaxPrice = maxPriceRows?.[0]?.price !== undefined ? Number(maxPriceRows?.[0]?.price) : undefined;
+
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+const breadcrumbItems = [
+  { name: 'Home', url: siteUrl },
+  { name: 'Products', url: new URL('/products', siteUrl).toString() },
+];
+---
+
+<Layout title="Products" description={`Browse products at ${siteName}.`}>
+  <Fragment slot="head">
+    <BreadcrumbSchema items={breadcrumbItems} />
+  </Fragment>
+  <main class="container-custom">
+    <section class="section pb-8">
+      <div>
+        <h1>Products</h1>
+        <p class="mt-3 text-gray-600 max-w-2xl">
+          Browse our catalog. Use filters to narrow down by category, price, sort, or search.
+        </p>
+      </div>
+    </section>
+
+    <section class="pb-8">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <aside class="lg:col-span-3">
+          <div class="card p-4 sticky top-24">
+            <div class="font-semibold text-gray-900">Filters</div>
+            <div class="mt-4 space-y-3">
+              <input id="products-search" class="input py-2" type="search" placeholder="Search" />
+              <select id="products-category" class="input py-2">
+                <option value="">All categories</option>
+                {(categories || []).map((c) => (
+                  <option value={c.slug}>{c.name}</option>
+                ))}
+              </select>
+              <div class="grid grid-cols-2 gap-3">
+                <input
+                  id="products-price-min"
+                  class="input py-2"
+                  type="number"
+                  inputmode="decimal"
+                  placeholder={typeof initialMinPrice === 'number' ? `Min ${initialMinPrice}` : 'Min'}
+                />
+                <input
+                  id="products-price-max"
+                  class="input py-2"
+                  type="number"
+                  inputmode="decimal"
+                  placeholder={typeof initialMaxPrice === 'number' ? `Max ${initialMaxPrice}` : 'Max'}
+                />
+              </div>
+              <select id="products-sort" class="input py-2">
+                <option value="newest">Newest</option>
+                <option value="best_selling">Best selling</option>
+                <option value="featured">Featured</option>
+                <option value="price_asc">Price: Low to High</option>
+                <option value="price_desc">Price: High to Low</option>
+              </select>
+              <div class="pt-2 flex items-center justify-between gap-3">
+                <button id="products-apply" class="btn-primary py-2 px-4 text-sm" type="button">Apply</button>
+                <button id="products-reset" class="btn-ghost py-2 px-4 text-sm" type="button">Reset</button>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <div class="lg:col-span-9">
+          <div id="products-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {(initialProducts || []).map((p) => (
+              <ProductCard product={p} />
+            ))}
+          </div>
+
+          <div id="products-empty" class="hidden text-center py-16 text-gray-600">
+            No products found.
+          </div>
+
+          <div id="products-pagination" class="mt-10 flex items-center justify-center gap-2">
+            <button class="btn-ghost py-2 px-3 text-sm" type="button" data-page="prev">Prev</button>
+            <span id="products-page" class="text-sm text-gray-700">1 / {initialTotalPages}</span>
+            <button class="btn-ghost py-2 px-3 text-sm" type="button" data-page="next">Next</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {(categories || []).length > 0 && (
+      <section class="section pt-0">
+        <h2 class="mb-6">Popular categories</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {(categories || []).slice(0, 8).map((c) => (
+            <CategoryCard category={c} />
+          ))}
+        </div>
+      </section>
+    )}
+  </main>
+
+  <script type="module">
+    import { api } from '@lib/api';
+
+    const pageSize = 12;
+
+    const searchEl = document.getElementById('products-search');
+    const categoryEl = document.getElementById('products-category');
+    const priceMinEl = document.getElementById('products-price-min');
+    const priceMaxEl = document.getElementById('products-price-max');
+    const sortEl = document.getElementById('products-sort');
+    const applyBtn = document.getElementById('products-apply');
+    const resetBtn = document.getElementById('products-reset');
+
+    const grid = document.getElementById('products-grid');
+    const emptyEl = document.getElementById('products-empty');
+    const pageEl = document.getElementById('products-page');
+    const pagination = document.getElementById('products-pagination');
+
+    let currentPage = 1;
+    let totalPages = Number(pageEl?.textContent?.split('/')[1]) || 1;
+
+    function readQuery() {
+      const u = new URL(window.location.href);
+      return {
+        search: u.searchParams.get('search') || '',
+        category: u.searchParams.get('category') || '',
+        price_min: u.searchParams.get('price_min') ? Number(u.searchParams.get('price_min')) : undefined,
+        price_max: u.searchParams.get('price_max') ? Number(u.searchParams.get('price_max')) : undefined,
+        sort: u.searchParams.get('sort') || 'newest',
+        page: Number(u.searchParams.get('page') || '1') || 1,
+      };
+    }
+
+    function writeQuery(next) {
+      const u = new URL(window.location.href);
+      u.searchParams.delete('search');
+      u.searchParams.delete('category');
+      u.searchParams.delete('price_min');
+      u.searchParams.delete('price_max');
+      u.searchParams.delete('sort');
+      u.searchParams.delete('page');
+
+      if (next.search) u.searchParams.set('search', next.search);
+      if (next.category) u.searchParams.set('category', next.category);
+      if (typeof next.price_min === 'number' && Number.isFinite(next.price_min)) u.searchParams.set('price_min', String(next.price_min));
+      if (typeof next.price_max === 'number' && Number.isFinite(next.price_max)) u.searchParams.set('price_max', String(next.price_max));
+      if (next.sort && next.sort !== 'newest') u.searchParams.set('sort', next.sort);
+      if (next.page && next.page > 1) u.searchParams.set('page', String(next.page));
+
+      history.pushState({}, '', u.pathname + u.search);
+    }
+
+    function renderCards(products) {
+      if (!grid) return;
+      if (!products || products.length === 0) {
+        grid.innerHTML = '';
+        emptyEl?.classList.remove('hidden');
+        return;
+      }
+
+      emptyEl?.classList.add('hidden');
+      grid.innerHTML = products
+        .map((p) => {
+          const img = p.main_image_url
+            ? `<img src="${p.main_image_url}" alt="${p.name}" class="h-full w-full object-cover" loading="lazy" />`
+            : `<div class="h-full w-full flex items-center justify-center text-gray-400 text-sm">No image</div>`;
+
+          const compare = p.compare_price
+            ? `<span class="text-sm text-gray-500 line-through">${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(p.compare_price))}</span>`
+            : '';
+
+          const price = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(p.price));
+
+          return `
+            <article class="card">
+              <a href="/products/${p.slug}" class="block">
+                <div class="aspect-square bg-gray-100 overflow-hidden">${img}</div>
+                <div class="p-4">
+                  <h3 class="text-lg font-display font-bold line-clamp-2">${p.name}</h3>
+                  ${p.short_description ? `<p class="mt-2 text-sm text-gray-600 line-clamp-2">${p.short_description}</p>` : ''}
+                  <div class="mt-3 flex items-center gap-2">
+                    <span class="text-lg font-semibold text-gray-900">${price}</span>
+                    ${compare}
+                  </div>
+                </div>
+              </a>
+            </article>
+          `;
+        })
+        .join('');
+    }
+
+    async function fetchProducts(params) {
+      const res = await api.getProducts({
+        category: params.category || undefined,
+        page: params.page,
+        limit: pageSize,
+        sort: params.sort,
+        search: params.search || undefined,
+        price_min: typeof params.price_min === 'number' && Number.isFinite(params.price_min) ? params.price_min : undefined,
+        price_max: typeof params.price_max === 'number' && Number.isFinite(params.price_max) ? params.price_max : undefined,
+      });
+
+      if (!res.success || !res.data) return null;
+      return res.data;
+    }
+
+    async function refresh(fromQuery = false) {
+      const q = fromQuery ? readQuery() : {
+        search: String(searchEl?.value || ''),
+        category: String(categoryEl?.value || ''),
+        price_min: priceMinEl?.value ? Number(priceMinEl.value) : undefined,
+        price_max: priceMaxEl?.value ? Number(priceMaxEl.value) : undefined,
+        sort: String(sortEl?.value || 'newest'),
+        page: currentPage,
+      };
+
+      const data = await fetchProducts(q);
+      if (!data) return;
+
+      const products = data.products || [];
+      const paginationData = data.pagination || { page: 1, totalPages: 1 };
+
+      currentPage = paginationData.page || 1;
+      totalPages = paginationData.totalPages || 1;
+
+      if (!fromQuery) {
+        writeQuery({ ...q, page: currentPage });
+      }
+
+      renderCards(products);
+      if (pageEl) pageEl.textContent = `${currentPage} / ${totalPages}`;
+
+      const prevBtn = pagination?.querySelector('button[data-page="prev"]');
+      const nextBtn = pagination?.querySelector('button[data-page="next"]');
+
+      if (prevBtn) prevBtn.classList.toggle('opacity-50', currentPage <= 1);
+      if (prevBtn) prevBtn.classList.toggle('pointer-events-none', currentPage <= 1);
+      if (nextBtn) nextBtn.classList.toggle('opacity-50', currentPage >= totalPages);
+      if (nextBtn) nextBtn.classList.toggle('pointer-events-none', currentPage >= totalPages);
+    }
+
+    function syncControlsFromQuery() {
+      const q = readQuery();
+      if (searchEl) searchEl.value = q.search;
+      if (categoryEl) categoryEl.value = q.category;
+      if (priceMinEl) priceMinEl.value = typeof q.price_min === 'number' && Number.isFinite(q.price_min) ? String(q.price_min) : '';
+      if (priceMaxEl) priceMaxEl.value = typeof q.price_max === 'number' && Number.isFinite(q.price_max) ? String(q.price_max) : '';
+      if (sortEl) sortEl.value = q.sort;
+      currentPage = q.page;
+    }
+
+    applyBtn?.addEventListener('click', async () => {
+      currentPage = 1;
+      await refresh(false);
+    });
+
+    resetBtn?.addEventListener('click', async () => {
+      if (searchEl) searchEl.value = '';
+      if (categoryEl) categoryEl.value = '';
+      if (priceMinEl) priceMinEl.value = '';
+      if (priceMaxEl) priceMaxEl.value = '';
+      if (sortEl) sortEl.value = 'newest';
+      currentPage = 1;
+      writeQuery({ search: '', category: '', sort: 'newest', page: 1, price_min: undefined, price_max: undefined });
+      await refresh(true);
+    });
+
+    pagination?.querySelector('button[data-page="prev"]')?.addEventListener('click', async () => {
+      if (currentPage <= 1) return;
+      currentPage -= 1;
+      await refresh(false);
+    });
+
+    pagination?.querySelector('button[data-page="next"]')?.addEventListener('click', async () => {
+      if (currentPage >= totalPages) return;
+      currentPage += 1;
+      await refresh(false);
+    });
+
+    window.addEventListener('popstate', async () => {
+      syncControlsFromQuery();
+      await refresh(true);
+    });
+
+    syncControlsFromQuery();
+    const q = readQuery();
+    const hasParams = Array.from(new URL(window.location.href).searchParams.keys()).length > 0;
+    if (hasParams && (q.search || q.category || q.sort !== 'newest' || q.page > 1 || typeof q.price_min === 'number' || typeof q.price_max === 'number')) {
+      await refresh(true);
+    }
+  </script>
+</Layout>

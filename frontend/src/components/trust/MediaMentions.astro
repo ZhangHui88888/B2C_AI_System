@@ -1,0 +1,29 @@
+---
+export interface Props {
+  items?: { name: string; url?: string }[];
+}
+
+const { items = [] } = Astro.props;
+---
+
+<section class="section">
+  <div class="container-custom">
+    <h2 class="text-center mb-8">As seen in</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 items-center">
+      {(items.length ? items : [
+        { name: 'TechDaily', url: '#' },
+        { name: 'StyleMag', url: '#' },
+        { name: 'GearReview', url: '#' },
+        { name: 'WellnessNow', url: '#' },
+        { name: 'TopChoice', url: '#' },
+      ]).map((it) => (
+        <a
+          href={it.url || '#'}
+          class="card p-4 text-center text-sm font-medium text-gray-700 hover:text-primary-600"
+        >
+          {it.name}
+        </a>
+      ))}
+    </div>
+  </div>
+</section>

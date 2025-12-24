@@ -1,0 +1,16 @@
+---
+export interface Props {
+  publishedAt: string;
+  updatedAt?: string;
+}
+
+const { publishedAt, updatedAt } = Astro.props;
+
+const published = new Date(publishedAt);
+const updated = updatedAt ? new Date(updatedAt) : null;
+---
+
+<div class="text-sm text-gray-500">
+  <span>Published: {published.toLocaleDateString()}</span>
+  {updated && <span class="ml-3">Updated: {updated.toLocaleDateString()}</span>}
+</div>

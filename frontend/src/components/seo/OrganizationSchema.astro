@@ -1,0 +1,21 @@
+---
+export interface Props {
+  siteName: string;
+  siteUrl: string;
+  logoUrl?: string;
+  sameAs?: string[];
+}
+
+const { siteName, siteUrl, logoUrl, sameAs = [] } = Astro.props;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: siteName,
+  url: siteUrl,
+  logo: logoUrl || undefined,
+  sameAs: sameAs.length ? sameAs : undefined,
+};
+---
+
+<script type="application/ld+json">{JSON.stringify(jsonLd)}</script>

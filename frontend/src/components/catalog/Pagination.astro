@@ -1,0 +1,43 @@
+---
+export interface Props {
+  page: number;
+  totalPages: number;
+  basePath: string;
+  query?: Record<string, string | undefined>;
+}
+
+const { page, totalPages, basePath, query = {} } = Astro.props;
+
+function buildUrl(p: number): string {
+  const u = new URL(basePath, 'https://example.com');
+  Object.entries(query).forEach(([k, v]) => {
+    if (!v) return;
+    u.searchParams.set(k, v);
+  });
+  if (p > 1) u.searchParams.set('page', String(p));
+  return u.pathname + (u.search ? u.search : '');
+}
+
+const pages = Array.from({ length: totalPages }, (_, i) => i + 1).slice(0, 200);
+---
+
+<nav class="flex items-center justify-center gap-2 mt-10" aria-label="Pagination">
+  <a class={`btn-ghost py-2 px-3 text-sm ${page <= 1 ? 'pointer-events-none opacity-50' : ''}`} href={buildUrl(page - 1)}>
+    Prev
+  </a>
+
+  <div class="flex items-center gap-1 flex-wrap justify-center">
+    {pages.map((p) => (
+      <a
+        href={buildUrl(p)}
+        class={`px-3 py-2 rounded-lg text-sm ${p === page ? 'bg-primary-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+      >
+        {p}
+      </a>
+    ))}
+  </div>
+
+  <a class={`btn-ghost py-2 px-3 text-sm ${page >= totalPages ? 'pointer-events-none opacity-50' : ''}`} href={buildUrl(page + 1)}>
+    Next
+  </a>
+</nav>

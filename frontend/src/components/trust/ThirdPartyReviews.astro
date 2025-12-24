@@ -1,0 +1,17 @@
+---
+export interface Props {
+  label?: string;
+  rating?: number;
+  url?: string;
+}
+
+const { label = 'Third‑party reviews', rating = 4.7, url = '#' } = Astro.props;
+---
+
+<a href={url} class="card p-4 flex items-center justify-between gap-4" target="_blank" rel="noopener noreferrer">
+  <div>
+    <div class="font-semibold text-gray-900">{label}</div>
+    <div class="text-sm text-gray-600">Rating: {rating} / 5</div>
+  </div>
+  <span class="text-primary-600 font-medium">View</span>
+</a>

@@ -1,0 +1,66 @@
+---
+import Layout from '@layouts/Layout.astro';
+import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
+
+const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+
+const breadcrumbItems = [
+  { name: 'Home', url: siteUrl },
+  { name: 'Privacy', url: new URL('/privacy', siteUrl).toString() },
+];
+---
+
+<Layout title="Privacy Policy" description={`Privacy policy for ${siteName}.`}>
+  <Fragment slot="head">
+    <BreadcrumbSchema items={breadcrumbItems} />
+  </Fragment>
+
+  <main class="container-custom">
+    <section class="section">
+      <h1>Privacy Policy</h1>
+      <div class="mt-8 prose prose-gray max-w-none">
+        <p>
+          This privacy policy explains how we collect, use, and protect information when you visit {siteName}.
+          This page is a template and should be reviewed for legal compliance.
+        </p>
+
+        <h2>Information we collect</h2>
+        <ul>
+          <li>Contact details you provide (name, email, phone).</li>
+          <li>Shipping address for order fulfillment.</li>
+          <li>Order details and customer support messages.</li>
+          <li>Basic analytics data (device, pages visited) for improving our site.</li>
+        </ul>
+
+        <h2>How we use information</h2>
+        <ul>
+          <li>To process orders, handle returns, and provide support.</li>
+          <li>To prevent fraud and secure checkout.</li>
+          <li>To improve products, content, and site performance.</li>
+        </ul>
+
+        <h2>Data sharing</h2>
+        <p>
+          We may share data with service providers (payment processors, shipping carriers) strictly for operating the store.
+        </p>
+
+        <h2>Data retention</h2>
+        <p>
+          We keep order records for accounting and support. Support messages may be retained to improve service quality.
+        </p>
+
+        <h2>Your choices</h2>
+        <ul>
+          <li>You can request a copy of your data.</li>
+          <li>You can request deletion of certain data, where applicable.</li>
+        </ul>
+
+        <h2>Contact</h2>
+        <p>
+          If you have privacy questions, contact us via the <a href="/contact">contact page</a>.
+        </p>
+      </div>
+    </section>
+  </main>
+</Layout>

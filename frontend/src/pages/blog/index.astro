@@ -1,0 +1,49 @@
+---
+import Layout from '@layouts/Layout.astro';
+import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
+import PublishDate from '@components/geo/PublishDate.astro';
+import { blogPosts, getAuthor } from '@lib/content';
+
+const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+
+const breadcrumbItems = [
+  { name: 'Home', url: siteUrl },
+  { name: 'Blog', url: new URL('/blog', siteUrl).toString() },
+];
+
+const posts = [...blogPosts].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+---
+
+<Layout title="Blog" description={`Buying guides and updates from ${siteName}.`}>
+  <Fragment slot="head">
+    <BreadcrumbSchema items={breadcrumbItems} />
+  </Fragment>
+
+  <main class="container-custom">
+    <section class="section">
+      <h1>Blog</h1>
+      <p class="mt-3 text-gray-600 max-w-2xl">Practical guides and explanations to help you shop with confidence.</p>
+
+      <div class="mt-10 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {posts.map((post) => {
+          const author = getAuthor(post.authorSlug);
+          return (
+            <article class="card p-5">
+              <a href={`/blog/${post.slug}`} class="block">
+                <h2 class="text-xl font-display font-bold text-gray-900">{post.title}</h2>
+                <p class="mt-2 text-sm text-gray-600">{post.description}</p>
+              </a>
+              <div class="mt-4 flex items-center justify-between gap-3">
+                <div class="text-sm text-gray-600">
+                  {author ? <a class="hover:text-primary-600" href={`/author/${author.slug}`}>{author.name}</a> : 'Editorial'}
+                </div>
+                <PublishDate publishedAt={post.publishedAt} updatedAt={post.updatedAt} />
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  </main>
+</Layout>
