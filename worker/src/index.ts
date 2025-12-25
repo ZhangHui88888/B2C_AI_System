@@ -13,6 +13,11 @@ import { handleSettings } from './routes/settings';
 import { handleAnalytics } from './routes/analytics';
 import { handleAuthors } from './routes/authors';
 import { handleReviews } from './routes/reviews';
+import { handleAdminProducts } from './routes/admin-products';
+import { handleAdminCategories } from './routes/admin-categories';
+import { handleAdminOrders } from './routes/admin-orders';
+import { handleAdminCoupons, handleCouponValidation } from './routes/admin-coupons';
+import { handleAdminBrands } from './routes/admin-brands';
 import { cors, errorHandler, jsonResponse } from './utils/response';
 import { resolveBrandContext, withBrandRequest } from './middleware/brand';
 import Stripe from 'stripe';
@@ -176,6 +181,27 @@ export default {
         if (context) routedRequest = withBrandRequest(request, context.brandId);
       }
 
+      // Admin API Routes (before regular routes for more specific matching)
+      if (path.startsWith('/api/admin/products')) {
+        return await handleAdminProducts(routedRequest, env, path);
+      }
+
+      if (path.startsWith('/api/admin/categories')) {
+        return await handleAdminCategories(routedRequest, env, path);
+      }
+
+      if (path.startsWith('/api/admin/orders')) {
+        return await handleAdminOrders(routedRequest, env, path);
+      }
+
+      if (path.startsWith('/api/admin/coupons')) {
+        return await handleAdminCoupons(routedRequest, env, path);
+      }
+
+      if (path.startsWith('/api/admin/brands')) {
+        return await handleAdminBrands(routedRequest, env, path);
+      }
+
       // API Routes
       if (path.startsWith('/api/products')) {
         return await handleProducts(routedRequest, env, path);
@@ -183,6 +209,10 @@ export default {
       
       if (path.startsWith('/api/categories')) {
         return await handleCategories(routedRequest, env, path);
+      }
+
+      if (path.startsWith('/api/coupons')) {
+        return await handleCouponValidation(routedRequest, env, path);
       }
       
       if (path.startsWith('/api/orders') || path.startsWith('/api/cart')) {

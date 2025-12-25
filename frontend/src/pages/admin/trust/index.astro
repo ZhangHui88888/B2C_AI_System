@@ -1,0 +1,449 @@
+---
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { supabase } from '@lib/supabase';
+
+// Get current settings for trust elements
+const { data: settings } = await supabase
+  .from('settings')
+  .select('key, value');
+
+const settingsMap = new Map<string, any>();
+settings?.forEach((s) => settingsMap.set(s.key, s.value));
+
+// Media coverage items
+const mediaCoverage = settingsMap.get('media_coverage') || [];
+
+// Certifications
+const certifications = settingsMap.get('certifications') || [];
+
+// Social links
+const socialLinks = settingsMap.get('social_links') || {
+  instagram: '',
+  facebook: '',
+  twitter: '',
+  tiktok: '',
+  youtube: '',
+  pinterest: '',
+  linkedin: '',
+};
+
+// Third-party reviews
+const thirdPartyReviews = settingsMap.get('third_party_reviews') || {
+  trustpilot_url: '',
+  google_reviews_url: '',
+  bbb_url: '',
+};
+---
+
+<AdminLayout title="Trust Elements" activePage="trust">
+  <div class="max-w-4xl space-y-6">
+    <!-- Media Coverage -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-lg font-semibold text-gray-900">Media Coverage</h2>
+          <p class="text-sm text-gray-500">Showcase press mentions and media features</p>
+        </div>
+        <button id="add-media-btn" class="inline-flex items-center px-3 py-2 text-sm font-medium text-primary-600 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors">
+          <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+          Add Media
+        </button>
+      </div>
+      
+      <div id="media-list" class="space-y-3">
+        {mediaCoverage.length > 0 ? (
+          mediaCoverage.map((item: any, index: number) => (
+            <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-lg media-item" data-index={index}>
+              {item.logo_url ? (
+                <img src={item.logo_url} alt={item.name} class="h-8 w-auto object-contain" />
+              ) : (
+                <div class="h-8 w-16 bg-gray-200 rounded flex items-center justify-center text-xs text-gray-500">Logo</div>
+              )}
+              <div class="flex-1 min-w-0">
+                <p class="font-medium text-gray-900 truncate">{item.name}</p>
+                {item.url && <a href={item.url} target="_blank" class="text-xs text-primary-600 hover:underline truncate block">{item.url}</a>}
+              </div>
+              <button class="remove-media-btn text-gray-400 hover:text-red-600" data-index={index}>
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
+          ))
+        ) : (
+          <div class="text-center py-8 text-gray-500">
+            <svg class="mx-auto h-10 w-10 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+            </svg>
+            <p class="text-sm">No media coverage added yet</p>
+          </div>
+        )}
+      </div>
+    </div>
+
+    <!-- Certifications -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-lg font-semibold text-gray-900">Certifications & Badges</h2>
+          <p class="text-sm text-gray-500">Display product certifications (CE, FCC, FDA, etc.)</p>
+        </div>
+        <button id="add-cert-btn" class="inline-flex items-center px-3 py-2 text-sm font-medium text-primary-600 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors">
+          <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+          Add Certification
+        </button>
+      </div>
+      
+      <div id="cert-list" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {certifications.length > 0 ? (
+          certifications.map((item: any, index: number) => (
+            <div class="relative group p-4 bg-gray-50 rounded-lg text-center cert-item" data-index={index}>
+              {item.image_url ? (
+                <img src={item.image_url} alt={item.name} class="h-12 w-auto mx-auto object-contain" />
+              ) : (
+                <div class="h-12 w-12 mx-auto bg-gray-200 rounded-full flex items-center justify-center text-xs text-gray-500">Icon</div>
+              )}
+              <p class="mt-2 text-sm font-medium text-gray-900">{item.name}</p>
+              <button class="remove-cert-btn absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-opacity" data-index={index}>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          ))
+        ) : (
+          <div class="col-span-full text-center py-8 text-gray-500">
+            <svg class="mx-auto h-10 w-10 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+            </svg>
+            <p class="text-sm">No certifications added yet</p>
+          </div>
+        )}
+      </div>
+    </div>
+
+    <!-- Third-Party Reviews -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div class="mb-4">
+        <h2 class="text-lg font-semibold text-gray-900">Third-Party Review Sites</h2>
+        <p class="text-sm text-gray-500">Link to external review platforms</p>
+      </div>
+      
+      <form id="reviews-form" class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Trustpilot URL</label>
+            <input type="url" name="trustpilot_url" value={thirdPartyReviews.trustpilot_url} class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="https://trustpilot.com/review/..." />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Google Reviews URL</label>
+            <input type="url" name="google_reviews_url" value={thirdPartyReviews.google_reviews_url} class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="https://g.page/..." />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">BBB URL</label>
+            <input type="url" name="bbb_url" value={thirdPartyReviews.bbb_url} class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="https://bbb.org/..." />
+          </div>
+        </div>
+        <button type="submit" class="px-4 py-2 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 transition-colors">
+          Save Review Links
+        </button>
+      </form>
+    </div>
+
+    <!-- Social Media Links -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div class="mb-4">
+        <h2 class="text-lg font-semibold text-gray-900">Social Media Links</h2>
+        <p class="text-sm text-gray-500">Connect your social media profiles</p>
+      </div>
+      
+      <form id="social-form" class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              <span class="flex items-center gap-2">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                Instagram
+              </span>
+            </label>
+            <input type="url" name="instagram" value={socialLinks.instagram} class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="https://instagram.com/..." />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              <span class="flex items-center gap-2">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                Facebook
+              </span>
+            </label>
+            <input type="url" name="facebook" value={socialLinks.facebook} class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="https://facebook.com/..." />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              <span class="flex items-center gap-2">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                X (Twitter)
+              </span>
+            </label>
+            <input type="url" name="twitter" value={socialLinks.twitter} class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="https://x.com/..." />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              <span class="flex items-center gap-2">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>
+                TikTok
+              </span>
+            </label>
+            <input type="url" name="tiktok" value={socialLinks.tiktok} class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="https://tiktok.com/@..." />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              <span class="flex items-center gap-2">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                YouTube
+              </span>
+            </label>
+            <input type="url" name="youtube" value={socialLinks.youtube} class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="https://youtube.com/@..." />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              <span class="flex items-center gap-2">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.627 0-12 5.372-12 12 0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738.098.119.112.224.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.631-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146 1.124.347 2.317.535 3.554.535 6.627 0 12-5.373 12-12 0-6.628-5.373-12-12-12z"/></svg>
+                Pinterest
+              </span>
+            </label>
+            <input type="url" name="pinterest" value={socialLinks.pinterest} class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="https://pinterest.com/..." />
+          </div>
+        </div>
+        <button type="submit" class="px-4 py-2 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 transition-colors">
+          Save Social Links
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Media Modal -->
+  <div id="media-modal" class="fixed inset-0 z-50 hidden">
+    <div class="fixed inset-0 bg-black/50" id="media-backdrop"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+      <div class="bg-white rounded-xl shadow-xl max-w-md w-full">
+        <div class="px-6 py-4 border-b border-gray-100">
+          <h3 class="text-lg font-medium text-gray-900">Add Media Coverage</h3>
+        </div>
+        <form id="media-form" class="p-6 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Publication Name *</label>
+            <input type="text" name="name" required class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="e.g., TechCrunch, Forbes" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Logo URL</label>
+            <input type="url" name="logo_url" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="https://..." />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Article URL</label>
+            <input type="url" name="url" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="https://..." />
+          </div>
+          <div class="flex gap-3 pt-2">
+            <button type="button" id="cancel-media" class="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
+            <button type="submit" class="flex-1 px-4 py-2 text-white bg-primary-600 rounded-lg hover:bg-primary-700">Add</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Certification Modal -->
+  <div id="cert-modal" class="fixed inset-0 z-50 hidden">
+    <div class="fixed inset-0 bg-black/50" id="cert-backdrop"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+      <div class="bg-white rounded-xl shadow-xl max-w-md w-full">
+        <div class="px-6 py-4 border-b border-gray-100">
+          <h3 class="text-lg font-medium text-gray-900">Add Certification</h3>
+        </div>
+        <form id="cert-form" class="p-6 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Certification Name *</label>
+            <input type="text" name="name" required class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="e.g., CE, FCC, FDA Approved" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Badge/Icon URL</label>
+            <input type="url" name="image_url" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="https://..." />
+          </div>
+          <div class="flex gap-3 pt-2">
+            <button type="button" id="cancel-cert" class="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
+            <button type="submit" class="flex-1 px-4 py-2 text-white bg-primary-600 rounded-lg hover:bg-primary-700">Add</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg transform translate-y-full opacity-0 transition-all duration-300 z-50"></div>
+
+  <script define:vars={{ initialMedia: mediaCoverage, initialCerts: certifications }}>
+    const API_URL = import.meta.env.PUBLIC_API_URL || '';
+    let mediaItems = [...initialMedia];
+    let certItems = [...initialCerts];
+
+    const toast = document.getElementById('toast');
+    const mediaModal = document.getElementById('media-modal');
+    const certModal = document.getElementById('cert-modal');
+
+    function showToast(message, type = 'success') {
+      if (!toast) return;
+      toast.textContent = message;
+      toast.className = `fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 z-50 ${
+        type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+      }`;
+      toast.style.transform = 'translateY(0)';
+      toast.style.opacity = '1';
+      setTimeout(() => {
+        toast.style.transform = 'translateY(100%)';
+        toast.style.opacity = '0';
+      }, 3000);
+    }
+
+    async function updateSetting(key, value) {
+      const res = await fetch(`${API_URL}/api/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, value }),
+      });
+      return res.ok;
+    }
+
+    // Media Modal
+    document.getElementById('add-media-btn')?.addEventListener('click', () => mediaModal?.classList.remove('hidden'));
+    document.getElementById('cancel-media')?.addEventListener('click', () => mediaModal?.classList.add('hidden'));
+    document.getElementById('media-backdrop')?.addEventListener('click', () => mediaModal?.classList.add('hidden'));
+
+    document.getElementById('media-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target as HTMLFormElement;
+      const formData = new FormData(form);
+      
+      const newItem = {
+        name: formData.get('name'),
+        logo_url: formData.get('logo_url') || '',
+        url: formData.get('url') || '',
+      };
+      
+      mediaItems.push(newItem);
+      const ok = await updateSetting('media_coverage', mediaItems);
+      
+      if (ok) {
+        showToast('Media coverage added!');
+        mediaModal?.classList.add('hidden');
+        form.reset();
+        setTimeout(() => window.location.reload(), 500);
+      } else {
+        mediaItems.pop();
+        showToast('Failed to save', 'error');
+      }
+    });
+
+    // Remove media
+    document.querySelectorAll('.remove-media-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const index = parseInt((e.currentTarget as HTMLElement).dataset.index || '0');
+        if (!confirm('Remove this media coverage?')) return;
+        
+        mediaItems.splice(index, 1);
+        const ok = await updateSetting('media_coverage', mediaItems);
+        
+        if (ok) {
+          showToast('Removed!');
+          setTimeout(() => window.location.reload(), 500);
+        } else {
+          showToast('Failed to remove', 'error');
+        }
+      });
+    });
+
+    // Certification Modal
+    document.getElementById('add-cert-btn')?.addEventListener('click', () => certModal?.classList.remove('hidden'));
+    document.getElementById('cancel-cert')?.addEventListener('click', () => certModal?.classList.add('hidden'));
+    document.getElementById('cert-backdrop')?.addEventListener('click', () => certModal?.classList.add('hidden'));
+
+    document.getElementById('cert-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target as HTMLFormElement;
+      const formData = new FormData(form);
+      
+      const newItem = {
+        name: formData.get('name'),
+        image_url: formData.get('image_url') || '',
+      };
+      
+      certItems.push(newItem);
+      const ok = await updateSetting('certifications', certItems);
+      
+      if (ok) {
+        showToast('Certification added!');
+        certModal?.classList.add('hidden');
+        form.reset();
+        setTimeout(() => window.location.reload(), 500);
+      } else {
+        certItems.pop();
+        showToast('Failed to save', 'error');
+      }
+    });
+
+    // Remove certification
+    document.querySelectorAll('.remove-cert-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const index = parseInt((e.currentTarget as HTMLElement).dataset.index || '0');
+        if (!confirm('Remove this certification?')) return;
+        
+        certItems.splice(index, 1);
+        const ok = await updateSetting('certifications', certItems);
+        
+        if (ok) {
+          showToast('Removed!');
+          setTimeout(() => window.location.reload(), 500);
+        } else {
+          showToast('Failed to remove', 'error');
+        }
+      });
+    });
+
+    // Reviews form
+    document.getElementById('reviews-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target as HTMLFormElement;
+      const formData = new FormData(form);
+      
+      const reviewLinks = {
+        trustpilot_url: formData.get('trustpilot_url') || '',
+        google_reviews_url: formData.get('google_reviews_url') || '',
+        bbb_url: formData.get('bbb_url') || '',
+      };
+      
+      const ok = await updateSetting('third_party_reviews', reviewLinks);
+      showToast(ok ? 'Review links saved!' : 'Failed to save', ok ? 'success' : 'error');
+    });
+
+    // Social form
+    document.getElementById('social-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target as HTMLFormElement;
+      const formData = new FormData(form);
+      
+      const links = {
+        instagram: formData.get('instagram') || '',
+        facebook: formData.get('facebook') || '',
+        twitter: formData.get('twitter') || '',
+        tiktok: formData.get('tiktok') || '',
+        youtube: formData.get('youtube') || '',
+        pinterest: formData.get('pinterest') || '',
+      };
+      
+      const ok = await updateSetting('social_links', links);
+      showToast(ok ? 'Social links saved!' : 'Failed to save', ok ? 'success' : 'error');
+    });
+  </script>
+</AdminLayout>

@@ -1,27 +1,73 @@
 ---
 export interface Props {
   headline: string;
-  description?: string;
+  description: string;
   url: string;
   image?: string;
-  datePublished?: string;
+  datePublished: string;
   dateModified?: string;
   authorName?: string;
+  authorUrl?: string;
+  publisherName?: string;
+  publisherLogo?: string;
+  siteUrl?: string;
 }
 
-const { headline, description, url, image, datePublished, dateModified, authorName } = Astro.props;
+const {
+  headline,
+  description,
+  url,
+  image,
+  datePublished,
+  dateModified,
+  authorName,
+  authorUrl,
+  publisherName,
+  publisherLogo,
+  siteUrl,
+} = Astro.props;
 
+// Use environment variables for publisher info if not provided
+const finalPublisherName = publisherName || import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
+const finalSiteUrl = siteUrl || import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+const finalPublisherLogo = publisherLogo || new URL('/favicon.svg', finalSiteUrl).toString();
+
+// Build author object
+const author = authorName
+  ? {
+      '@type': 'Person',
+      name: authorName,
+      url: authorUrl || undefined,
+    }
+  : undefined;
+
+// Build publisher object
+const publisher = {
+  '@type': 'Organization',
+  name: finalPublisherName,
+  logo: {
+    '@type': 'ImageObject',
+    url: finalPublisherLogo,
+  },
+};
+
+// Build the Article Schema JSON-LD
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Article',
   headline,
-  description: description || undefined,
+  description,
   url,
   image: image || undefined,
-  datePublished: datePublished || undefined,
-  dateModified: dateModified || undefined,
-  author: authorName ? { '@type': 'Person', name: authorName } : undefined,
+  datePublished,
+  dateModified: dateModified || datePublished,
+  author: author || undefined,
+  publisher,
+  mainEntityOfPage: {
+    '@type': 'WebPage',
+    '@id': url,
+  },
 };
 ---
 
-<script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
+<script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />

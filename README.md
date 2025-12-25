@@ -263,18 +263,34 @@ npm run dev
 
 ### 部署
 
-**部署前端到 Cloudflare Pages：**
+详细部署指南请参考 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)。
+
+**快速部署：**
+
 ```bash
-cd frontend
+# 1. 配置 Worker secrets
+cd worker
+wrangler secret put SUPABASE_URL
+wrangler secret put SUPABASE_SERVICE_KEY
+wrangler secret put STRIPE_SECRET_KEY
+wrangler secret put STRIPE_WEBHOOK_SECRET
+wrangler secret put RESEND_API_KEY
+
+# 2. 部署 Worker
+npm run deploy
+
+# 3. 部署前端到 Cloudflare Pages
+cd ../frontend
 npm run build
-# 通过 GitHub 连接 Cloudflare Pages 或使用 wrangler
+# 通过 GitHub 连接 Cloudflare Pages
 ```
 
-**部署后端：**
-```bash
-cd worker
-npm run deploy
-```
+**生产环境检查清单：**
+- [ ] 所有 secrets 已配置
+- [ ] 数据库迁移已执行
+- [ ] Stripe Webhook 已配置
+- [ ] 自定义域名已绑定
+- [ ] SSL/HTTPS 已启用
 
 ## 📊 功能特性
 
@@ -298,10 +314,16 @@ npm run deploy
 - [x] 数据分析看板
 - [x] 系统设置
 
-### 第四阶段 - 待开发
-- [ ] AI 视频生成集成
+### 第四阶段 - 已完成 ✅
+- [x] Supabase Auth 登录认证
+- [x] 多品牌管理（CRUD、域名配置）
+- [x] 优惠券系统（创建、验证、结算集成）
+- [x] 邮件模板管理
+- [x] 邀请评价邮件
+
+### 待开发
 - [ ] 高级 SEO 工具
-- [ ] 邀请评价邮件
+- [ ] RBAC 权限完善
 
 ## 🔄 完整功能流程图
 

@@ -2,7 +2,7 @@
 import Layout from '@layouts/Layout.astro';
 import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
 import PublishDate from '@components/geo/PublishDate.astro';
-import { blogPosts, getAuthor } from '@lib/content';
+import { api } from '@lib/api';
 
 const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
 const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
@@ -12,7 +12,32 @@ const breadcrumbItems = [
   { name: 'Blog', url: new URL('/blog', siteUrl).toString() },
 ];
 
-const posts = [...blogPosts].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+// Fetch blog posts from API
+let posts: any[] = [];
+let error: string | null = null;
+
+try {
+  const response = await api.getBlogPosts({ 
+    status: 'published',
+    limit: 50 
+  });
+  
+  if (response.success && response.data) {
+    posts = response.data.data || [];
+  } else {
+    error = response.error || 'Failed to load blog posts';
+  }
+} catch (e) {
+  console.error('Error fetching blog posts:', e);
+  error = 'Failed to load blog posts';
+}
+
+// Sort by published date (newest first)
+posts.sort((a, b) => {
+  const dateA = new Date(a.published_at || a.created_at).getTime();
+  const dateB = new Date(b.published_at || b.created_at).getTime();
+  return dateB - dateA;
+});
 ---
 
 <Layout title="Blog" description={`Buying guides and updates from ${siteName}.`}>
@@ -25,25 +50,48 @@ const posts = [...blogPosts].sort((a, b) => new Date(b.publishedAt).getTime() - 
       <h1>Blog</h1>
       <p class="mt-3 text-gray-600 max-w-2xl">Practical guides and explanations to help you shop with confidence.</p>
 
-      <div class="mt-10 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {posts.map((post) => {
-          const author = getAuthor(post.authorSlug);
-          return (
-            <article class="card p-5">
-              <a href={`/blog/${post.slug}`} class="block">
-                <h2 class="text-xl font-display font-bold text-gray-900">{post.title}</h2>
-                <p class="mt-2 text-sm text-gray-600">{post.description}</p>
-              </a>
-              <div class="mt-4 flex items-center justify-between gap-3">
-                <div class="text-sm text-gray-600">
-                  {author ? <a class="hover:text-primary-600" href={`/author/${author.slug}`}>{author.name}</a> : 'Editorial'}
+      {error && (
+        <div class="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          {error}
+        </div>
+      )}
+
+      {!error && posts.length === 0 && (
+        <div class="mt-10 text-center text-gray-500">
+          <p>No blog posts yet. Check back soon!</p>
+        </div>
+      )}
+
+      {!error && posts.length > 0 && (
+        <div class="mt-10 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {posts.map((post) => {
+            const author = post.author;
+            const publishedAt = post.published_at || post.created_at;
+            const updatedAt = post.updated_at;
+            
+            return (
+              <article class="card p-5">
+                <a href={`/blog/${post.slug}`} class="block">
+                  <h2 class="text-xl font-display font-bold text-gray-900">{post.title || 'Untitled'}</h2>
+                  <p class="mt-2 text-sm text-gray-600">{post.meta_description || ''}</p>
+                </a>
+                <div class="mt-4 flex items-center justify-between gap-3">
+                  <div class="text-sm text-gray-600">
+                    {author ? (
+                      <a class="hover:text-primary-600" href={`/author/${author.slug}`}>
+                        {author.name}
+                      </a>
+                    ) : (
+                      'Editorial'
+                    )}
+                  </div>
+                  <PublishDate publishedAt={publishedAt} updatedAt={updatedAt} />
                 </div>
-                <PublishDate publishedAt={post.publishedAt} updatedAt={post.updatedAt} />
-              </div>
-            </article>
-          );
-        })}
-      </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
     </section>
   </main>
 </Layout>

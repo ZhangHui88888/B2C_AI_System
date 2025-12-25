@@ -1,0 +1,377 @@
+---
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { supabase } from '@lib/supabase';
+
+const page = parseInt(Astro.url.searchParams.get('page') || '1');
+const status = Astro.url.searchParams.get('status') || '';
+const limit = 20;
+const offset = (page - 1) * limit;
+
+let query = supabase
+  .from('coupons')
+  .select('*', { count: 'exact' })
+  .order('created_at', { ascending: false })
+  .range(offset, offset + limit - 1);
+
+if (status) {
+  query = query.eq('status', status);
+}
+
+const { data: coupons, count } = await query;
+const totalPages = Math.ceil((count || 0) / limit);
+
+const statusOptions = [
+  { value: '', label: 'All Status' },
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+  { value: 'expired', label: 'Expired' },
+];
+
+const typeLabels: Record<string, string> = {
+  percentage: '% Off',
+  fixed_amount: '$ Off',
+  free_shipping: 'Free Shipping',
+};
+---
+
+<AdminLayout title="Coupons" activePage="coupons">
+  <div class="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div>
+      <p class="text-sm text-gray-500">{count || 0} total coupons</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <select id="status-filter" class="text-sm border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500">
+        {statusOptions.map((opt) => (
+          <option value={opt.value} selected={status === opt.value}>{opt.label}</option>
+        ))}
+      </select>
+      <button id="add-coupon-btn" class="inline-flex items-center px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+        </svg>
+        Add Coupon
+      </button>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Discount</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usage</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valid Until</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-200">
+        {coupons && coupons.length > 0 ? (
+          coupons.map((coupon) => {
+            const isExpired = coupon.expires_at && new Date(coupon.expires_at) < new Date();
+            return (
+              <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="font-mono text-sm font-medium text-gray-900 bg-gray-100 px-2 py-1 rounded inline-block">
+                    {coupon.code}
+                  </div>
+                  {coupon.description && (
+                    <div class="text-xs text-gray-500 mt-1">{coupon.description}</div>
+                  )}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm font-medium text-gray-900">
+                    {coupon.type === 'percentage' && `${coupon.value}% off`}
+                    {coupon.type === 'fixed_amount' && `$${coupon.value} off`}
+                    {coupon.type === 'free_shipping' && 'Free Shipping'}
+                  </div>
+                  {coupon.min_order_amount > 0 && (
+                    <div class="text-xs text-gray-500">Min. ${coupon.min_order_amount}</div>
+                  )}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {coupon.usage_count}{coupon.usage_limit ? ` / ${coupon.usage_limit}` : ' / ∞'}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {coupon.expires_at ? new Date(coupon.expires_at).toLocaleDateString() : 'No expiry'}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span class={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                    isExpired ? 'bg-red-100 text-red-800' :
+                    coupon.status === 'active' ? 'bg-green-100 text-green-800' :
+                    coupon.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {isExpired ? 'Expired' : coupon.status}
+                  </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <button class="text-primary-600 hover:text-primary-900 mr-3 edit-btn" data-coupon={JSON.stringify(coupon)}>Edit</button>
+                  <button class="text-red-600 hover:text-red-900 delete-btn" data-id={coupon.id}>Delete</button>
+                </td>
+              </tr>
+            );
+          })
+        ) : (
+          <tr>
+            <td colspan="6" class="px-6 py-8 text-center text-gray-500">No coupons found</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+
+  {totalPages > 1 && (
+    <div class="mt-6 flex items-center justify-between">
+      <div class="text-sm text-gray-500">Page {page} of {totalPages}</div>
+      <div class="flex gap-2">
+        {page > 1 && (
+          <a href={`/admin/coupons?page=${page - 1}${status ? `&status=${status}` : ''}`} class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Previous</a>
+        )}
+        {page < totalPages && (
+          <a href={`/admin/coupons?page=${page + 1}${status ? `&status=${status}` : ''}`} class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Next</a>
+        )}
+      </div>
+    </div>
+  )}
+
+  <!-- Coupon Modal -->
+  <div id="coupon-modal" class="fixed inset-0 z-50 hidden">
+    <div class="fixed inset-0 bg-black/50" id="modal-backdrop"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto">
+      <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <h3 id="modal-title" class="text-lg font-medium text-gray-900">Add Coupon</h3>
+          <button id="close-modal" class="text-gray-400 hover:text-gray-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <form id="coupon-form" class="p-6 space-y-4">
+          <input type="hidden" name="id" value="" />
+          
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Coupon Code *</label>
+              <input type="text" name="code" required class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500 uppercase" placeholder="SAVE20" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select name="status" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500">
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <input type="text" name="description" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="20% off your order" />
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Discount Type *</label>
+              <select name="type" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500">
+                <option value="percentage">Percentage (%)</option>
+                <option value="fixed_amount">Fixed Amount ($)</option>
+                <option value="free_shipping">Free Shipping</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Discount Value *</label>
+              <input type="number" name="value" required step="0.01" min="0" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="20" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Min Order Amount</label>
+              <input type="number" name="min_order_amount" step="0.01" min="0" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="0" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Max Discount (for %)</label>
+              <input type="number" name="max_discount_amount" step="0.01" min="0" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="No limit" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Total Usage Limit</label>
+              <input type="number" name="usage_limit" min="0" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="Unlimited" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Per Customer Limit</label>
+              <input type="number" name="usage_limit_per_customer" min="1" value="1" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input type="datetime-local" name="starts_at" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
+              <input type="datetime-local" name="expires_at" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" />
+            </div>
+          </div>
+
+          <div class="flex items-center gap-4 pt-2">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" name="first_order_only" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+              <span class="text-sm text-gray-700">First order only</span>
+            </label>
+          </div>
+
+          <div class="flex gap-3 pt-4 border-t">
+            <button type="button" id="cancel-btn" class="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
+            <button type="submit" class="flex-1 px-4 py-2 text-white bg-primary-600 rounded-lg hover:bg-primary-700">Save Coupon</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg transform translate-y-full opacity-0 transition-all duration-300 z-50"></div>
+
+  <script>
+    const API_URL = import.meta.env.PUBLIC_API_URL || '';
+    const modal = document.getElementById('coupon-modal');
+    const form = document.getElementById('coupon-form') as HTMLFormElement;
+    const modalTitle = document.getElementById('modal-title');
+    const toast = document.getElementById('toast');
+
+    function showToast(message: string, type = 'success') {
+      if (!toast) return;
+      toast.textContent = message;
+      toast.className = `fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 z-50 ${
+        type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+      }`;
+      toast.style.transform = 'translateY(0)';
+      toast.style.opacity = '1';
+      setTimeout(() => {
+        toast.style.transform = 'translateY(100%)';
+        toast.style.opacity = '0';
+      }, 3000);
+    }
+
+    function openModal(coupon?: any) {
+      form.reset();
+      if (coupon) {
+        modalTitle!.textContent = 'Edit Coupon';
+        (form.elements.namedItem('id') as HTMLInputElement).value = coupon.id;
+        (form.elements.namedItem('code') as HTMLInputElement).value = coupon.code;
+        (form.elements.namedItem('description') as HTMLInputElement).value = coupon.description || '';
+        (form.elements.namedItem('type') as HTMLSelectElement).value = coupon.type;
+        (form.elements.namedItem('value') as HTMLInputElement).value = coupon.value;
+        (form.elements.namedItem('status') as HTMLSelectElement).value = coupon.status;
+        (form.elements.namedItem('min_order_amount') as HTMLInputElement).value = coupon.min_order_amount || '';
+        (form.elements.namedItem('max_discount_amount') as HTMLInputElement).value = coupon.max_discount_amount || '';
+        (form.elements.namedItem('usage_limit') as HTMLInputElement).value = coupon.usage_limit || '';
+        (form.elements.namedItem('usage_limit_per_customer') as HTMLInputElement).value = coupon.usage_limit_per_customer || '1';
+        if (coupon.starts_at) {
+          (form.elements.namedItem('starts_at') as HTMLInputElement).value = new Date(coupon.starts_at).toISOString().slice(0, 16);
+        }
+        if (coupon.expires_at) {
+          (form.elements.namedItem('expires_at') as HTMLInputElement).value = new Date(coupon.expires_at).toISOString().slice(0, 16);
+        }
+        (form.elements.namedItem('first_order_only') as HTMLInputElement).checked = coupon.first_order_only;
+      } else {
+        modalTitle!.textContent = 'Add Coupon';
+      }
+      modal?.classList.remove('hidden');
+    }
+
+    function closeModal() {
+      modal?.classList.add('hidden');
+    }
+
+    // Event listeners
+    document.getElementById('add-coupon-btn')?.addEventListener('click', () => openModal());
+    document.getElementById('close-modal')?.addEventListener('click', closeModal);
+    document.getElementById('cancel-btn')?.addEventListener('click', closeModal);
+    document.getElementById('modal-backdrop')?.addEventListener('click', closeModal);
+
+    // Status filter
+    document.getElementById('status-filter')?.addEventListener('change', (e) => {
+      const value = (e.target as HTMLSelectElement).value;
+      window.location.href = `/admin/coupons${value ? `?status=${value}` : ''}`;
+    });
+
+    // Edit buttons
+    document.querySelectorAll('.edit-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const coupon = JSON.parse((btn as HTMLElement).dataset.coupon || '{}');
+        openModal(coupon);
+      });
+    });
+
+    // Delete buttons
+    document.querySelectorAll('.delete-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = (btn as HTMLElement).dataset.id;
+        if (!confirm('Delete this coupon?')) return;
+        
+        try {
+          const res = await fetch(`${API_URL}/api/admin/coupons/${id}`, { method: 'DELETE' });
+          if (res.ok) {
+            showToast('Coupon deleted');
+            setTimeout(() => window.location.reload(), 500);
+          } else {
+            showToast('Failed to delete coupon', 'error');
+          }
+        } catch {
+          showToast('Failed to delete coupon', 'error');
+        }
+      });
+    });
+
+    // Form submission
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+      const id = formData.get('id');
+      
+      const data: Record<string, any> = {
+        code: (formData.get('code') as string).toUpperCase(),
+        description: formData.get('description') || null,
+        type: formData.get('type'),
+        value: parseFloat(formData.get('value') as string),
+        status: formData.get('status'),
+        min_order_amount: parseFloat(formData.get('min_order_amount') as string) || 0,
+        max_discount_amount: formData.get('max_discount_amount') ? parseFloat(formData.get('max_discount_amount') as string) : null,
+        usage_limit: formData.get('usage_limit') ? parseInt(formData.get('usage_limit') as string) : null,
+        usage_limit_per_customer: parseInt(formData.get('usage_limit_per_customer') as string) || 1,
+        starts_at: formData.get('starts_at') || null,
+        expires_at: formData.get('expires_at') || null,
+        first_order_only: formData.get('first_order_only') === 'on',
+      };
+
+      try {
+        const url = id ? `${API_URL}/api/admin/coupons/${id}` : `${API_URL}/api/admin/coupons`;
+        const method = id ? 'PUT' : 'POST';
+        
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+
+        const result = await res.json();
+        if (res.ok && result.success) {
+          showToast(id ? 'Coupon updated!' : 'Coupon created!');
+          closeModal();
+          setTimeout(() => window.location.reload(), 500);
+        } else {
+          showToast(result.error || 'Failed to save coupon', 'error');
+        }
+      } catch {
+        showToast('Failed to save coupon', 'error');
+      }
+    });
+  </script>
+</AdminLayout>

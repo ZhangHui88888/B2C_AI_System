@@ -2,28 +2,75 @@
 import Layout from '@layouts/Layout.astro';
 import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
 import PersonSchema from '@components/seo/PersonSchema.astro';
-import { authors, blogPosts, getAuthor } from '@lib/content';
+import { api } from '@lib/api';
 
 const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
 const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
 
 export async function getStaticPaths() {
-  return authors.map((a) => ({ params: { slug: a.slug } }));
+  // For static generation, we'll return empty array
+  // Pages will be generated on-demand with SSR
+  return [];
 }
 
 const { slug } = Astro.params;
-const author = slug ? getAuthor(slug) : undefined;
+
+// Fetch author from API
+let author: any = null;
+let posts: any[] = [];
+let error: string | null = null;
+
+if (slug) {
+  try {
+    const response = await api.getAuthorBySlug(slug);
+    
+    if (response.success && response.data) {
+      // The API returns { data: [author] } for list endpoint with slug filter
+      const authors = response.data.data;
+      author = Array.isArray(authors) && authors.length > 0 ? authors[0] : response.data.data;
+      
+      // Fetch author's blog posts
+      if (author && author.id) {
+        const postsResponse = await api.getBlogPosts({
+          author_id: author.id,
+          status: 'published',
+          limit: 50
+        });
+        
+        if (postsResponse.success && postsResponse.data) {
+          posts = postsResponse.data.data || [];
+          // Sort by published date (newest first)
+          posts.sort((a, b) => {
+            const dateA = new Date(a.published_at || a.created_at).getTime();
+            const dateB = new Date(b.published_at || b.created_at).getTime();
+            return dateB - dateA;
+          });
+        }
+      }
+    } else {
+      error = response.error || 'Author not found';
+    }
+  } catch (e) {
+    console.error('Error fetching author:', e);
+    error = 'Failed to load author';
+  }
+}
 
 if (!author) {
   return Astro.redirect('/blog');
 }
 
 const authorUrl = new URL(`/author/${author.slug}`, siteUrl).toString();
-const sameAs = (author.socials || []).map((s) => s.url);
+const sameAs: string[] = [];
 
-const posts = blogPosts
-  .filter((p) => p.authorSlug === author.slug)
-  .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+// Build sameAs array from social_links
+if (author.social_links && typeof author.social_links === 'object') {
+  Object.values(author.social_links).forEach((url) => {
+    if (typeof url === 'string' && url) {
+      sameAs.push(url);
+    }
+  });
+}
 
 const breadcrumbItems = [
   { name: 'Home', url: siteUrl },
@@ -37,7 +84,7 @@ const breadcrumbItems = [
     <PersonSchema
       name={author.name}
       url={authorUrl}
-      image={author.avatar}
+      image={author.avatar_url}
       sameAs={sameAs}
       description={author.bio}
     />
@@ -47,8 +94,8 @@ const breadcrumbItems = [
     <section class="section">
       <div class="flex items-start gap-4">
         <div class="h-16 w-16 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center shrink-0">
-          {author.avatar ? (
-            <img src={author.avatar} alt={author.name} class="h-full w-full object-cover" />
+          {author.avatar_url ? (
+            <img src={author.avatar_url} alt={author.name} class="h-full w-full object-cover" />
           ) : (
             <span class="text-xl font-semibold text-gray-600">{author.name.slice(0, 1)}</span>
           )}
@@ -56,17 +103,24 @@ const breadcrumbItems = [
         <div>
           <h1 class="text-3xl">{author.name}</h1>
           {author.bio && <p class="mt-2 text-gray-600 max-w-2xl">{author.bio}</p>}
-          {(author.credentials || []).length > 0 && (
+          {author.credentials && author.credentials.length > 0 && (
             <div class="mt-4 flex flex-wrap gap-2">
-              {author.credentials?.map((c) => (
-                <span class="badge" >{c}</span>
+              {author.credentials.map((c: string) => (
+                <span class="badge">{c}</span>
               ))}
             </div>
           )}
-          {(author.socials || []).length > 0 && (
+          {author.social_links && Object.keys(author.social_links).length > 0 && (
             <div class="mt-4 flex flex-wrap gap-3 text-sm">
-              {author.socials?.map((s) => (
-                <a class="text-primary-600 hover:text-primary-700" href={s.url} target="_blank" rel="noreferrer">{s.label}</a>
+              {Object.entries(author.social_links).map(([platform, url]) => (
+                <a 
+                  class="text-primary-600 hover:text-primary-700" 
+                  href={url as string} 
+                  target="_blank" 
+                  rel="noreferrer"
+                >
+                  {platform.charAt(0).toUpperCase() + platform.slice(1)}
+                </a>
               ))}
             </div>
           )}
@@ -82,9 +136,9 @@ const breadcrumbItems = [
             {posts.map((p) => (
               <article class="card p-5">
                 <a href={`/blog/${p.slug}`} class="block">
-                  <div class="text-sm text-gray-500">{p.category || 'Blog'}</div>
+                  <div class="text-sm text-gray-500">Blog</div>
                   <div class="mt-1 text-lg font-semibold text-gray-900">{p.title}</div>
-                  <div class="mt-2 text-sm text-gray-600">{p.description}</div>
+                  <div class="mt-2 text-sm text-gray-600">{p.meta_description || ''}</div>
                 </a>
               </article>
             ))}

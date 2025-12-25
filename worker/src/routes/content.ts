@@ -98,16 +98,41 @@ async function listContent(
   const type = url.searchParams.get('type') as ContentType | null;
   const platform = url.searchParams.get('platform') as Platform | null;
   const productId = url.searchParams.get('product_id');
+  const slug = url.searchParams.get('slug');
+  const status = url.searchParams.get('status');
+  const authorId = url.searchParams.get('author_id');
+
+  // If slug is provided, return single item
+  if (slug) {
+    let query = supabase
+      .from(Tables.CONTENT_LIBRARY)
+      .select('*, author:authors(id, name, slug, avatar_url, bio, credentials, social_links)')
+      .eq('brand_id', brandId)
+      .eq('slug', slug);
+
+    if (type) query = query.eq('type', type);
+    if (status) query = query.eq('status', status);
+
+    const { data, error } = await query.single();
+
+    if (error || !data) {
+      return errorResponse('Content not found', 404);
+    }
+
+    return jsonResponse({ success: true, data });
+  }
 
   let query = supabase
     .from(Tables.CONTENT_LIBRARY)
-    .select('id, type, product_id, content, platform, status, created_at, updated_at', { count: 'exact' })
+    .select('id, type, product_id, content, platform, status, title, meta_description, slug, author_id, created_at, updated_at, author:authors(id, name, slug, avatar_url)', { count: 'exact' })
     .eq('brand_id', brandId)
     .order('created_at', { ascending: false });
 
   if (type) query = query.eq('type', type);
   if (platform) query = query.eq('platform', platform);
   if (productId) query = query.eq('product_id', productId);
+  if (status) query = query.eq('status', status);
+  if (authorId) query = query.eq('author_id', authorId);
 
   const offset = (page - 1) * limit;
   query = query.range(offset, offset + limit - 1);

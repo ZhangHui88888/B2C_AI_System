@@ -1,37 +1,71 @@
 # Cloudflare Worker Configuration
+# DTC E-commerce API - Multi-brand Independent Store System
 name = "dtc-ecommerce-api"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
+
+# Worker limits
+# account_id = "your-account-id"  # Optional: specify account
 
 # Development settings
 [dev]
 port = 8787
 local_protocol = "http"
 
-# Environment variables (use `wrangler secret put` for secrets)
+# ============================================
+# Environment Variables
+# ============================================
+# Non-sensitive variables can be set here
+# Sensitive variables should use: wrangler secret put <KEY>
 [vars]
 ENVIRONMENT = "development"
-SUPABASE_URL = "https://itjxmxuipgdpmuyhyunu.supabase.co"
 DEFAULT_BRAND_SLUG = "techgear"
-# SUPABASE_SERVICE_KEY = "在这里填入你的 service_role 密钥，或使用 wrangler secret put"
 
-# Vectorize binding for AI knowledge base (configure after creating index)
-# [[vectorize]]
-# binding = "KNOWLEDGE_VECTORIZE"
-# index_name = "dtc-knowledge-base"
+# ============================================
+# Required Secrets (use wrangler secret put)
+# ============================================
+# SUPABASE_URL = "https://xxx.supabase.co"
+# SUPABASE_SERVICE_KEY = "eyJ..."
+# STRIPE_SECRET_KEY = "sk_live_..."
+# STRIPE_WEBHOOK_SECRET = "whsec_..."
+# RESEND_API_KEY = "re_..."
+# DEEPSEEK_API_KEY = "sk-..."
 
-# KV namespace for caching (optional)
+# ============================================
+# KV Namespace for Caching
+# ============================================
+# Create with: wrangler kv:namespace create "CACHE"
 # [[kv_namespaces]]
 # binding = "CACHE"
 # id = "your-kv-namespace-id"
 
-# Production environment
+# ============================================
+# Production Environment
+# ============================================
 [env.production]
 name = "dtc-ecommerce-api"
 vars = { ENVIRONMENT = "production" }
+# routes = [
+#   { pattern = "api.yourdomain.com/*", zone_name = "yourdomain.com" }
+# ]
 
-# Staging environment
+# Production KV (create separate namespace for prod)
+# [[env.production.kv_namespaces]]
+# binding = "CACHE"
+# id = "your-prod-kv-namespace-id"
+
+# ============================================
+# Staging Environment
+# ============================================
 [env.staging]
 name = "dtc-ecommerce-api-staging"
 vars = { ENVIRONMENT = "staging" }
+
+# ============================================
+# Custom Domains (configure after deployment)
+# ============================================
+# routes = [
+#   { pattern = "api.brand1.com/*", zone_name = "brand1.com" },
+#   { pattern = "api.brand2.com/*", zone_name = "brand2.com" }
+# ]

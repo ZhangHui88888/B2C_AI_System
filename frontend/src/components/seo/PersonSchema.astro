@@ -5,11 +5,41 @@ export interface Props {
   image?: string;
   sameAs?: string[];
   description?: string;
+  jobTitle?: string;
+  worksFor?: {
+    name: string;
+    url?: string;
+  };
+  email?: string;
+  telephone?: string;
+  address?: {
+    addressLocality?: string;
+    addressRegion?: string;
+    addressCountry?: string;
+  };
+  alumniOf?: string;
+  award?: string[];
+  knowsAbout?: string[];
 }
 
-const { name, url, image, sameAs = [], description } = Astro.props;
+const {
+  name,
+  url,
+  image,
+  sameAs = [],
+  description,
+  jobTitle,
+  worksFor,
+  email,
+  telephone,
+  address,
+  alumniOf,
+  award,
+  knowsAbout,
+} = Astro.props;
 
-const jsonLd = {
+// Build the Person Schema JSON-LD with enhanced properties
+const jsonLd: Record<string, any> = {
   '@context': 'https://schema.org',
   '@type': 'Person',
   name,
@@ -17,7 +47,45 @@ const jsonLd = {
   image: image || undefined,
   sameAs: sameAs.length ? sameAs : undefined,
   description: description || undefined,
+  jobTitle: jobTitle || undefined,
+  email: email || undefined,
+  telephone: telephone || undefined,
 };
+
+// Add worksFor organization if provided
+if (worksFor) {
+  jsonLd.worksFor = {
+    '@type': 'Organization',
+    name: worksFor.name,
+    url: worksFor.url || undefined,
+  };
+}
+
+// Add address if provided
+if (address && (address.addressLocality || address.addressRegion || address.addressCountry)) {
+  jsonLd.address = {
+    '@type': 'PostalAddress',
+    addressLocality: address.addressLocality || undefined,
+    addressRegion: address.addressRegion || undefined,
+    addressCountry: address.addressCountry || undefined,
+  };
+}
+
+// Add additional properties
+if (alumniOf) {
+  jsonLd.alumniOf = {
+    '@type': 'Organization',
+    name: alumniOf,
+  };
+}
+
+if (award && award.length > 0) {
+  jsonLd.award = award;
+}
+
+if (knowsAbout && knowsAbout.length > 0) {
+  jsonLd.knowsAbout = knowsAbout;
+}
 ---
 
-<script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
+<script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />

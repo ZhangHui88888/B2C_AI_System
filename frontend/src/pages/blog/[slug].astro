@@ -6,23 +6,45 @@ import AuthorInfo from '@components/geo/AuthorInfo.astro';
 import PublishDate from '@components/geo/PublishDate.astro';
 import Summary from '@components/geo/Summary.astro';
 import DefinitionParagraph from '@components/geo/DefinitionParagraph.astro';
-import { blogPosts, getPost, getAuthor } from '@lib/content';
+import { api } from '@lib/api';
 
 const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
 const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
 
 export async function getStaticPaths() {
-  return blogPosts.map((p) => ({ params: { slug: p.slug } }));
+  // For static generation, we'll return empty array
+  // Pages will be generated on-demand with SSR
+  return [];
 }
 
 const { slug } = Astro.params;
-const post = slug ? getPost(slug) : undefined;
+
+// Fetch blog post from API
+let post: any = null;
+let error: string | null = null;
+
+if (slug) {
+  try {
+    const response = await api.getBlogPostBySlug(slug);
+    
+    if (response.success && response.data) {
+      // The API returns { data: [post] } for list endpoint
+      const posts = response.data.data;
+      post = Array.isArray(posts) && posts.length > 0 ? posts[0] : response.data.data;
+    } else {
+      error = response.error || 'Blog post not found';
+    }
+  } catch (e) {
+    console.error('Error fetching blog post:', e);
+    error = 'Failed to load blog post';
+  }
+}
 
 if (!post) {
   return Astro.redirect('/blog');
 }
 
-const author = getAuthor(post.authorSlug);
+const author = post.author;
 
 const breadcrumbItems = [
   { name: 'Home', url: siteUrl },
@@ -31,6 +53,8 @@ const breadcrumbItems = [
 ];
 
 const url = new URL(`/blog/${post.slug}`, siteUrl).toString();
+const publishedAt = post.published_at || post.created_at;
+const updatedAt = post.updated_at;
 
 function xmlEscape(s: string): string {
   return s
@@ -64,19 +88,20 @@ function renderMarkdown(md: string): string {
   return blocks.join('\n');
 }
 
-const contentHtml = renderMarkdown(post.content);
+const contentHtml = renderMarkdown(post.content || '');
+const summary = post.meta_description || '';
 ---
 
-<Layout title={post.title} description={post.description} image={post.heroImage}>
+<Layout title={post.title} description={summary} image={post.hero_image_url}>
   <Fragment slot="head">
     <BreadcrumbSchema items={breadcrumbItems} />
     <ArticleSchema
       headline={post.title}
-      description={post.description}
+      description={summary}
       url={url}
-      image={post.heroImage}
-      datePublished={post.publishedAt}
-      dateModified={post.updatedAt}
+      image={post.hero_image_url}
+      datePublished={publishedAt}
+      dateModified={updatedAt}
       authorName={author?.name}
     />
   </Fragment>
@@ -85,21 +110,30 @@ const contentHtml = renderMarkdown(post.content);
     <article class="section">
       <div class="max-w-3xl">
         <h1>{post.title}</h1>
-        <p class="mt-3 text-gray-600">{post.description}</p>
+        {summary && <p class="mt-3 text-gray-600">{summary}</p>}
 
         <div class="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          {author && <AuthorInfo author={{ name: author.name, slug: author.slug, avatar: author.avatar, bio: author.bio }} />}
-          <PublishDate publishedAt={post.publishedAt} updatedAt={post.updatedAt} />
+          {author && (
+            <AuthorInfo 
+              author={{ 
+                name: author.name, 
+                slug: author.slug, 
+                avatar: author.avatar_url, 
+                bio: author.bio 
+              }} 
+            />
+          )}
+          <PublishDate publishedAt={publishedAt} updatedAt={updatedAt} />
         </div>
 
-        {post.summary && (
+        {summary && (
           <div class="mt-8">
-            <Summary text={post.summary} />
+            <Summary text={summary} />
           </div>
         )}
 
         <div class="mt-8">
-          <DefinitionParagraph term={post.title} definition={post.summary || post.description} />
+          <DefinitionParagraph term={post.title} definition={summary || post.title} />
         </div>
 
         <div class="mt-10 prose prose-gray max-w-none">

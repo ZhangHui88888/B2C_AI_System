@@ -478,6 +478,44 @@ class ApiClient {
       body: JSON.stringify({ is_helpful: isHelpful }),
     });
   }
+
+  // Blog Posts (from content_library)
+  async getBlogPosts(params?: {
+    page?: number;
+    limit?: number;
+    status?: 'draft' | 'approved' | 'published';
+    author_id?: string;
+  }) {
+    const query = new URLSearchParams();
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.status) query.set('status', params.status);
+    if (params?.author_id) query.set('author_id', params.author_id);
+    query.set('type', 'blog');
+    const qs = query.toString();
+    return this.request<{
+      data: any[];
+      pagination: { page: number; limit: number; total: number; totalPages: number };
+    }>(`/api/content${qs ? `?${qs}` : ''}`);
+  }
+
+  async getBlogPost(id: string) {
+    return this.request<{ data: any }>(`/api/content/${id}`);
+  }
+
+  async getBlogPostBySlug(slug: string) {
+    const query = new URLSearchParams();
+    query.set('type', 'blog');
+    query.set('slug', slug);
+    query.set('status', 'published');
+    return this.request<{ data: any }>(`/api/content?${query.toString()}`);
+  }
+
+  async getAuthorBySlug(slug: string) {
+    const query = new URLSearchParams();
+    query.set('slug', slug);
+    return this.request<{ data: any }>(`/api/authors?${query.toString()}`);
+  }
 }
 
 export const api = new ApiClient(API_BASE_URL);

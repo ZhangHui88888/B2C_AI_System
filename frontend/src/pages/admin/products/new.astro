@@ -1,0 +1,553 @@
+---
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { supabase } from '@lib/supabase';
+
+// Get default brand (first active brand for now)
+const { data: brands } = await supabase
+  .from('brands')
+  .select('id')
+  .eq('is_active', true)
+  .limit(1);
+
+const defaultBrandId = brands?.[0]?.id || '';
+
+// Fetch categories for dropdown
+const { data: categories } = await supabase
+  .from('categories')
+  .select('id, name, slug, parent_id')
+  .eq('is_active', true)
+  .order('name');
+---
+
+<AdminLayout title="New Product" activePage="products">
+  <div class="max-w-4xl">
+    <!-- Header -->
+    <div class="mb-6 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <a href="/admin/products" class="text-gray-500 hover:text-gray-700">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+        </a>
+        <h2 class="text-lg font-medium text-gray-900">New Product</h2>
+      </div>
+      <button type="submit" form="product-form" class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors">
+        Create Product
+      </button>
+    </div>
+
+    <form id="product-form" class="space-y-6">
+      <input type="hidden" name="brand_id" value={defaultBrandId} />
+
+      <!-- Basic Information -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h3 class="text-base font-medium text-gray-900 mb-4">Basic Information</h3>
+        
+        <div class="grid grid-cols-1 gap-6">
+          <div>
+            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Product Name *</label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              placeholder="Enter product name"
+            />
+          </div>
+
+          <div>
+            <label for="slug" class="block text-sm font-medium text-gray-700 mb-1">URL Slug *</label>
+            <div class="flex items-center">
+              <span class="text-gray-500 text-sm mr-2">/products/</span>
+              <input
+                type="text"
+                id="slug"
+                name="slug"
+                required
+                pattern="[a-z0-9-]+"
+                class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                placeholder="product-url-slug"
+              />
+            </div>
+            <p class="mt-1 text-xs text-gray-500">Only lowercase letters, numbers, and hyphens. Auto-generated from name.</p>
+          </div>
+
+          <div>
+            <label for="short_description" class="block text-sm font-medium text-gray-700 mb-1">Short Description</label>
+            <input
+              type="text"
+              id="short_description"
+              name="short_description"
+              maxlength="500"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              placeholder="Brief description for product listings"
+            />
+            <p class="mt-1 text-xs text-gray-500">Used in product listings (max 500 characters)</p>
+          </div>
+
+          <div>
+            <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Full Description</label>
+            <textarea
+              id="description"
+              name="description"
+              rows="6"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              placeholder="Detailed product description..."
+            ></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pricing -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h3 class="text-base font-medium text-gray-900 mb-4">Pricing</h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <label for="price" class="block text-sm font-medium text-gray-700 mb-1">Price *</label>
+            <div class="relative">
+              <span class="absolute left-3 top-2 text-gray-500">$</span>
+              <input
+                type="number"
+                id="price"
+                name="price"
+                required
+                min="0"
+                step="0.01"
+                class="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label for="compare_price" class="block text-sm font-medium text-gray-700 mb-1">Compare at Price</label>
+            <div class="relative">
+              <span class="absolute left-3 top-2 text-gray-500">$</span>
+              <input
+                type="number"
+                id="compare_price"
+                name="compare_price"
+                min="0"
+                step="0.01"
+                class="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                placeholder="0.00"
+              />
+            </div>
+            <p class="mt-1 text-xs text-gray-500">Original price for showing discount</p>
+          </div>
+
+          <div>
+            <label for="cost" class="block text-sm font-medium text-gray-700 mb-1">Cost</label>
+            <div class="relative">
+              <span class="absolute left-3 top-2 text-gray-500">$</span>
+              <input
+                type="number"
+                id="cost"
+                name="cost"
+                min="0"
+                step="0.01"
+                class="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                placeholder="0.00"
+              />
+            </div>
+            <p class="mt-1 text-xs text-gray-500">For profit calculation (not shown to customers)</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Inventory -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h3 class="text-base font-medium text-gray-900 mb-4">Inventory</h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="stock_quantity" class="block text-sm font-medium text-gray-700 mb-1">Stock Quantity</label>
+            <input
+              type="number"
+              id="stock_quantity"
+              name="stock_quantity"
+              min="0"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              placeholder="Leave empty for unlimited"
+            />
+            <p class="mt-1 text-xs text-gray-500">Leave empty for unlimited stock</p>
+          </div>
+
+          <div>
+            <label for="stock_status" class="block text-sm font-medium text-gray-700 mb-1">Stock Status</label>
+            <select
+              id="stock_status"
+              name="stock_status"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            >
+              <option value="in_stock" selected>In Stock</option>
+              <option value="low_stock">Low Stock</option>
+              <option value="out_of_stock">Out of Stock</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Images -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h3 class="text-base font-medium text-gray-900 mb-4">Images</h3>
+        
+        <div class="space-y-4">
+          <div>
+            <label for="main_image_url" class="block text-sm font-medium text-gray-700 mb-1">Main Image URL</label>
+            <input
+              type="url"
+              id="main_image_url"
+              name="main_image_url"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              placeholder="https://..."
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Additional Images</label>
+            <div id="images-container" class="space-y-2">
+              <div class="flex gap-2 image-row">
+                <input
+                  type="url"
+                  name="images[]"
+                  class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder="https://..."
+                />
+                <button type="button" class="remove-image px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <button type="button" id="add-image" class="mt-2 text-sm text-primary-600 hover:text-primary-700 font-medium">
+              + Add another image
+            </button>
+          </div>
+
+          <!-- Image Preview -->
+          <div id="image-preview" class="mt-4 hidden">
+            <p class="text-sm text-gray-500 mb-2">Preview:</p>
+            <img id="preview-img" src="" alt="Product preview" class="w-32 h-32 object-cover rounded-lg border" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Organization -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h3 class="text-base font-medium text-gray-900 mb-4">Organization</h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="category_id" class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+            <select
+              id="category_id"
+              name="category_id"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            >
+              <option value="">No category</option>
+              {categories?.map((cat: any) => (
+                <option value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div class="space-y-4">
+            <div class="flex items-center">
+              <input
+                type="checkbox"
+                id="is_active"
+                name="is_active"
+                checked
+                class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+              />
+              <label for="is_active" class="ml-2 block text-sm text-gray-700">Active (visible on store)</label>
+            </div>
+
+            <div class="flex items-center">
+              <input
+                type="checkbox"
+                id="is_featured"
+                name="is_featured"
+                class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+              />
+              <label for="is_featured" class="ml-2 block text-sm text-gray-700">Featured product</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shipping -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h3 class="text-base font-medium text-gray-900 mb-4">Shipping</h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="shipping_weight" class="block text-sm font-medium text-gray-700 mb-1">Weight (kg)</label>
+            <input
+              type="number"
+              id="shipping_weight"
+              name="shipping_weight"
+              min="0"
+              step="0.01"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              placeholder="0.00"
+            />
+          </div>
+
+          <div>
+            <label for="shipping_time" class="block text-sm font-medium text-gray-700 mb-1">Shipping Time</label>
+            <input
+              type="text"
+              id="shipping_time"
+              name="shipping_time"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              placeholder="e.g., 3-5 business days"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- SEO -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h3 class="text-base font-medium text-gray-900 mb-4">SEO</h3>
+        
+        <div class="space-y-4">
+          <div>
+            <label for="seo_title" class="block text-sm font-medium text-gray-700 mb-1">Meta Title</label>
+            <input
+              type="text"
+              id="seo_title"
+              name="seo_title"
+              maxlength="60"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              placeholder="SEO-optimized title"
+            />
+            <p class="mt-1 text-xs text-gray-500">
+              <span id="seo_title_count">0</span>/60 characters
+            </p>
+          </div>
+
+          <div>
+            <label for="seo_description" class="block text-sm font-medium text-gray-700 mb-1">Meta Description</label>
+            <textarea
+              id="seo_description"
+              name="seo_description"
+              rows="3"
+              maxlength="160"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              placeholder="SEO-optimized description"
+            ></textarea>
+            <p class="mt-1 text-xs text-gray-500">
+              <span id="seo_description_count">0</span>/160 characters
+            </p>
+          </div>
+
+          <!-- SEO Preview -->
+          <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+            <p class="text-xs text-gray-500 mb-2">Search preview:</p>
+            <div class="space-y-1">
+              <p id="seo-preview-title" class="text-lg text-blue-600 truncate">Product Title</p>
+              <p id="seo-preview-url" class="text-sm text-green-700 truncate">https://yourstore.com/products/product-slug</p>
+              <p id="seo-preview-description" class="text-sm text-gray-600 line-clamp-2">No description</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Supplier Info -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h3 class="text-base font-medium text-gray-900 mb-4">Supplier Information</h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="supplier_name" class="block text-sm font-medium text-gray-700 mb-1">Supplier Name</label>
+            <input
+              type="text"
+              id="supplier_name"
+              name="supplier_name"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            />
+          </div>
+
+          <div>
+            <label for="supplier_url" class="block text-sm font-medium text-gray-700 mb-1">Supplier URL</label>
+            <input
+              type="url"
+              id="supplier_url"
+              name="supplier_url"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              placeholder="https://..."
+            />
+          </div>
+
+          <div>
+            <label for="supplier_sku" class="block text-sm font-medium text-gray-700 mb-1">Supplier SKU</label>
+            <input
+              type="text"
+              id="supplier_sku"
+              name="supplier_sku"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Form Actions (Mobile) -->
+      <div class="flex gap-3 lg:hidden">
+        <a href="/admin/products" class="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors text-center">
+          Cancel
+        </a>
+        <button type="submit" class="flex-1 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors">
+          Create Product
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg transform translate-y-full opacity-0 transition-all duration-300 z-50"></div>
+
+  <script>
+    const form = document.getElementById('product-form');
+    const toast = document.getElementById('toast');
+
+    function showToast(message, type = 'success') {
+      toast.textContent = message;
+      toast.className = `fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 z-50 ${
+        type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+      }`;
+      toast.style.transform = 'translateY(0)';
+      toast.style.opacity = '1';
+      
+      setTimeout(() => {
+        toast.style.transform = 'translateY(100%)';
+        toast.style.opacity = '0';
+      }, 3000);
+    }
+
+    // Auto-generate slug from name
+    document.getElementById('name')?.addEventListener('input', (e) => {
+      const slugInput = document.getElementById('slug');
+      if (slugInput && !slugInput.dataset.manuallyEdited) {
+        const slug = e.target.value
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '');
+        slugInput.value = slug;
+        document.getElementById('seo-preview-url').textContent = `https://yourstore.com/products/${slug || 'product-slug'}`;
+      }
+      document.getElementById('seo-preview-title').textContent = e.target.value || 'Product Title';
+    });
+
+    document.getElementById('slug')?.addEventListener('input', (e) => {
+      e.target.dataset.manuallyEdited = 'true';
+      document.getElementById('seo-preview-url').textContent = `https://yourstore.com/products/${e.target.value || 'product-slug'}`;
+    });
+
+    // SEO character count
+    document.getElementById('seo_title')?.addEventListener('input', (e) => {
+      document.getElementById('seo_title_count').textContent = e.target.value.length;
+      if (e.target.value) {
+        document.getElementById('seo-preview-title').textContent = e.target.value;
+      }
+    });
+
+    document.getElementById('seo_description')?.addEventListener('input', (e) => {
+      document.getElementById('seo_description_count').textContent = e.target.value.length;
+      document.getElementById('seo-preview-description').textContent = e.target.value || 'No description';
+    });
+
+    // Image preview
+    document.getElementById('main_image_url')?.addEventListener('input', (e) => {
+      const preview = document.getElementById('image-preview');
+      const img = document.getElementById('preview-img');
+      if (e.target.value) {
+        img.src = e.target.value;
+        preview.classList.remove('hidden');
+      } else {
+        preview.classList.add('hidden');
+      }
+    });
+
+    // Add image row
+    document.getElementById('add-image')?.addEventListener('click', () => {
+      const container = document.getElementById('images-container');
+      const row = document.createElement('div');
+      row.className = 'flex gap-2 image-row';
+      row.innerHTML = `
+        <input type="url" name="images[]" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="https://..." />
+        <button type="button" class="remove-image px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      `;
+      container.appendChild(row);
+    });
+
+    // Remove image row (event delegation)
+    document.getElementById('images-container')?.addEventListener('click', (e) => {
+      if (e.target.closest('.remove-image')) {
+        e.target.closest('.image-row').remove();
+      }
+    });
+
+    // Form submission
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const formData = new FormData(form);
+      const data = {
+        brand_id: formData.get('brand_id'),
+        name: formData.get('name'),
+        slug: formData.get('slug'),
+        description: formData.get('description') || null,
+        short_description: formData.get('short_description') || null,
+        price: parseFloat(formData.get('price')) || 0,
+        compare_price: formData.get('compare_price') ? parseFloat(formData.get('compare_price')) : null,
+        cost: formData.get('cost') ? parseFloat(formData.get('cost')) : null,
+        stock_quantity: formData.get('stock_quantity') ? parseInt(formData.get('stock_quantity')) : null,
+        stock_status: formData.get('stock_status'),
+        main_image_url: formData.get('main_image_url') || null,
+        images: formData.getAll('images[]').filter(url => url),
+        category_id: formData.get('category_id') || null,
+        is_active: formData.has('is_active'),
+        is_featured: formData.has('is_featured'),
+        shipping_weight: formData.get('shipping_weight') ? parseFloat(formData.get('shipping_weight')) : null,
+        shipping_time: formData.get('shipping_time') || null,
+        seo_title: formData.get('seo_title') || null,
+        seo_description: formData.get('seo_description') || null,
+        supplier_info: {
+          name: formData.get('supplier_name') || null,
+          url: formData.get('supplier_url') || null,
+          sku: formData.get('supplier_sku') || null,
+        },
+      };
+
+      try {
+        const res = await fetch('/api/admin/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+
+        const result = await res.json();
+
+        if (res.ok && result.success) {
+          showToast('Product created successfully!', 'success');
+          setTimeout(() => {
+            window.location.href = `/admin/products/${result.product.id}`;
+          }, 1000);
+        } else {
+          showToast(result.error || 'Failed to create product', 'error');
+        }
+      } catch (err) {
+        showToast('Failed to create product', 'error');
+      }
+    });
+  </script>
+</AdminLayout>

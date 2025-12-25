@@ -75,6 +75,46 @@ async function listAuthors(
   const page = parseInt(url.searchParams.get('page') || '1');
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100);
   const activeOnly = url.searchParams.get('active') !== 'false';
+  const slug = url.searchParams.get('slug');
+
+  // If slug is provided, return single author
+  if (slug) {
+    const { data, error } = await supabase
+      .from(Tables.AUTHORS)
+      .select('*')
+      .eq('brand_id', brandId)
+      .eq('slug', slug)
+      .single();
+
+    if (error || !data) {
+      return errorResponse('Author not found', 404);
+    }
+
+    // Get author's content count
+    const { data: contentStats } = await supabase
+      .from(Tables.CONTENT_LIBRARY)
+      .select('type, status')
+      .eq('author_id', data.id);
+
+    const stats = {
+      total: contentStats?.length || 0,
+      byType: {} as Record<string, number>,
+      byStatus: {} as Record<string, number>,
+    };
+
+    contentStats?.forEach((item: any) => {
+      stats.byType[item.type] = (stats.byType[item.type] || 0) + 1;
+      stats.byStatus[item.status] = (stats.byStatus[item.status] || 0) + 1;
+    });
+
+    return jsonResponse({
+      success: true,
+      data: {
+        ...data,
+        contentStats: stats,
+      },
+    });
+  }
 
   let query = supabase
     .from(Tables.AUTHORS)

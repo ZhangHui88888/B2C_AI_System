@@ -119,10 +119,32 @@ const breadcrumbItems = [
             <div id="co-items" class="mt-4 space-y-3"></div>
             <div id="co-empty" class="hidden mt-6 text-gray-600">Your cart is empty.</div>
 
-            <div class="mt-6 border-t border-gray-200 pt-4 space-y-2 text-sm">
+            <!-- Coupon Code -->
+            <div class="mt-4 pt-4 border-t border-gray-200">
+              <div class="flex gap-2">
+                <input type="text" id="coupon-input" placeholder="Coupon code" class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500 uppercase" />
+                <button type="button" id="apply-coupon" class="px-4 py-2 text-sm font-medium text-primary-600 border border-primary-600 rounded-lg hover:bg-primary-50 transition-colors">Apply</button>
+              </div>
+              <div id="coupon-message" class="hidden mt-2 text-sm"></div>
+              <div id="coupon-applied" class="hidden mt-2 flex items-center justify-between text-sm">
+                <div class="flex items-center gap-2">
+                  <span class="text-green-600 font-medium" id="coupon-code-display"></span>
+                  <button type="button" id="remove-coupon" class="text-gray-400 hover:text-red-500">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+                <span class="text-green-600 font-medium" id="coupon-discount">-$0.00</span>
+              </div>
+            </div>
+
+            <div class="mt-4 border-t border-gray-200 pt-4 space-y-2 text-sm">
               <div class="flex items-center justify-between">
                 <span class="text-gray-600">Subtotal</span>
                 <span id="co-subtotal" class="font-semibold text-gray-900">$0.00</span>
+              </div>
+              <div id="discount-row" class="hidden flex items-center justify-between text-green-600">
+                <span>Discount</span>
+                <span id="co-discount">-$0.00</span>
               </div>
               <div class="flex items-center justify-between">
                 <span class="text-gray-600">Shipping</span>
@@ -163,6 +185,19 @@ const breadcrumbItems = [
     const payNowBtn = document.getElementById('pay-now');
     const paymentStatusEl = document.getElementById('payment-status');
 
+    // Coupon elements
+    const couponInput = document.getElementById('coupon-input') as HTMLInputElement;
+    const applyCouponBtn = document.getElementById('apply-coupon');
+    const couponMessage = document.getElementById('coupon-message');
+    const couponApplied = document.getElementById('coupon-applied');
+    const couponCodeDisplay = document.getElementById('coupon-code-display');
+    const couponDiscountEl = document.getElementById('coupon-discount');
+    const removeCouponBtn = document.getElementById('remove-coupon');
+    const discountRow = document.getElementById('discount-row');
+    const coDiscountEl = document.getElementById('co-discount');
+
+    let appliedCoupon: { code: string; coupon_id: string; discount_amount: number; discount_type: string } | null = null;
+
     const stripePk = import.meta.env.PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
     const stripeReturnBase = import.meta.env.PUBLIC_SITE_URL || window.location.origin;
 
@@ -201,8 +236,20 @@ const breadcrumbItems = [
       if (!itemsEl || !subtotalEl || !totalEl || !emptyEl) return;
 
       const cart = getCart();
-      subtotalEl.textContent = formatPrice(cart.subtotal);
-      totalEl.textContent = formatPrice(cart.subtotal);
+      const subtotal = cart.subtotal;
+      const discount = appliedCoupon?.discount_amount || 0;
+      const total = Math.max(0, subtotal - discount);
+
+      subtotalEl.textContent = formatPrice(subtotal);
+      totalEl.textContent = formatPrice(total);
+
+      // Update discount display
+      if (discount > 0 && discountRow && coDiscountEl) {
+        discountRow.classList.remove('hidden');
+        coDiscountEl.textContent = `-${formatPrice(discount)}`;
+      } else if (discountRow) {
+        discountRow.classList.add('hidden');
+      }
 
       const isEmpty = cart.items.length === 0;
       if (submitBtn) {
@@ -252,7 +299,7 @@ const breadcrumbItems = [
         return;
       }
 
-      const orderData = {
+      const orderData: any = {
         customer: {
           email: payload.email,
           name: payload.name,
@@ -266,6 +313,13 @@ const breadcrumbItems = [
         },
         items: cart.items,
       };
+
+      // Add coupon if applied
+      if (appliedCoupon) {
+        orderData.coupon_id = appliedCoupon.coupon_id;
+        orderData.coupon_code = appliedCoupon.code;
+        orderData.discount_amount = appliedCoupon.discount_amount;
+      }
 
       const res = await api.createOrder(orderData);
 
@@ -394,5 +448,79 @@ const breadcrumbItems = [
     });
 
     renderSummary();
+
+    // Coupon functionality
+    async function applyCoupon() {
+      const code = couponInput?.value?.trim().toUpperCase();
+      if (!code) return;
+
+      const cart = getCart();
+      if (cart.items.length === 0) {
+        showCouponMessage('Add items to cart first', 'error');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${import.meta.env.PUBLIC_API_URL || ''}/api/coupons/validate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            code,
+            subtotal: cart.subtotal,
+            email: (document.getElementById('co-email') as HTMLInputElement)?.value || '',
+          }),
+        });
+
+        const res = await response.json();
+
+        if (res.success && res.valid) {
+          appliedCoupon = {
+            code,
+            coupon_id: res.coupon_id,
+            discount_amount: res.discount_amount,
+            discount_type: res.discount_type,
+          };
+          showCouponApplied();
+          renderSummary();
+        } else {
+          showCouponMessage(res.error || 'Invalid coupon code', 'error');
+        }
+      } catch {
+        showCouponMessage('Failed to validate coupon', 'error');
+      }
+    }
+
+    function removeCoupon() {
+      appliedCoupon = null;
+      if (couponInput) couponInput.value = '';
+      if (couponApplied) couponApplied.classList.add('hidden');
+      if (couponMessage) couponMessage.classList.add('hidden');
+      renderSummary();
+    }
+
+    function showCouponMessage(message: string, type: 'success' | 'error') {
+      if (!couponMessage) return;
+      couponMessage.textContent = message;
+      couponMessage.className = `mt-2 text-sm ${type === 'error' ? 'text-red-600' : 'text-green-600'}`;
+      couponMessage.classList.remove('hidden');
+      if (couponApplied) couponApplied.classList.add('hidden');
+    }
+
+    function showCouponApplied() {
+      if (!couponApplied || !appliedCoupon) return;
+      if (couponMessage) couponMessage.classList.add('hidden');
+      if (couponCodeDisplay) couponCodeDisplay.textContent = appliedCoupon.code;
+      if (couponDiscountEl) couponDiscountEl.textContent = `-${formatPrice(appliedCoupon.discount_amount)}`;
+      couponApplied.classList.remove('hidden');
+    }
+
+    applyCouponBtn?.addEventListener('click', applyCoupon);
+    couponInput?.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        applyCoupon();
+      }
+    });
+    removeCouponBtn?.addEventListener('click', removeCoupon);
   </script>
 </Layout>
