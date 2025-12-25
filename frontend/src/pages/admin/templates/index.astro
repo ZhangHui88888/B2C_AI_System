@@ -1,0 +1,385 @@
+---
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { supabase } from '@lib/supabase';
+
+// Get current brand from cookie
+const currentBrandId = Astro.cookies.get('brand_id')?.value;
+const isAllBrandsView = currentBrandId === 'all' || !currentBrandId;
+
+// Get all brands for reference
+const { data: brands } = await supabase
+  .from('brands')
+  .select('id, name, slug, logo_url')
+  .eq('is_active', true);
+
+// Get shared templates
+let templatesQuery = supabase
+  .from('shared_templates')
+  .select('*')
+  .order('created_at', { ascending: false });
+
+if (!isAllBrandsView && currentBrandId) {
+  // Show templates owned by this brand OR public templates OR templates shared with this brand
+  templatesQuery = templatesQuery.or(`owner_brand_id.eq.${currentBrandId},is_public.eq.true,allowed_brand_ids.cs.{${currentBrandId}}`);
+}
+
+const { data: templates } = await templatesQuery;
+
+// Enrich templates with brand info
+const enrichedTemplates = (templates || []).map(t => ({
+  ...t,
+  ownerBrand: brands?.find(b => b.id === t.owner_brand_id)
+}));
+
+const templateTypes: Record<string, { label: string; icon: string; color: string }> = {
+  email: { label: 'Email', icon: 'mail', color: 'bg-blue-100 text-blue-700' },
+  page: { label: 'Page', icon: 'file', color: 'bg-purple-100 text-purple-700' },
+  content: { label: 'Content', icon: 'edit', color: 'bg-green-100 text-green-700' },
+  script: { label: 'Script', icon: 'code', color: 'bg-orange-100 text-orange-700' }
+};
+---
+
+<AdminLayout title="Shared Templates" activePage="templates">
+  <div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="text-lg font-semibold text-gray-900">Shared Templates</h2>
+        <p class="text-sm text-gray-600">
+          {isAllBrandsView 
+            ? 'Manage templates across all brands' 
+            : 'Templates available to your brand'}
+        </p>
+      </div>
+      <button id="create-template-btn" class="inline-flex items-center px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+        </svg>
+        Create Template
+      </button>
+    </div>
+
+    <!-- Filter Tabs -->
+    <div class="border-b border-gray-200">
+      <nav class="flex space-x-8">
+        <button class="filter-tab active py-4 px-1 border-b-2 font-medium text-sm border-primary-500 text-primary-600" data-filter="all">
+          All Templates
+        </button>
+        <button class="filter-tab py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700" data-filter="email">
+          Email
+        </button>
+        <button class="filter-tab py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700" data-filter="page">
+          Page
+        </button>
+        <button class="filter-tab py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700" data-filter="content">
+          Content
+        </button>
+        <button class="filter-tab py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700" data-filter="script">
+          Script
+        </button>
+      </nav>
+    </div>
+
+    <!-- Templates Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="templates-grid">
+      {enrichedTemplates.length > 0 ? (
+        enrichedTemplates.map((template) => (
+          <div 
+            class="template-card bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow"
+            data-type={template.template_type}
+          >
+            <div class="p-5">
+              <div class="flex items-start justify-between mb-3">
+                <div class="flex items-center gap-2">
+                  <span class={`px-2 py-1 text-xs font-medium rounded-full ${templateTypes[template.template_type]?.color || 'bg-gray-100 text-gray-600'}`}>
+                    {templateTypes[template.template_type]?.label || template.template_type}
+                  </span>
+                  {template.is_public && (
+                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
+                      Public
+                    </span>
+                  )}
+                </div>
+                <span class="text-xs text-gray-400">Used {template.use_count || 0} times</span>
+              </div>
+              
+              <h3 class="font-semibold text-gray-900 mb-2">{template.name}</h3>
+              <p class="text-sm text-gray-600 line-clamp-2 mb-4">{template.description || 'No description'}</p>
+              
+              <div class="flex items-center justify-between pt-3 border-t border-gray-100">
+                <div class="flex items-center gap-2">
+                  {template.ownerBrand?.logo_url ? (
+                    <img src={template.ownerBrand.logo_url} alt="" class="w-5 h-5 rounded object-cover" />
+                  ) : (
+                    <div class="w-5 h-5 bg-primary-100 rounded flex items-center justify-center">
+                      <span class="text-xs font-bold text-primary-600">{template.ownerBrand?.name?.charAt(0) || '?'}</span>
+                    </div>
+                  )}
+                  <span class="text-xs text-gray-500">{template.ownerBrand?.name || 'Unknown'}</span>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                  <button 
+                    class="use-template-btn text-sm text-primary-600 hover:text-primary-700"
+                    data-id={template.id}
+                    data-content={JSON.stringify(template.content)}
+                  >
+                    Use
+                  </button>
+                  {(isAllBrandsView || template.owner_brand_id === currentBrandId) && (
+                    <>
+                      <button 
+                        class="edit-template-btn text-sm text-gray-600 hover:text-gray-700"
+                        data-template={JSON.stringify(template)}
+                      >
+                        Edit
+                      </button>
+                      <button 
+                        class="delete-template-btn text-sm text-red-600 hover:text-red-700"
+                        data-id={template.id}
+                        data-name={template.name}
+                      >
+                        Delete
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))
+      ) : (
+        <div class="col-span-full bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+          <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+            </svg>
+          </div>
+          <h3 class="text-lg font-medium text-gray-900 mb-1">No templates yet</h3>
+          <p class="text-gray-500 mb-4">Create your first template to share across brands</p>
+          <button id="create-template-empty-btn" class="inline-flex items-center px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700">
+            Create Template
+          </button>
+        </div>
+      )}
+    </div>
+  </div>
+
+  <!-- Create/Edit Template Modal -->
+  <div id="template-modal" class="fixed inset-0 z-50 hidden">
+    <div class="fixed inset-0 bg-black/50" id="modal-backdrop"></div>
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b border-gray-100">
+          <h3 id="modal-title" class="text-lg font-semibold text-gray-900">Create Template</h3>
+        </div>
+        
+        <form id="template-form" class="p-6 space-y-4">
+          <input type="hidden" id="template-id" />
+          
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Template Name *</label>
+              <input type="text" id="template-name" required class="w-full border-gray-300 rounded-lg" placeholder="Welcome Email" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Type *</label>
+              <select id="template-type" required class="w-full border-gray-300 rounded-lg">
+                <option value="email">Email</option>
+                <option value="page">Page</option>
+                <option value="content">Content</option>
+                <option value="script">Script</option>
+              </select>
+            </div>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <textarea id="template-description" rows="2" class="w-full border-gray-300 rounded-lg" placeholder="A brief description of this template"></textarea>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Content (JSON) *</label>
+            <textarea id="template-content" rows="10" required class="w-full border-gray-300 rounded-lg font-mono text-sm" placeholder='{"subject": "Welcome!", "body": "..."}'></textarea>
+            <p class="text-xs text-gray-500 mt-1">Template content in JSON format</p>
+          </div>
+          
+          <div class="flex items-center gap-6">
+            <div class="flex items-center">
+              <input type="checkbox" id="template-public" class="h-4 w-4 text-primary-600 rounded border-gray-300" />
+              <label for="template-public" class="ml-2 text-sm text-gray-700">Make public (available to all brands)</label>
+            </div>
+          </div>
+          
+          <div class="flex gap-3 pt-4">
+            <button type="button" id="cancel-btn" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+              Cancel
+            </button>
+            <button type="submit" class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+              Save Template
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script define:vars={{ currentBrandId, isAllBrandsView }}>
+    const API_URL = import.meta.env.PUBLIC_API_URL || '';
+    const modal = document.getElementById('template-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const form = document.getElementById('template-form');
+
+    // Filter tabs
+    document.querySelectorAll('.filter-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const filter = tab.dataset.filter;
+        
+        // Update active tab
+        document.querySelectorAll('.filter-tab').forEach(t => {
+          t.classList.remove('active', 'border-primary-500', 'text-primary-600');
+          t.classList.add('border-transparent', 'text-gray-500');
+        });
+        tab.classList.add('active', 'border-primary-500', 'text-primary-600');
+        tab.classList.remove('border-transparent', 'text-gray-500');
+        
+        // Filter cards
+        document.querySelectorAll('.template-card').forEach(card => {
+          const cardType = card.dataset.type;
+          if (filter === 'all' || cardType === filter) {
+            card.classList.remove('hidden');
+          } else {
+            card.classList.add('hidden');
+          }
+        });
+      });
+    });
+
+    function openModal(template = null) {
+      if (template) {
+        modalTitle.textContent = 'Edit Template';
+        document.getElementById('template-id').value = template.id;
+        document.getElementById('template-name').value = template.name;
+        document.getElementById('template-type').value = template.template_type;
+        document.getElementById('template-description').value = template.description || '';
+        document.getElementById('template-content').value = JSON.stringify(template.content, null, 2);
+        document.getElementById('template-public').checked = template.is_public;
+      } else {
+        modalTitle.textContent = 'Create Template';
+        form?.reset();
+        document.getElementById('template-id').value = '';
+        document.getElementById('template-content').value = '{\n  \n}';
+      }
+      modal?.classList.remove('hidden');
+    }
+
+    function closeModal() {
+      modal?.classList.add('hidden');
+    }
+
+    // Open modal buttons
+    document.getElementById('create-template-btn')?.addEventListener('click', () => openModal());
+    document.getElementById('create-template-empty-btn')?.addEventListener('click', () => openModal());
+    document.getElementById('cancel-btn')?.addEventListener('click', closeModal);
+    document.getElementById('modal-backdrop')?.addEventListener('click', closeModal);
+
+    // Edit buttons
+    document.querySelectorAll('.edit-template-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const template = JSON.parse(btn.dataset.template || '{}');
+        openModal(template);
+      });
+    });
+
+    // Delete buttons
+    document.querySelectorAll('.delete-template-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const name = btn.dataset.name;
+        
+        if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
+        
+        try {
+          const res = await fetch(`${API_URL}/api/admin/templates/${id}`, {
+            method: 'DELETE',
+          });
+          
+          if (res.ok) {
+            window.location.reload();
+          } else {
+            const data = await res.json();
+            alert(data.error || 'Failed to delete template');
+          }
+        } catch (err) {
+          alert('Failed to delete template');
+        }
+      });
+    });
+
+    // Use template buttons
+    document.querySelectorAll('.use-template-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const content = JSON.parse(btn.dataset.content || '{}');
+        
+        // Increment use count
+        try {
+          await fetch(`${API_URL}/api/admin/templates/${id}/use`, { method: 'POST' });
+        } catch (e) {}
+        
+        // Copy content to clipboard
+        try {
+          await navigator.clipboard.writeText(JSON.stringify(content, null, 2));
+          alert('Template content copied to clipboard!');
+        } catch (e) {
+          alert('Template content:\n' + JSON.stringify(content, null, 2));
+        }
+      });
+    });
+
+    // Form submission
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const id = document.getElementById('template-id').value;
+      let content;
+      
+      try {
+        content = JSON.parse(document.getElementById('template-content').value);
+      } catch (e) {
+        alert('Invalid JSON in content field');
+        return;
+      }
+      
+      const data = {
+        name: document.getElementById('template-name').value.trim(),
+        template_type: document.getElementById('template-type').value,
+        description: document.getElementById('template-description').value.trim() || null,
+        content,
+        is_public: document.getElementById('template-public').checked,
+        owner_brand_id: isAllBrandsView ? null : currentBrandId,
+      };
+      
+      try {
+        const url = id 
+          ? `${API_URL}/api/admin/templates/${id}`
+          : `${API_URL}/api/admin/templates`;
+        
+        const res = await fetch(url, {
+          method: id ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        
+        if (res.ok) {
+          window.location.reload();
+        } else {
+          const err = await res.json();
+          alert(err.error || 'Failed to save template');
+        }
+      } catch (err) {
+        alert('Failed to save template');
+      }
+    });
+  </script>
+</AdminLayout>

@@ -263,6 +263,85 @@ class ApiClient {
     });
   }
 
+  // Content Quality - Phase 5
+  async checkOriginality(content: string, contentId?: string) {
+    return this.request<{
+      score: number;
+      analysis: {
+        uniquePhrases: number;
+        commonPatterns: string[];
+        suggestions: string[];
+        overallAssessment: string;
+      };
+      flags: {
+        hasGenericOpening: boolean;
+        hasRepetitiveStructure: boolean;
+        lacksSpecificDetails: boolean;
+        hasAIPatterns: boolean;
+      };
+    }>('/api/content/check-originality', {
+      method: 'POST',
+      body: JSON.stringify({ content, contentId }),
+    });
+  }
+
+  async differentiateContent(params: {
+    productId: string;
+    contentType: 'description' | 'social_post' | 'email' | 'blog';
+    baseContent?: string;
+    tone?: 'professional' | 'casual' | 'luxury' | 'playful' | 'informative';
+    includeReviews?: boolean;
+    includeSpecs?: boolean;
+    includeComparisons?: boolean;
+    language?: string;
+  }) {
+    return this.request<{
+      content: string;
+      metadata: {
+        productId: string;
+        productName: string;
+        contentType: string;
+        tone: string;
+        language: string;
+        dataUsed: {
+          hasReviews: boolean;
+          reviewCount: number;
+          hasSpecs: boolean;
+          hasComparisons: boolean;
+        };
+      };
+    }>('/api/content/differentiate', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+
+  async getStaleContent(params?: { days?: number; limit?: number; type?: string }) {
+    const query = new URLSearchParams();
+    if (params?.days) query.set('days', String(params.days));
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.type) query.set('type', params.type);
+    const qs = query.toString();
+    return this.request<{
+      data: Array<{
+        id: string;
+        type: string;
+        title: string;
+        content: string;
+        daysSinceUpdate: number;
+        staleness: 'critical' | 'high' | 'medium';
+        needsOriginalityCheck: boolean;
+      }>;
+      summary: {
+        total: number;
+        critical: number;
+        high: number;
+        medium: number;
+        needsOriginalityCheck: number;
+      };
+    }>(`/api/content/stale${qs ? `?${qs}` : ''}`);
+  }
+
   // Newsletter
   async subscribeNewsletter(email: string) {
     return this.request<{ success: boolean }>('/api/newsletter/subscribe', {

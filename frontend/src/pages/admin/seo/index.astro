@@ -1,0 +1,325 @@
+---
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { supabase } from '@lib/supabase';
+
+// Get SEO stats overview
+const { data: products } = await supabase
+  .from('products')
+  .select('id, name, slug, meta_title, meta_description, images')
+  .eq('is_active', true);
+
+const { data: seoMeta } = await supabase
+  .from('seo_meta')
+  .select('*');
+
+const { data: redirects } = await supabase
+  .from('url_redirects')
+  .select('*')
+  .eq('is_active', true);
+
+const { data: errors404 } = await supabase
+  .from('error_404_logs')
+  .select('*')
+  .eq('is_resolved', false)
+  .order('hit_count', { ascending: false })
+  .limit(10);
+
+// Calculate stats
+const totalProducts = products?.length || 0;
+const productsWithMeta = products?.filter(p => p.meta_title && p.meta_description).length || 0;
+const productsWithoutMeta = totalProducts - productsWithMeta;
+const totalRedirects = redirects?.length || 0;
+const total404Errors = errors404?.length || 0;
+
+// Check for duplicate meta
+const titles = seoMeta?.map(m => m.meta_title).filter(Boolean) || [];
+const descriptions = seoMeta?.map(m => m.meta_description).filter(Boolean) || [];
+const duplicateTitles = titles.length - new Set(titles).size;
+const duplicateDescriptions = descriptions.length - new Set(descriptions).size;
+
+// Check images without alt
+const imagesWithoutAlt = products?.filter(p => {
+  const images = p.images || [];
+  return images.some((img: any) => !img.alt);
+}).length || 0;
+
+const seoStats = [
+  { 
+    label: 'Pages with Meta', 
+    value: productsWithMeta, 
+    total: totalProducts,
+    percentage: totalProducts > 0 ? Math.round((productsWithMeta / totalProducts) * 100) : 0,
+    color: 'green',
+    icon: 'check'
+  },
+  { 
+    label: 'Missing Meta', 
+    value: productsWithoutMeta, 
+    color: productsWithoutMeta > 0 ? 'red' : 'green',
+    icon: 'alert'
+  },
+  { 
+    label: 'Active Redirects', 
+    value: totalRedirects, 
+    color: 'blue',
+    icon: 'redirect'
+  },
+  { 
+    label: '404 Errors', 
+    value: total404Errors, 
+    color: total404Errors > 0 ? 'yellow' : 'green',
+    icon: 'error'
+  },
+];
+
+const issues = [
+  { type: 'warning', message: `${duplicateTitles} duplicate title tags found`, count: duplicateTitles, show: duplicateTitles > 0 },
+  { type: 'warning', message: `${duplicateDescriptions} duplicate meta descriptions found`, count: duplicateDescriptions, show: duplicateDescriptions > 0 },
+  { type: 'error', message: `${productsWithoutMeta} products missing meta tags`, count: productsWithoutMeta, show: productsWithoutMeta > 0 },
+  { type: 'warning', message: `${imagesWithoutAlt} products have images without alt text`, count: imagesWithoutAlt, show: imagesWithoutAlt > 0 },
+  { type: 'info', message: `${total404Errors} unresolved 404 errors`, count: total404Errors, show: total404Errors > 0 },
+].filter(i => i.show);
+---
+
+<AdminLayout title="SEO Tools" activePage="seo">
+  <!-- Header -->
+  <div class="mb-6">
+    <h2 class="text-2xl font-bold text-gray-900">SEO Dashboard</h2>
+    <p class="text-gray-600 mt-1">Monitor and optimize your site's search engine performance</p>
+  </div>
+
+  <!-- Stats Grid -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    {seoStats.map((stat) => (
+      <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-500">{stat.label}</p>
+            <p class="text-2xl font-bold text-gray-900 mt-1">
+              {stat.value}
+              {stat.total && <span class="text-sm text-gray-500">/{stat.total}</span>}
+            </p>
+            {stat.percentage !== undefined && (
+              <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  class={`h-2 rounded-full ${stat.percentage >= 80 ? 'bg-green-500' : stat.percentage >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                  style={`width: ${stat.percentage}%`}
+                />
+              </div>
+            )}
+          </div>
+          <div class={`w-12 h-12 rounded-lg flex items-center justify-center ${
+            stat.color === 'green' ? 'bg-green-50' : 
+            stat.color === 'red' ? 'bg-red-50' : 
+            stat.color === 'yellow' ? 'bg-yellow-50' : 'bg-blue-50'
+          }`}>
+            {stat.icon === 'check' && (
+              <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+            {stat.icon === 'alert' && (
+              <svg class={`w-6 h-6 ${stat.color === 'red' ? 'text-red-600' : 'text-green-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            )}
+            {stat.icon === 'redirect' && (
+              <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            )}
+            {stat.icon === 'error' && (
+              <svg class={`w-6 h-6 ${stat.color === 'yellow' ? 'text-yellow-600' : 'text-green-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              </svg>
+            )}
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+
+  <!-- Quick Actions Grid -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+    <!-- Page SEO -->
+    <a href="/admin/seo/meta" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+          </svg>
+        </div>
+        <div>
+          <h3 class="font-semibold text-gray-900">Meta Tags Editor</h3>
+          <p class="text-sm text-gray-500">Edit title, description, and OG tags</p>
+        </div>
+      </div>
+    </a>
+
+    <!-- Redirects -->
+    <a href="/admin/seo/redirects" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+          </svg>
+        </div>
+        <div>
+          <h3 class="font-semibold text-gray-900">URL Redirects</h3>
+          <p class="text-sm text-gray-500">Manage 301/302 redirects</p>
+        </div>
+      </div>
+    </a>
+
+    <!-- 404 Errors -->
+    <a href="/admin/seo/errors" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 bg-red-50 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <div>
+          <h3 class="font-semibold text-gray-900">404 Errors</h3>
+          <p class="text-sm text-gray-500">Monitor and fix broken links</p>
+        </div>
+      </div>
+    </a>
+
+    <!-- Sitemap -->
+    <a href="/admin/seo/sitemap" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+        </div>
+        <div>
+          <h3 class="font-semibold text-gray-900">Sitemap</h3>
+          <p class="text-sm text-gray-500">Configure sitemap settings</p>
+        </div>
+      </div>
+    </a>
+
+    <!-- Robots.txt -->
+    <a href="/admin/seo/robots" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 bg-yellow-50 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+        <div>
+          <h3 class="font-semibold text-gray-900">Robots.txt</h3>
+          <p class="text-sm text-gray-500">Edit robots.txt rules</p>
+        </div>
+      </div>
+    </a>
+
+    <!-- Content Analysis -->
+    <a href="/admin/seo/analysis" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 bg-indigo-50 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+        </div>
+        <div>
+          <h3 class="font-semibold text-gray-900">Content Analysis</h3>
+          <p class="text-sm text-gray-500">SEO scores and readability</p>
+        </div>
+      </div>
+    </a>
+  </div>
+
+  <!-- Issues and Recommendations -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- SEO Issues -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+      <div class="px-6 py-4 border-b border-gray-100">
+        <h3 class="font-semibold text-gray-900">SEO Issues</h3>
+      </div>
+      <div class="p-6">
+        {issues.length > 0 ? (
+          <div class="space-y-3">
+            {issues.map((issue) => (
+              <div class={`flex items-start gap-3 p-3 rounded-lg ${
+                issue.type === 'error' ? 'bg-red-50' : 
+                issue.type === 'warning' ? 'bg-yellow-50' : 'bg-blue-50'
+              }`}>
+                {issue.type === 'error' && (
+                  <svg class="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                )}
+                {issue.type === 'warning' && (
+                  <svg class="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                )}
+                {issue.type === 'info' && (
+                  <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                )}
+                <span class={`text-sm ${
+                  issue.type === 'error' ? 'text-red-700' : 
+                  issue.type === 'warning' ? 'text-yellow-700' : 'text-blue-700'
+                }`}>{issue.message}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div class="text-center py-8">
+            <svg class="w-12 h-12 text-green-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p class="text-gray-500">No SEO issues found!</p>
+          </div>
+        )}
+      </div>
+    </div>
+
+    <!-- Recent 404 Errors -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="font-semibold text-gray-900">Recent 404 Errors</h3>
+        <a href="/admin/seo/errors" class="text-sm text-primary-600 hover:text-primary-700">View all →</a>
+      </div>
+      <div class="divide-y divide-gray-100">
+        {errors404 && errors404.length > 0 ? (
+          errors404.slice(0, 5).map((error: any) => (
+            <div class="px-6 py-3 flex items-center justify-between">
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-medium text-gray-900 truncate">{error.request_path}</p>
+                <p class="text-xs text-gray-500">{error.hit_count} hits</p>
+              </div>
+              <button 
+                class="text-xs text-primary-600 hover:text-primary-700 whitespace-nowrap ml-4"
+                data-path={error.request_path}
+                onclick="createRedirect(this)"
+              >
+                Create redirect
+              </button>
+            </div>
+          ))
+        ) : (
+          <div class="px-6 py-8 text-center text-gray-500">
+            No 404 errors recorded
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  function createRedirect(btn: HTMLElement) {
+    const path = btn.dataset.path;
+    if (path) {
+      window.location.href = `/admin/seo/redirects?source=${encodeURIComponent(path)}`;
+    }
+  }
+  // Make function available globally
+  (window as any).createRedirect = createRedirect;
+</script>

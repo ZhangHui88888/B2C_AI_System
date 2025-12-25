@@ -1,0 +1,520 @@
+---
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { supabase } from '@lib/supabase';
+
+// Get products for the differentiation engine
+const { data: products } = await supabase
+  .from('products')
+  .select('id, name')
+  .eq('is_active', true)
+  .order('name');
+
+// Get stale content count for the badge
+const thirtyDaysAgo = new Date();
+thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+const { count: staleCount } = await supabase
+  .from('content_library')
+  .select('id', { count: 'exact', head: true })
+  .eq('status', 'published')
+  .lt('updated_at', thirtyDaysAgo.toISOString());
+---
+
+<AdminLayout title="Content Quality" activePage="content">
+  <div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">Content Quality Tools</h1>
+        <p class="text-sm text-gray-500 mt-1">Analyze originality and generate differentiated content</p>
+      </div>
+      <a href="/admin/content" class="text-sm text-primary-600 hover:text-primary-700">
+        ← Back to Content Generator
+      </a>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Originality Checker -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div class="flex items-center gap-2 mb-4">
+          <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <h2 class="text-lg font-semibold text-gray-900">Originality Checker</h2>
+        </div>
+        <p class="text-sm text-gray-500 mb-4">Analyze content for AI patterns, generic phrases, and uniqueness</p>
+        
+        <form id="originality-form" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Content to Analyze</label>
+            <textarea 
+              id="originality-content" 
+              name="content" 
+              rows="8" 
+              required
+              placeholder="Paste or type your content here (minimum 50 characters)..."
+              class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500 text-sm"
+            ></textarea>
+          </div>
+          
+          <button type="submit" id="check-originality-btn" class="w-full px-4 py-2 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            Check Originality
+          </button>
+        </form>
+
+        <!-- Originality Results -->
+        <div id="originality-results" class="hidden mt-6 space-y-4">
+          <!-- Score -->
+          <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div>
+              <p class="text-sm font-medium text-gray-600">Originality Score</p>
+              <p id="originality-score" class="text-3xl font-bold text-gray-900">--</p>
+            </div>
+            <div id="score-indicator" class="w-16 h-16 rounded-full flex items-center justify-center">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+          </div>
+
+          <!-- Flags -->
+          <div class="grid grid-cols-2 gap-2" id="originality-flags">
+          </div>
+
+          <!-- Assessment -->
+          <div>
+            <p class="text-sm font-medium text-gray-700 mb-1">Assessment</p>
+            <p id="originality-assessment" class="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg"></p>
+          </div>
+
+          <!-- Patterns Found -->
+          <div id="patterns-section" class="hidden">
+            <p class="text-sm font-medium text-gray-700 mb-1">Generic Patterns Detected</p>
+            <ul id="patterns-list" class="text-sm text-red-600 bg-red-50 p-3 rounded-lg space-y-1"></ul>
+          </div>
+
+          <!-- Suggestions -->
+          <div id="suggestions-section" class="hidden">
+            <p class="text-sm font-medium text-gray-700 mb-1">Improvement Suggestions</p>
+            <ul id="suggestions-list" class="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg space-y-1"></ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Content Differentiation Engine -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div class="flex items-center gap-2 mb-4">
+          <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <h2 class="text-lg font-semibold text-gray-900">Differentiation Engine</h2>
+        </div>
+        <p class="text-sm text-gray-500 mb-4">Generate unique content using real product data, reviews, and specs</p>
+        
+        <form id="differentiate-form" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Select Product</label>
+            <select id="diff-product" name="productId" required class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500">
+              <option value="">Choose a product...</option>
+              {products?.map((p) => (
+                <option value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Content Type</label>
+            <select id="diff-type" name="contentType" required class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500">
+              <option value="description">Product Description</option>
+              <option value="social_post">Social Media Post</option>
+              <option value="email">Marketing Email</option>
+              <option value="blog">Blog Post</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Tone</label>
+            <select id="diff-tone" name="tone" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500">
+              <option value="professional">Professional</option>
+              <option value="casual">Casual & Friendly</option>
+              <option value="playful">Playful & Fun</option>
+              <option value="luxury">Luxury & Premium</option>
+              <option value="informative">Informative</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Language</label>
+            <select id="diff-language" name="language" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500">
+              <option value="English">English</option>
+              <option value="Chinese">Chinese (中文)</option>
+              <option value="Spanish">Spanish</option>
+              <option value="French">French</option>
+            </select>
+          </div>
+
+          <!-- Data Sources -->
+          <div class="space-y-2">
+            <p class="text-sm font-medium text-gray-700">Include Data Sources</p>
+            <div class="flex flex-wrap gap-4">
+              <label class="flex items-center gap-2 text-sm">
+                <input type="checkbox" id="include-reviews" name="includeReviews" checked class="rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                Customer Reviews
+              </label>
+              <label class="flex items-center gap-2 text-sm">
+                <input type="checkbox" id="include-specs" name="includeSpecs" checked class="rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                Specifications
+              </label>
+              <label class="flex items-center gap-2 text-sm">
+                <input type="checkbox" id="include-comparisons" name="includeComparisons" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                Product Comparisons
+              </label>
+            </div>
+          </div>
+
+          <!-- Optional: Base Content to Improve -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Base Content to Improve (Optional)</label>
+            <textarea 
+              id="base-content" 
+              name="baseContent" 
+              rows="3" 
+              placeholder="Paste existing content to enhance it with real data..."
+              class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500 text-sm"
+            ></textarea>
+          </div>
+          
+          <button type="submit" id="differentiate-btn" class="w-full px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            Generate Differentiated Content
+          </button>
+        </form>
+
+        <!-- Differentiation Results -->
+        <div id="diff-results" class="hidden mt-6">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-medium text-gray-700">Generated Content</h3>
+            <div class="flex gap-2">
+              <button id="copy-diff-btn" class="text-xs text-primary-600 hover:text-primary-700">Copy</button>
+              <button id="check-diff-originality-btn" class="text-xs text-purple-600 hover:text-purple-700">Check Originality</button>
+              <button id="save-diff-btn" class="text-xs text-green-600 hover:text-green-700">Save to Library</button>
+            </div>
+          </div>
+          <div id="diff-content" class="p-4 bg-gray-50 rounded-lg text-sm text-gray-800 whitespace-pre-wrap max-h-96 overflow-y-auto"></div>
+          
+          <!-- Metadata -->
+          <div id="diff-metadata" class="mt-3 flex flex-wrap gap-2 text-xs">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stale Content Alert -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <h2 class="text-lg font-semibold text-gray-900">Content Freshness</h2>
+          {staleCount && staleCount > 0 && (
+            <span class="px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">
+              {staleCount} need attention
+            </span>
+          )}
+        </div>
+        <button id="load-stale-btn" class="text-sm text-primary-600 hover:text-primary-700">
+          Load Stale Content →
+        </button>
+      </div>
+
+      <div id="stale-content-list" class="hidden space-y-3">
+        <!-- Stale content items will be loaded here -->
+      </div>
+      <div id="stale-empty" class="hidden text-center py-8 text-sm text-gray-500">
+        All published content is up to date!
+      </div>
+    </div>
+  </div>
+
+  <script>
+    import { api } from '@lib/api';
+
+    // Originality Check
+    const originalityForm = document.getElementById('originality-form') as HTMLFormElement;
+    const checkOriginalityBtn = document.getElementById('check-originality-btn') as HTMLButtonElement;
+    const originalityResults = document.getElementById('originality-results');
+
+    originalityForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const content = (document.getElementById('originality-content') as HTMLTextAreaElement).value;
+      
+      if (content.length < 50) {
+        alert('Content must be at least 50 characters');
+        return;
+      }
+
+      checkOriginalityBtn.disabled = true;
+      checkOriginalityBtn.textContent = 'Analyzing...';
+
+      try {
+        const result = await api.checkOriginality(content);
+        
+        if (result.success && result.data) {
+          displayOriginalityResults(result.data);
+          originalityResults?.classList.remove('hidden');
+        } else {
+          alert('Failed to check originality');
+        }
+      } catch (error) {
+        console.error('Originality check error:', error);
+        alert('Failed to check originality');
+      } finally {
+        checkOriginalityBtn.disabled = false;
+        checkOriginalityBtn.textContent = 'Check Originality';
+      }
+    });
+
+    function displayOriginalityResults(data: any) {
+      const score = data.score;
+      const scoreEl = document.getElementById('originality-score');
+      const indicatorEl = document.getElementById('score-indicator');
+      
+      if (scoreEl) scoreEl.textContent = `${score}/100`;
+      
+      if (indicatorEl) {
+        if (score >= 70) {
+          indicatorEl.className = 'w-16 h-16 rounded-full flex items-center justify-center bg-green-100 text-green-600';
+        } else if (score >= 40) {
+          indicatorEl.className = 'w-16 h-16 rounded-full flex items-center justify-center bg-yellow-100 text-yellow-600';
+        } else {
+          indicatorEl.className = 'w-16 h-16 rounded-full flex items-center justify-center bg-red-100 text-red-600';
+        }
+      }
+
+      // Flags
+      const flagsEl = document.getElementById('originality-flags');
+      if (flagsEl) {
+        const flags = data.flags;
+        flagsEl.innerHTML = `
+          <div class="flex items-center gap-2 p-2 rounded ${flags.hasGenericOpening ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}">
+            <span class="text-lg">${flags.hasGenericOpening ? '⚠️' : '✓'}</span>
+            <span class="text-xs">Generic Opening</span>
+          </div>
+          <div class="flex items-center gap-2 p-2 rounded ${flags.hasRepetitiveStructure ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}">
+            <span class="text-lg">${flags.hasRepetitiveStructure ? '⚠️' : '✓'}</span>
+            <span class="text-xs">Repetitive Structure</span>
+          </div>
+          <div class="flex items-center gap-2 p-2 rounded ${flags.lacksSpecificDetails ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}">
+            <span class="text-lg">${flags.lacksSpecificDetails ? '⚠️' : '✓'}</span>
+            <span class="text-xs">Specific Details</span>
+          </div>
+          <div class="flex items-center gap-2 p-2 rounded ${flags.hasAIPatterns ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}">
+            <span class="text-lg">${flags.hasAIPatterns ? '⚠️' : '✓'}</span>
+            <span class="text-xs">AI Patterns</span>
+          </div>
+        `;
+      }
+
+      // Assessment
+      const assessmentEl = document.getElementById('originality-assessment');
+      if (assessmentEl) assessmentEl.textContent = data.analysis.overallAssessment;
+
+      // Patterns
+      const patternsSection = document.getElementById('patterns-section');
+      const patternsList = document.getElementById('patterns-list');
+      if (data.analysis.commonPatterns?.length > 0) {
+        patternsSection?.classList.remove('hidden');
+        if (patternsList) {
+          patternsList.innerHTML = data.analysis.commonPatterns.map((p: string) => `<li>• ${p}</li>`).join('');
+        }
+      } else {
+        patternsSection?.classList.add('hidden');
+      }
+
+      // Suggestions
+      const suggestionsSection = document.getElementById('suggestions-section');
+      const suggestionsList = document.getElementById('suggestions-list');
+      if (data.analysis.suggestions?.length > 0) {
+        suggestionsSection?.classList.remove('hidden');
+        if (suggestionsList) {
+          suggestionsList.innerHTML = data.analysis.suggestions.map((s: string) => `<li>• ${s}</li>`).join('');
+        }
+      } else {
+        suggestionsSection?.classList.add('hidden');
+      }
+    }
+
+    // Content Differentiation
+    const differentiateForm = document.getElementById('differentiate-form') as HTMLFormElement;
+    const differentiateBtn = document.getElementById('differentiate-btn') as HTMLButtonElement;
+    const diffResults = document.getElementById('diff-results');
+    const diffContent = document.getElementById('diff-content');
+    const diffMetadata = document.getElementById('diff-metadata');
+
+    let currentDiffResult = { content: '', productId: '', contentType: '' };
+
+    differentiateForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const productId = (document.getElementById('diff-product') as HTMLSelectElement).value;
+      const contentType = (document.getElementById('diff-type') as HTMLSelectElement).value as any;
+      const tone = (document.getElementById('diff-tone') as HTMLSelectElement).value as any;
+      const language = (document.getElementById('diff-language') as HTMLSelectElement).value;
+      const includeReviews = (document.getElementById('include-reviews') as HTMLInputElement).checked;
+      const includeSpecs = (document.getElementById('include-specs') as HTMLInputElement).checked;
+      const includeComparisons = (document.getElementById('include-comparisons') as HTMLInputElement).checked;
+      const baseContent = (document.getElementById('base-content') as HTMLTextAreaElement).value || undefined;
+
+      if (!productId) {
+        alert('Please select a product');
+        return;
+      }
+
+      differentiateBtn.disabled = true;
+      differentiateBtn.textContent = 'Generating...';
+
+      try {
+        const result = await api.differentiateContent({
+          productId,
+          contentType,
+          tone,
+          language,
+          includeReviews,
+          includeSpecs,
+          includeComparisons,
+          baseContent,
+        });
+
+        if (result.success && result.data) {
+          currentDiffResult = {
+            content: result.data.content,
+            productId: result.data.metadata.productId,
+            contentType: result.data.metadata.contentType,
+          };
+          
+          if (diffContent) diffContent.textContent = result.data.content;
+          
+          if (diffMetadata) {
+            const meta = result.data.metadata;
+            diffMetadata.innerHTML = `
+              <span class="px-2 py-1 bg-gray-100 rounded">${meta.contentType}</span>
+              <span class="px-2 py-1 bg-gray-100 rounded">${meta.tone}</span>
+              <span class="px-2 py-1 bg-gray-100 rounded">${meta.language}</span>
+              ${meta.dataUsed.hasReviews ? `<span class="px-2 py-1 bg-green-100 text-green-800 rounded">📝 ${meta.dataUsed.reviewCount} reviews</span>` : ''}
+              ${meta.dataUsed.hasSpecs ? '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded">📊 Specs included</span>' : ''}
+              ${meta.dataUsed.hasComparisons ? '<span class="px-2 py-1 bg-purple-100 text-purple-800 rounded">⚖️ Comparisons</span>' : ''}
+            `;
+          }
+          
+          diffResults?.classList.remove('hidden');
+        } else {
+          alert('Failed to generate content');
+        }
+      } catch (error) {
+        console.error('Differentiation error:', error);
+        alert('Failed to generate differentiated content');
+      } finally {
+        differentiateBtn.disabled = false;
+        differentiateBtn.textContent = 'Generate Differentiated Content';
+      }
+    });
+
+    // Copy differentiated content
+    document.getElementById('copy-diff-btn')?.addEventListener('click', () => {
+      navigator.clipboard.writeText(currentDiffResult.content);
+      const btn = document.getElementById('copy-diff-btn');
+      if (btn) {
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+      }
+    });
+
+    // Check originality of differentiated content
+    document.getElementById('check-diff-originality-btn')?.addEventListener('click', () => {
+      if (currentDiffResult.content) {
+        (document.getElementById('originality-content') as HTMLTextAreaElement).value = currentDiffResult.content;
+        originalityForm?.dispatchEvent(new Event('submit'));
+      }
+    });
+
+    // Save differentiated content
+    document.getElementById('save-diff-btn')?.addEventListener('click', async () => {
+      if (!currentDiffResult.content) return;
+      
+      const typeMap: Record<string, string> = {
+        description: 'description',
+        social_post: 'caption',
+        email: 'description',
+        blog: 'description',
+      };
+      
+      try {
+        const result = await api.saveContent({
+          type: typeMap[currentDiffResult.contentType] as any || 'description',
+          content: currentDiffResult.content,
+          product_id: currentDiffResult.productId,
+          status: 'draft',
+        });
+        
+        if (result.success) {
+          const btn = document.getElementById('save-diff-btn');
+          if (btn) {
+            btn.textContent = 'Saved!';
+            setTimeout(() => { btn.textContent = 'Save to Library'; }, 2000);
+          }
+        } else {
+          alert('Failed to save content');
+        }
+      } catch {
+        alert('Failed to save content');
+      }
+    });
+
+    // Load stale content
+    document.getElementById('load-stale-btn')?.addEventListener('click', async () => {
+      const listEl = document.getElementById('stale-content-list');
+      const emptyEl = document.getElementById('stale-empty');
+      const btn = document.getElementById('load-stale-btn') as HTMLButtonElement;
+      
+      btn.textContent = 'Loading...';
+      
+      try {
+        const result = await api.getStaleContent({ days: 30, limit: 10 });
+        
+        if (result.success && result.data) {
+          if (result.data.data.length === 0) {
+            listEl?.classList.add('hidden');
+            emptyEl?.classList.remove('hidden');
+          } else {
+            emptyEl?.classList.add('hidden');
+            listEl?.classList.remove('hidden');
+            
+            if (listEl) {
+              listEl.innerHTML = result.data.data.map((item: any) => `
+                <div class="p-3 bg-gray-50 rounded-lg flex items-start justify-between">
+                  <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="text-sm font-medium text-gray-900">${item.title || 'Untitled'}</span>
+                      <span class="px-2 py-0.5 text-xs rounded ${
+                        item.staleness === 'critical' ? 'bg-red-100 text-red-800' :
+                        item.staleness === 'high' ? 'bg-orange-100 text-orange-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }">${item.staleness}</span>
+                      ${item.needsOriginalityCheck ? '<span class="px-2 py-0.5 text-xs bg-purple-100 text-purple-800 rounded">Needs Check</span>' : ''}
+                    </div>
+                    <p class="text-xs text-gray-500">${item.type} • Last updated ${item.daysSinceUpdate} days ago</p>
+                    <p class="text-sm text-gray-600 mt-1 line-clamp-2">${item.content?.slice(0, 150) || ''}...</p>
+                  </div>
+                </div>
+              `).join('');
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load stale content:', error);
+      } finally {
+        btn.textContent = 'Load Stale Content →';
+      }
+    });
+  </script>
+</AdminLayout>

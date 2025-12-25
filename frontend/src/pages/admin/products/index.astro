@@ -30,6 +30,12 @@ const totalPages = Math.ceil((count || 0) / limit);
         <button id="batch-deactivate" class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
           Deactivate
         </button>
+        <button id="batch-feature" class="px-3 py-1.5 text-sm font-medium text-yellow-700 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors">
+          Feature
+        </button>
+        <button id="batch-unfeature" class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+          Unfeature
+        </button>
         <button id="batch-delete" class="px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100 transition-colors">
           Delete
         </button>
@@ -241,6 +247,52 @@ const totalPages = Math.ceil((count || 0) / limit);
         }
       } catch {
         showToast('Failed to deactivate products', 'error');
+      }
+    });
+
+    // Batch feature
+    document.getElementById('batch-feature')?.addEventListener('click', async () => {
+      const ids = getSelectedIds();
+      if (ids.length === 0) return;
+      
+      try {
+        const res = await fetch(`${API_URL}/api/admin/products/batch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'feature', ids }),
+        });
+        const result = await res.json();
+        if (res.ok && result.success) {
+          showToast(`${ids.length} product(s) featured`);
+          setTimeout(() => window.location.reload(), 500);
+        } else {
+          showToast(result.error || 'Failed to feature products', 'error');
+        }
+      } catch {
+        showToast('Failed to feature products', 'error');
+      }
+    });
+
+    // Batch unfeature
+    document.getElementById('batch-unfeature')?.addEventListener('click', async () => {
+      const ids = getSelectedIds();
+      if (ids.length === 0) return;
+      
+      try {
+        const res = await fetch(`${API_URL}/api/admin/products/batch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'unfeature', ids }),
+        });
+        const result = await res.json();
+        if (res.ok && result.success) {
+          showToast(`${ids.length} product(s) unfeatured`);
+          setTimeout(() => window.location.reload(), 500);
+        } else {
+          showToast(result.error || 'Failed to unfeature products', 'error');
+        }
+      } catch {
+        showToast('Failed to unfeature products', 'error');
       }
     });
 

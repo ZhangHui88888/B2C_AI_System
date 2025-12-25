@@ -38,6 +38,9 @@ interface ContentEntry {
   content: string;
   platform?: Platform;
   status?: 'draft' | 'approved' | 'published';
+  author_id?: string;
+  title?: string;
+  is_ai_generated?: boolean;
 }
 
 export async function handleContent(
@@ -82,6 +85,21 @@ export async function handleContent(
   if (request.method === 'DELETE' && path.startsWith('/api/content/')) {
     const id = path.replace('/api/content/', '');
     return await deleteContent(supabase, brandId, id);
+  }
+
+  // POST /api/content/check-originality - Check content originality
+  if (request.method === 'POST' && path === '/api/content/check-originality') {
+    return await checkOriginality(env, supabase, brandId, request);
+  }
+
+  // POST /api/content/differentiate - Generate differentiated content
+  if (request.method === 'POST' && path === '/api/content/differentiate') {
+    return await differentiateContent(env, supabase, brandId, request);
+  }
+
+  // GET /api/content/stale - Get stale content that needs updating
+  if (request.method === 'GET' && path === '/api/content/stale') {
+    return await getStaleContent(supabase, brandId, request);
   }
 
   return errorResponse('Not found', 404);
@@ -316,6 +334,18 @@ async function saveContent(
     return errorResponse('content and type are required', 400);
   }
 
+  // Check publish rate limit if publishing directly
+  if (body.status === 'published') {
+    const { data: limitCheck } = await supabase.rpc('get_daily_publish_count', {
+      p_brand_id: brandId,
+      p_content_type: body.type,
+    });
+    const dailyLimit = 10; // Could be fetched from settings
+    if (typeof limitCheck === 'number' && limitCheck >= dailyLimit) {
+      return errorResponse(`Daily publish limit (${dailyLimit}) reached for ${body.type}`, 429);
+    }
+  }
+
   const { data, error } = await supabase
     .from(Tables.CONTENT_LIBRARY)
     .insert({
@@ -325,9 +355,22 @@ async function saveContent(
       content: body.content,
       platform: body.platform || null,
       status: body.status || 'draft',
+      author_id: body.author_id || null,
+      title: body.title || null,
+      is_ai_generated: body.is_ai_generated !== false,
+      ai_generated_at: new Date().toISOString(),
     })
-    .select('id, type, product_id, content, platform, status, created_at')
+    .select('id, type, product_id, content, platform, status, author_id, is_ai_generated, created_at')
     .single();
+
+  // Log publish if published
+  if (!error && data && body.status === 'published') {
+    await supabase.from('content_publish_logs').insert({
+      brand_id: brandId,
+      content_id: data.id,
+      content_type: body.type,
+    });
+  }
 
   if (error) {
     console.error('Save content error:', error);
@@ -354,6 +397,29 @@ async function updateContent(
     return errorResponse('No valid fields to update', 400);
   }
 
+  // Check publish rate limit if changing to published
+  if (body.status === 'published') {
+    const { data: existing } = await supabase
+      .from(Tables.CONTENT_LIBRARY)
+      .select('type, status')
+      .eq('id', id)
+      .eq('brand_id', brandId)
+      .single();
+
+    if (existing && existing.status !== 'published') {
+      const { data: limitCheck } = await supabase.rpc('get_daily_publish_count', {
+        p_brand_id: brandId,
+        p_content_type: existing.type,
+      });
+      const dailyLimit = 10;
+      if (typeof limitCheck === 'number' && limitCheck >= dailyLimit) {
+        return errorResponse(`Daily publish limit (${dailyLimit}) reached`, 429);
+      }
+    }
+
+    updateData.last_review_at = new Date().toISOString();
+  }
+
   const { data, error } = await supabase
     .from(Tables.CONTENT_LIBRARY)
     .update(updateData)
@@ -365,6 +431,15 @@ async function updateContent(
   if (error) {
     console.error('Update content error:', error);
     return errorResponse('Failed to update content', 500);
+  }
+
+  // Log publish if status changed to published
+  if (data && body.status === 'published') {
+    await supabase.from('content_publish_logs').insert({
+      brand_id: brandId,
+      content_id: data.id,
+      content_type: data.type,
+    });
   }
 
   return jsonResponse({ success: true, data });
@@ -486,4 +561,464 @@ REQUIREMENTS:
 - Platform: ${params.platform}
 
 Generate compelling, conversion-focused copy.`;
+}
+
+// ============================================
+// Phase 5: AI Content Quality Features
+// ============================================
+
+interface OriginalityCheckRequest {
+  content: string;
+  contentId?: string;
+}
+
+interface OriginalityResult {
+  score: number; // 0-100, higher = more original
+  analysis: {
+    uniquePhrases: number;
+    commonPatterns: string[];
+    suggestions: string[];
+    overallAssessment: string;
+  };
+  flags: {
+    hasGenericOpening: boolean;
+    hasRepetitiveStructure: boolean;
+    lacksSpecificDetails: boolean;
+    hasAIPatterns: boolean;
+  };
+}
+
+/**
+ * Check content originality using AI analysis
+ * Analyzes content for uniqueness, AI patterns, and generic structures
+ */
+async function checkOriginality(
+  env: Env,
+  supabase: any,
+  brandId: string,
+  request: Request
+): Promise<Response> {
+  const body = (await request.json().catch(() => ({}))) as OriginalityCheckRequest;
+
+  if (!body.content || body.content.trim().length < 50) {
+    return errorResponse('Content must be at least 50 characters', 400);
+  }
+
+  const systemPrompt = `You are an expert content analyst specializing in detecting AI-generated content and assessing originality.
+Your task is to analyze the provided content and return a JSON assessment.
+
+Analyze for:
+1. Generic phrases commonly used by AI (e.g., "In today's world", "It's important to note", "When it comes to")
+2. Repetitive sentence structures
+3. Lack of specific details, data, or unique perspectives
+4. Overly formal or stilted language
+5. Missing brand voice or personality
+6. Lack of real examples or case studies
+
+Return ONLY valid JSON in this exact format:
+{
+  "score": <number 0-100>,
+  "uniquePhrases": <number of unique/original phrases found>,
+  "commonPatterns": [<list of generic patterns detected>],
+  "suggestions": [<list of specific improvement suggestions>],
+  "overallAssessment": "<2-3 sentence summary>",
+  "hasGenericOpening": <boolean>,
+  "hasRepetitiveStructure": <boolean>,
+  "lacksSpecificDetails": <boolean>,
+  "hasAIPatterns": <boolean>
+}`;
+
+  const userPrompt = `Analyze this content for originality:\n\n${body.content}`;
+
+  try {
+    const messages: ChatMessage[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ];
+
+    const response = await chatCompletion(env.DEEPSEEK_API_KEY, {
+      messages,
+      temperature: 0.3,
+      max_tokens: 1000,
+    });
+
+    // Parse the JSON response
+    let analysis;
+    try {
+      // Extract JSON from response (handle potential markdown code blocks)
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        analysis = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('No JSON found in response');
+      }
+    } catch (parseError) {
+      console.error('Failed to parse originality response:', parseError);
+      // Return a default analysis if parsing fails
+      analysis = {
+        score: 50,
+        uniquePhrases: 0,
+        commonPatterns: ['Unable to analyze'],
+        suggestions: ['Please try again or manually review the content'],
+        overallAssessment: 'Analysis could not be completed. Please review manually.',
+        hasGenericOpening: false,
+        hasRepetitiveStructure: false,
+        lacksSpecificDetails: false,
+        hasAIPatterns: false,
+      };
+    }
+
+    const result: OriginalityResult = {
+      score: Math.min(100, Math.max(0, analysis.score || 50)),
+      analysis: {
+        uniquePhrases: analysis.uniquePhrases || 0,
+        commonPatterns: analysis.commonPatterns || [],
+        suggestions: analysis.suggestions || [],
+        overallAssessment: analysis.overallAssessment || '',
+      },
+      flags: {
+        hasGenericOpening: analysis.hasGenericOpening || false,
+        hasRepetitiveStructure: analysis.hasRepetitiveStructure || false,
+        lacksSpecificDetails: analysis.lacksSpecificDetails || false,
+        hasAIPatterns: analysis.hasAIPatterns || false,
+      },
+    };
+
+    // If contentId provided, save the originality score
+    if (body.contentId) {
+      await supabase
+        .from(Tables.CONTENT_LIBRARY)
+        .update({
+          originality_score: result.score,
+          originality_checked_at: new Date().toISOString(),
+        })
+        .eq('id', body.contentId)
+        .eq('brand_id', brandId);
+    }
+
+    return jsonResponse({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    console.error('Originality check error:', error);
+    return errorResponse('Failed to check originality', 500);
+  }
+}
+
+interface DifferentiateRequest {
+  productId: string;
+  baseContent?: string;
+  contentType: 'description' | 'social_post' | 'email' | 'blog';
+  tone?: ToneStyle;
+  includeReviews?: boolean;
+  includeSpecs?: boolean;
+  includeComparisons?: boolean;
+  language?: string;
+}
+
+/**
+ * Generate differentiated content by incorporating real product data
+ * Uses actual product details, reviews, specs, and comparisons to create unique content
+ */
+async function differentiateContent(
+  env: Env,
+  supabase: any,
+  brandId: string,
+  request: Request
+): Promise<Response> {
+  const body = (await request.json().catch(() => ({}))) as DifferentiateRequest;
+
+  if (!body.productId || !body.contentType) {
+    return errorResponse('productId and contentType are required', 400);
+  }
+
+  // Fetch comprehensive product data
+  const { data: product, error: productError } = await supabase
+    .from(Tables.PRODUCTS)
+    .select(`
+      id, name, slug, description, short_description, price, compare_price,
+      images, specifications, features, sku, stock_quantity
+    `)
+    .eq('brand_id', brandId)
+    .eq('id', body.productId)
+    .single();
+
+  if (productError || !product) {
+    return errorResponse('Product not found', 404);
+  }
+
+  // Fetch approved reviews for social proof
+  let reviews: any[] = [];
+  if (body.includeReviews !== false) {
+    const { data: reviewData } = await supabase
+      .from('reviews')
+      .select('rating, title, content, reviewer_name, is_verified_purchase')
+      .eq('product_id', body.productId)
+      .eq('status', 'approved')
+      .order('rating', { ascending: false })
+      .limit(5);
+    reviews = reviewData || [];
+  }
+
+  // Fetch similar products for comparison context
+  let similarProducts: any[] = [];
+  if (body.includeComparisons) {
+    const { data: similar } = await supabase
+      .from(Tables.PRODUCTS)
+      .select('name, price, short_description')
+      .eq('brand_id', brandId)
+      .neq('id', body.productId)
+      .eq('is_active', true)
+      .limit(3);
+    similarProducts = similar || [];
+  }
+
+  // Fetch brand settings for voice/personality
+  const { data: settings } = await supabase
+    .from(Tables.SETTINGS)
+    .select('value')
+    .eq('brand_id', brandId)
+    .eq('key', 'brand_voice')
+    .single();
+
+  const brandVoice = settings?.value || 'professional and approachable';
+  const tone = body.tone || 'professional';
+  const language = body.language || 'English';
+
+  // Build comprehensive context for differentiation
+  const productContext = buildProductContext(product, reviews, similarProducts, body.includeSpecs);
+
+  const systemPrompt = getDifferentiationSystemPrompt(body.contentType, tone, brandVoice);
+  const userPrompt = buildDifferentiationPrompt({
+    contentType: body.contentType,
+    productContext,
+    baseContent: body.baseContent,
+    language,
+  });
+
+  try {
+    const messages: ChatMessage[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ];
+
+    const differentiatedContent = await chatCompletion(env.DEEPSEEK_API_KEY, {
+      messages,
+      temperature: 0.8,
+      max_tokens: 2000,
+    });
+
+    return jsonResponse({
+      success: true,
+      content: differentiatedContent,
+      metadata: {
+        productId: body.productId,
+        productName: product.name,
+        contentType: body.contentType,
+        tone,
+        language,
+        dataUsed: {
+          hasReviews: reviews.length > 0,
+          reviewCount: reviews.length,
+          hasSpecs: body.includeSpecs && !!product.specifications,
+          hasComparisons: similarProducts.length > 0,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Content differentiation error:', error);
+    return errorResponse('Failed to generate differentiated content', 500);
+  }
+}
+
+function buildProductContext(
+  product: any,
+  reviews: any[],
+  similarProducts: any[],
+  includeSpecs?: boolean
+): string {
+  let context = `PRODUCT: ${product.name}
+SKU: ${product.sku || 'N/A'}
+Price: $${product.price}${product.compare_price ? ` (was $${product.compare_price})` : ''}
+Stock: ${product.stock_quantity > 0 ? 'In Stock' : 'Out of Stock'}
+
+DESCRIPTION:
+${product.description || product.short_description || 'No description available'}
+`;
+
+  if (product.features && Array.isArray(product.features)) {
+    context += `\nKEY FEATURES:\n${product.features.map((f: string) => `• ${f}`).join('\n')}`;
+  }
+
+  if (includeSpecs && product.specifications) {
+    const specs = typeof product.specifications === 'string' 
+      ? JSON.parse(product.specifications) 
+      : product.specifications;
+    if (typeof specs === 'object') {
+      context += '\n\nSPECIFICATIONS:\n';
+      for (const [key, value] of Object.entries(specs)) {
+        context += `• ${key}: ${value}\n`;
+      }
+    }
+  }
+
+  if (reviews.length > 0) {
+    context += '\n\nCUSTOMER REVIEWS:\n';
+    reviews.forEach((review, i) => {
+      context += `${i + 1}. "${review.title || 'Great product!'}" - ${review.rating}/5 stars`;
+      if (review.is_verified_purchase) context += ' (Verified Purchase)';
+      context += `\n   "${review.content?.slice(0, 150) || 'Highly recommended!'}"\n`;
+    });
+  }
+
+  if (similarProducts.length > 0) {
+    context += '\n\nRELATED PRODUCTS (for comparison):\n';
+    similarProducts.forEach((p) => {
+      context += `• ${p.name} - $${p.price}\n`;
+    });
+  }
+
+  return context;
+}
+
+function getDifferentiationSystemPrompt(
+  contentType: string,
+  tone: string,
+  brandVoice: string
+): string {
+  const typeInstructions: Record<string, string> = {
+    description: `Create a unique, compelling product description that:
+- Opens with a specific benefit or use case, NOT a generic statement
+- Includes real data points (specs, dimensions, materials)
+- References actual customer feedback naturally
+- Addresses specific pain points the product solves
+- Uses sensory language and concrete examples`,
+    
+    social_post: `Create a scroll-stopping social media post that:
+- Opens with a hook based on real product benefits
+- Includes a specific detail or stat that stands out
+- Uses customer voice/quotes naturally
+- Ends with a clear, compelling CTA
+- Feels authentic, not salesy`,
+    
+    email: `Create a personalized marketing email that:
+- Has a subject line referencing a specific benefit
+- Opens with a relatable scenario or problem
+- Weaves in real customer testimonials
+- Includes specific product details as proof points
+- Ends with urgency tied to real factors (stock, seasonality)`,
+    
+    blog: `Create an informative blog post that:
+- Provides genuine value beyond just selling
+- Includes real specifications and comparisons
+- References customer experiences and use cases
+- Offers tips and insights related to the product
+- Establishes expertise through detailed knowledge`,
+  };
+
+  return `You are an expert e-commerce copywriter with a ${tone} style that embodies ${brandVoice}.
+
+Your goal is to create HIGHLY DIFFERENTIATED content that:
+1. Uses SPECIFIC product details - never generic filler
+2. Incorporates REAL customer feedback naturally
+3. Includes CONCRETE data points (numbers, specs, comparisons)
+4. Avoids AI-typical phrases like "In today's world", "It's important to", "When it comes to"
+5. Feels human-written with personality and authenticity
+
+${typeInstructions[contentType] || 'Create unique, differentiated marketing content.'}
+
+CRITICAL: Every sentence should contain specific information. No filler. No generic claims.`;
+}
+
+function buildDifferentiationPrompt(params: {
+  contentType: string;
+  productContext: string;
+  baseContent?: string;
+  language: string;
+}): string {
+  let prompt = `Using the following REAL product data, create unique ${params.contentType} content in ${params.language}:
+
+${params.productContext}
+`;
+
+  if (params.baseContent) {
+    prompt += `\nBASE CONTENT TO IMPROVE (make it more unique and specific):\n${params.baseContent}\n`;
+  }
+
+  prompt += `
+REQUIREMENTS:
+- Use specific details from the product data above
+- Include at least one customer quote or reference if reviews are available
+- Mention specific numbers (price, specs, ratings) where relevant
+- Avoid generic phrases - every sentence should be specific to THIS product
+- Write in ${params.language}
+
+Generate the differentiated content now:`;
+
+  return prompt;
+}
+
+/**
+ * Get stale content that needs updating
+ * Returns content that hasn't been reviewed/updated in a specified period
+ */
+async function getStaleContent(
+  supabase: any,
+  brandId: string,
+  request: Request
+): Promise<Response> {
+  const url = new URL(request.url);
+  const daysOld = parseInt(url.searchParams.get('days') || '30');
+  const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100);
+  const contentType = url.searchParams.get('type');
+
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+  let query = supabase
+    .from(Tables.CONTENT_LIBRARY)
+    .select('id, type, title, content, platform, status, created_at, updated_at, last_review_at, originality_score, product_id')
+    .eq('brand_id', brandId)
+    .eq('status', 'published')
+    .or(`updated_at.lt.${cutoffDate.toISOString()},last_review_at.lt.${cutoffDate.toISOString()},last_review_at.is.null`)
+    .order('updated_at', { ascending: true })
+    .limit(limit);
+
+  if (contentType) {
+    query = query.eq('type', contentType);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Get stale content error:', error);
+    return errorResponse('Failed to fetch stale content', 500);
+  }
+
+  // Calculate staleness score for each item
+  const now = new Date().getTime();
+  const staleContent = (data || []).map((item: any) => {
+    const lastUpdate = new Date(item.updated_at || item.created_at).getTime();
+    const daysSinceUpdate = Math.floor((now - lastUpdate) / (1000 * 60 * 60 * 24));
+    
+    return {
+      ...item,
+      daysSinceUpdate,
+      staleness: daysSinceUpdate > 90 ? 'critical' : daysSinceUpdate > 60 ? 'high' : 'medium',
+      needsOriginalityCheck: !item.originality_score,
+    };
+  });
+
+  return jsonResponse({
+    success: true,
+    data: staleContent,
+    summary: {
+      total: staleContent.length,
+      critical: staleContent.filter((c: any) => c.staleness === 'critical').length,
+      high: staleContent.filter((c: any) => c.staleness === 'high').length,
+      medium: staleContent.filter((c: any) => c.staleness === 'medium').length,
+      needsOriginalityCheck: staleContent.filter((c: any) => c.needsOriginalityCheck).length,
+    },
+  });
 }

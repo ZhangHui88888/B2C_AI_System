@@ -1,0 +1,258 @@
+---
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { supabase } from '@lib/supabase';
+
+// Get sitemap config
+const { data: sitemapConfig } = await supabase
+  .from('sitemap_config')
+  .select('*');
+
+// Get counts for each page type
+const { count: productCount } = await supabase
+  .from('products')
+  .select('*', { count: 'exact', head: true })
+  .eq('is_active', true);
+
+const { count: categoryCount } = await supabase
+  .from('categories')
+  .select('*', { count: 'exact', head: true });
+
+const { count: blogCount } = await supabase
+  .from('content_library')
+  .select('*', { count: 'exact', head: true })
+  .eq('content_type', 'blog')
+  .eq('status', 'published');
+
+// Default config for page types
+const defaultConfig = [
+  { page_type: 'products', is_included: true, changefreq: 'weekly', priority: 0.8, url_count: productCount || 0 },
+  { page_type: 'categories', is_included: true, changefreq: 'weekly', priority: 0.7, url_count: categoryCount || 0 },
+  { page_type: 'blogs', is_included: true, changefreq: 'daily', priority: 0.6, url_count: blogCount || 0 },
+  { page_type: 'pages', is_included: true, changefreq: 'monthly', priority: 0.5, url_count: 6 }, // Static pages
+];
+
+// Merge with saved config
+const configMap = new Map(sitemapConfig?.map(c => [c.page_type, c]) || []);
+const pageTypes = defaultConfig.map(d => ({
+  ...d,
+  ...(configMap.get(d.page_type) || {}),
+}));
+
+const totalUrls = pageTypes.reduce((sum, p) => sum + (p.is_included ? p.url_count : 0), 0);
+
+const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+---
+
+<AdminLayout title="Sitemap Configuration" activePage="seo">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
+        <a href="/admin/seo" class="hover:text-primary-600">SEO Tools</a>
+        <span>/</span>
+        <span>Sitemap</span>
+      </div>
+      <h2 class="text-2xl font-bold text-gray-900">Sitemap Configuration</h2>
+      <p class="text-gray-600 mt-1">Configure how your sitemap is generated</p>
+    </div>
+    <div class="flex gap-3">
+      <a 
+        href="/sitemap.xml"
+        target="_blank"
+        class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+        </svg>
+        View Sitemap
+      </a>
+      <button 
+        id="regenerate-btn"
+        class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        Regenerate Sitemap
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+      <p class="text-sm font-medium text-gray-500">Total URLs</p>
+      <p class="text-2xl font-bold text-gray-900 mt-1">{totalUrls}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+      <p class="text-sm font-medium text-gray-500">Sitemap URL</p>
+      <p class="text-sm font-mono text-primary-600 mt-2 truncate">{siteUrl}/sitemap.xml</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+      <p class="text-sm font-medium text-gray-500">Last Generated</p>
+      <p class="text-sm text-gray-900 mt-2">Auto-generated on request</p>
+    </div>
+  </div>
+
+  <!-- Configuration Form -->
+  <form id="sitemap-form" class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-100">
+      <h3 class="font-semibold text-gray-900">Page Type Settings</h3>
+      <p class="text-sm text-gray-500 mt-1">Configure which pages are included and their sitemap properties</p>
+    </div>
+
+    <div class="divide-y divide-gray-100">
+      {pageTypes.map((config) => (
+        <div class="px-6 py-4 flex items-center justify-between" data-page-type={config.page_type}>
+          <div class="flex items-center gap-4">
+            <label class="flex items-center gap-2">
+              <input 
+                type="checkbox" 
+                name={`${config.page_type}_included`}
+                checked={config.is_included}
+                class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span class="text-sm font-medium text-gray-900 capitalize">{config.page_type}</span>
+            </label>
+            <span class="text-sm text-gray-500">({config.url_count} URLs)</span>
+          </div>
+
+          <div class="flex items-center gap-4">
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Change Frequency</label>
+              <select 
+                name={`${config.page_type}_changefreq`}
+                class="text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              >
+                <option value="always" selected={config.changefreq === 'always'}>Always</option>
+                <option value="hourly" selected={config.changefreq === 'hourly'}>Hourly</option>
+                <option value="daily" selected={config.changefreq === 'daily'}>Daily</option>
+                <option value="weekly" selected={config.changefreq === 'weekly'}>Weekly</option>
+                <option value="monthly" selected={config.changefreq === 'monthly'}>Monthly</option>
+                <option value="yearly" selected={config.changefreq === 'yearly'}>Yearly</option>
+                <option value="never" selected={config.changefreq === 'never'}>Never</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="text-xs text-gray-500 block mb-1">Priority</label>
+              <select 
+                name={`${config.page_type}_priority`}
+                class="text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              >
+                <option value="1.0" selected={config.priority === 1.0}>1.0 (Highest)</option>
+                <option value="0.9" selected={config.priority === 0.9}>0.9</option>
+                <option value="0.8" selected={config.priority === 0.8}>0.8</option>
+                <option value="0.7" selected={config.priority === 0.7}>0.7</option>
+                <option value="0.6" selected={config.priority === 0.6}>0.6</option>
+                <option value="0.5" selected={config.priority === 0.5}>0.5 (Default)</option>
+                <option value="0.4" selected={config.priority === 0.4}>0.4</option>
+                <option value="0.3" selected={config.priority === 0.3}>0.3</option>
+                <option value="0.2" selected={config.priority === 0.2}>0.2</option>
+                <option value="0.1" selected={config.priority === 0.1}>0.1 (Lowest)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <div class="px-6 py-4 bg-gray-50 flex justify-end">
+      <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+        Save Configuration
+      </button>
+    </div>
+  </form>
+
+  <!-- Sitemap Best Practices -->
+  <div class="mt-6 bg-blue-50 rounded-xl p-6">
+    <h3 class="font-semibold text-blue-900 mb-3">Sitemap Best Practices</h3>
+    <ul class="space-y-2 text-sm text-blue-800">
+      <li class="flex items-start gap-2">
+        <svg class="w-5 h-5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>Submit your sitemap to Google Search Console and Bing Webmaster Tools</span>
+      </li>
+      <li class="flex items-start gap-2">
+        <svg class="w-5 h-5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>Keep sitemaps under 50,000 URLs and 50MB uncompressed</span>
+      </li>
+      <li class="flex items-start gap-2">
+        <svg class="w-5 h-5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>Use higher priority for important pages like products and categories</span>
+      </li>
+      <li class="flex items-start gap-2">
+        <svg class="w-5 h-5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>Reference your sitemap in robots.txt: <code class="bg-blue-100 px-1 rounded">Sitemap: {siteUrl}/sitemap.xml</code></span>
+      </li>
+    </ul>
+  </div>
+</AdminLayout>
+
+<script define:vars={{ apiUrl }}>
+  const form = document.getElementById('sitemap-form');
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(form);
+    
+    // Build config array
+    const pageTypes = ['products', 'categories', 'blogs', 'pages'];
+    const configs = pageTypes.map(type => ({
+      page_type: type,
+      is_included: formData.get(`${type}_included`) === 'on',
+      changefreq: formData.get(`${type}_changefreq`),
+      priority: parseFloat(formData.get(`${type}_priority`))
+    }));
+
+    try {
+      const response = await fetch(`${apiUrl}/api/seo/sitemap/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ configs })
+      });
+
+      if (response.ok) {
+        alert('Configuration saved successfully');
+      } else {
+        alert('Failed to save configuration');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Failed to save configuration');
+    }
+  });
+
+  document.getElementById('regenerate-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('regenerate-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Regenerating...';
+
+    try {
+      const response = await fetch(`${apiUrl}/api/seo/sitemap/regenerate`, {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        alert('Sitemap regenerated successfully');
+        window.open('/sitemap.xml', '_blank');
+      } else {
+        alert('Failed to regenerate sitemap');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Failed to regenerate sitemap');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg> Regenerate Sitemap';
+    }
+  });
+</script>

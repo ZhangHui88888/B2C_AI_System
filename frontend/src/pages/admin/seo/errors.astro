@@ -1,0 +1,259 @@
+---
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { supabase } from '@lib/supabase';
+
+// Get 404 errors
+const { data: errors } = await supabase
+  .from('error_404_logs')
+  .select('*')
+  .order('hit_count', { ascending: false });
+
+const unresolvedErrors = errors?.filter(e => !e.is_resolved) || [];
+const resolvedErrors = errors?.filter(e => e.is_resolved) || [];
+const totalHits = errors?.reduce((sum, e) => sum + (e.hit_count || 0), 0) || 0;
+
+const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+---
+
+<AdminLayout title="404 Errors" activePage="seo">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
+        <a href="/admin/seo" class="hover:text-primary-600">SEO Tools</a>
+        <span>/</span>
+        <span>404 Errors</span>
+      </div>
+      <h2 class="text-2xl font-bold text-gray-900">404 Error Monitor</h2>
+      <p class="text-gray-600 mt-1">Track and fix broken links on your site</p>
+    </div>
+    <button 
+      id="clear-resolved-btn"
+      class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+    >
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+      </svg>
+      Clear Resolved
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+      <p class="text-sm font-medium text-gray-500">Total Errors</p>
+      <p class="text-2xl font-bold text-gray-900 mt-1">{errors?.length || 0}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+      <p class="text-sm font-medium text-gray-500">Unresolved</p>
+      <p class="text-2xl font-bold text-red-600 mt-1">{unresolvedErrors.length}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+      <p class="text-sm font-medium text-gray-500">Resolved</p>
+      <p class="text-2xl font-bold text-green-600 mt-1">{resolvedErrors.length}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+      <p class="text-sm font-medium text-gray-500">Total Hits</p>
+      <p class="text-2xl font-bold text-blue-600 mt-1">{totalHits}</p>
+    </div>
+  </div>
+
+  <!-- Filter Tabs -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 mb-6">
+    <div class="flex border-b border-gray-100">
+      <button class="tab-btn px-6 py-3 text-sm font-medium text-primary-600 border-b-2 border-primary-600" data-tab="unresolved">
+        Unresolved ({unresolvedErrors.length})
+      </button>
+      <button class="tab-btn px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-700" data-tab="resolved">
+        Resolved ({resolvedErrors.length})
+      </button>
+      <button class="tab-btn px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-700" data-tab="all">
+        All ({errors?.length || 0})
+      </button>
+    </div>
+  </div>
+
+  <!-- Errors Table -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Path</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Referrer</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hits</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">First Seen</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Seen</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200" id="errors-tbody">
+          {errors && errors.length > 0 ? (
+            errors.map((error) => (
+              <tr class="error-row hover:bg-gray-50" data-id={error.id} data-resolved={error.is_resolved}>
+                <td class="px-6 py-4">
+                  <code class="text-sm bg-gray-100 px-2 py-1 rounded">{error.request_path}</code>
+                </td>
+                <td class="px-6 py-4">
+                  <p class="text-sm text-gray-500 truncate max-w-xs" title={error.referrer || 'Direct'}>
+                    {error.referrer || 'Direct'}
+                  </p>
+                </td>
+                <td class="px-6 py-4">
+                  <span class={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    error.hit_count > 50 ? 'bg-red-100 text-red-800' : 
+                    error.hit_count > 10 ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {error.hit_count}
+                  </span>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-500">
+                  {new Date(error.first_seen_at).toLocaleDateString()}
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-500">
+                  {new Date(error.last_seen_at).toLocaleDateString()}
+                </td>
+                <td class="px-6 py-4">
+                  <span class={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    error.is_resolved ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {error.is_resolved ? 'Resolved' : 'Open'}
+                  </span>
+                </td>
+                <td class="px-6 py-4 text-right">
+                  {!error.is_resolved && (
+                    <>
+                      <a 
+                        href={`/admin/seo/redirects?source=${encodeURIComponent(error.request_path)}`}
+                        class="text-primary-600 hover:text-primary-700 text-sm font-medium mr-3"
+                      >
+                        Create Redirect
+                      </a>
+                      <button 
+                        class="text-green-600 hover:text-green-700 text-sm font-medium mark-resolved-btn"
+                        data-id={error.id}
+                      >
+                        Mark Resolved
+                      </button>
+                    </>
+                  )}
+                  {error.is_resolved && (
+                    <button 
+                      class="text-yellow-600 hover:text-yellow-700 text-sm font-medium mark-unresolved-btn"
+                      data-id={error.id}
+                    >
+                      Reopen
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colspan="7" class="px-6 py-12 text-center text-gray-500">
+                <svg class="w-12 h-12 text-green-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                No 404 errors recorded
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</AdminLayout>
+
+<script define:vars={{ apiUrl }}>
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      
+      // Update active tab style
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('text-primary-600', 'border-b-2', 'border-primary-600');
+        b.classList.add('text-gray-500');
+      });
+      btn.classList.add('text-primary-600', 'border-b-2', 'border-primary-600');
+      btn.classList.remove('text-gray-500');
+
+      // Filter rows
+      document.querySelectorAll('.error-row').forEach(row => {
+        const isResolved = row.dataset.resolved === 'true';
+        
+        let show = true;
+        if (tab === 'unresolved') show = !isResolved;
+        else if (tab === 'resolved') show = isResolved;
+
+        row.style.display = show ? '' : 'none';
+      });
+    });
+  });
+
+  // Initially show only unresolved
+  document.querySelectorAll('.error-row').forEach(row => {
+    const isResolved = row.dataset.resolved === 'true';
+    row.style.display = isResolved ? 'none' : '';
+  });
+
+  // Mark resolved
+  document.querySelectorAll('.mark-resolved-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.id;
+      try {
+        const response = await fetch(`${apiUrl}/api/seo/errors/${id}/resolve`, {
+          method: 'POST'
+        });
+        if (response.ok) {
+          window.location.reload();
+        } else {
+          alert('Failed to update status');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to update status');
+      }
+    });
+  });
+
+  // Mark unresolved (reopen)
+  document.querySelectorAll('.mark-unresolved-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.id;
+      try {
+        const response = await fetch(`${apiUrl}/api/seo/errors/${id}/reopen`, {
+          method: 'POST'
+        });
+        if (response.ok) {
+          window.location.reload();
+        } else {
+          alert('Failed to update status');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to update status');
+      }
+    });
+  });
+
+  // Clear resolved
+  document.getElementById('clear-resolved-btn')?.addEventListener('click', async () => {
+    if (!confirm('Are you sure you want to delete all resolved 404 errors?')) return;
+    
+    try {
+      const response = await fetch(`${apiUrl}/api/seo/errors/clear-resolved`, {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        window.location.reload();
+      } else {
+        alert('Failed to clear resolved errors');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Failed to clear resolved errors');
+    }
+  });
+</script>

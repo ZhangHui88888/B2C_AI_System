@@ -1,0 +1,434 @@
+---
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { supabase } from '@lib/supabase';
+
+// Get products with content for analysis
+const { data: products } = await supabase
+  .from('products')
+  .select('id, name, slug, description, short_description, meta_title, meta_description, images')
+  .eq('is_active', true)
+  .order('name');
+
+// Get content SEO cache if exists
+const { data: seoCache } = await supabase
+  .from('content_seo_cache')
+  .select('*');
+
+// Create a map for quick lookup
+const cacheMap = new Map();
+seoCache?.forEach(cache => {
+  cacheMap.set(`${cache.content_type}-${cache.content_id}`, cache);
+});
+
+// Analyze each product
+const analyzedProducts = products?.map(p => {
+  const cached = cacheMap.get(`product-${p.id}`);
+  const description = p.description || '';
+  const wordCount = description.split(/\s+/).filter(Boolean).length;
+  
+  // Calculate scores if not cached
+  const titleLength = (p.meta_title || '').length;
+  const descLength = (p.meta_description || '').length;
+  const hasImages = (p.images || []).length > 0;
+  const imagesWithAlt = (p.images || []).filter((img: any) => img.alt).length;
+  
+  // Simple scoring
+  let seoScore = 0;
+  if (p.meta_title && titleLength >= 30 && titleLength <= 60) seoScore += 25;
+  else if (p.meta_title) seoScore += 10;
+  if (p.meta_description && descLength >= 120 && descLength <= 160) seoScore += 25;
+  else if (p.meta_description) seoScore += 10;
+  if (wordCount >= 100) seoScore += 25;
+  else if (wordCount >= 50) seoScore += 15;
+  if (hasImages && imagesWithAlt === (p.images || []).length) seoScore += 25;
+  else if (hasImages) seoScore += 10;
+
+  return {
+    id: p.id,
+    name: p.name,
+    slug: p.slug,
+    type: 'product',
+    word_count: cached?.word_count || wordCount,
+    seo_score: cached?.seo_score || seoScore,
+    readability_score: cached?.readability_score || null,
+    title_length: titleLength,
+    desc_length: descLength,
+    image_count: (p.images || []).length,
+    images_with_alt: imagesWithAlt,
+    has_meta: !!(p.meta_title && p.meta_description),
+    analyzed_at: cached?.analyzed_at || null
+  };
+}) || [];
+
+// Sort by score ascending to show worst first
+const sortedProducts = [...analyzedProducts].sort((a, b) => a.seo_score - b.seo_score);
+
+// Calculate averages
+const avgScore = analyzedProducts.length > 0 
+  ? Math.round(analyzedProducts.reduce((sum, p) => sum + p.seo_score, 0) / analyzedProducts.length)
+  : 0;
+const lowScoreCount = analyzedProducts.filter(p => p.seo_score < 50).length;
+const highScoreCount = analyzedProducts.filter(p => p.seo_score >= 80).length;
+
+const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+---
+
+<AdminLayout title="Content Analysis" activePage="seo">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
+        <a href="/admin/seo" class="hover:text-primary-600">SEO Tools</a>
+        <span>/</span>
+        <span>Content Analysis</span>
+      </div>
+      <h2 class="text-2xl font-bold text-gray-900">Content SEO Analysis</h2>
+      <p class="text-gray-600 mt-1">Analyze content quality and SEO performance</p>
+    </div>
+    <button 
+      id="analyze-all-btn"
+      class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2"
+    >
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+      Analyze All Content
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+      <p class="text-sm font-medium text-gray-500">Average SEO Score</p>
+      <div class="flex items-end gap-2 mt-1">
+        <p class="text-2xl font-bold text-gray-900">{avgScore}</p>
+        <p class="text-sm text-gray-500 pb-0.5">/100</p>
+      </div>
+      <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
+        <div 
+          class={`h-2 rounded-full ${avgScore >= 80 ? 'bg-green-500' : avgScore >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
+          style={`width: ${avgScore}%`}
+        />
+      </div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+      <p class="text-sm font-medium text-gray-500">Total Pages</p>
+      <p class="text-2xl font-bold text-gray-900 mt-1">{analyzedProducts.length}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+      <p class="text-sm font-medium text-gray-500">Needs Improvement</p>
+      <p class="text-2xl font-bold text-red-600 mt-1">{lowScoreCount}</p>
+      <p class="text-xs text-gray-500 mt-1">Score below 50</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+      <p class="text-sm font-medium text-gray-500">Well Optimized</p>
+      <p class="text-2xl font-bold text-green-600 mt-1">{highScoreCount}</p>
+      <p class="text-xs text-gray-500 mt-1">Score 80+</p>
+    </div>
+  </div>
+
+  <!-- Score Legend -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+    <div class="flex flex-wrap items-center gap-6 text-sm">
+      <span class="font-medium text-gray-700">Score Legend:</span>
+      <div class="flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full bg-green-500"></span>
+        <span class="text-gray-600">80-100: Excellent</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
+        <span class="text-gray-600">50-79: Needs Work</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full bg-red-500"></span>
+        <span class="text-gray-600">0-49: Poor</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content Table -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Page</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SEO Score</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Word Count</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Meta Tags</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Images</th>
+            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          {sortedProducts.map((page) => (
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-4">
+                <div>
+                  <p class="text-sm font-medium text-gray-900">{page.name}</p>
+                  <p class="text-xs text-gray-500">/products/{page.slug}</p>
+                </div>
+              </td>
+              <td class="px-6 py-4">
+                <div class="flex items-center gap-2">
+                  <div class="w-16 bg-gray-200 rounded-full h-2">
+                    <div 
+                      class={`h-2 rounded-full ${page.seo_score >= 80 ? 'bg-green-500' : page.seo_score >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                      style={`width: ${page.seo_score}%`}
+                    />
+                  </div>
+                  <span class={`text-sm font-medium ${page.seo_score >= 80 ? 'text-green-600' : page.seo_score >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
+                    {page.seo_score}
+                  </span>
+                </div>
+              </td>
+              <td class="px-6 py-4">
+                <span class={`text-sm ${page.word_count >= 100 ? 'text-green-600' : page.word_count >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
+                  {page.word_count} words
+                </span>
+              </td>
+              <td class="px-6 py-4">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-1">
+                    {page.title_length > 0 ? (
+                      <svg class={`w-4 h-4 ${page.title_length >= 30 && page.title_length <= 60 ? 'text-green-500' : 'text-yellow-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    )}
+                    <span class="text-xs text-gray-500">Title ({page.title_length}/60)</span>
+                  </div>
+                  <div class="flex items-center gap-1">
+                    {page.desc_length > 0 ? (
+                      <svg class={`w-4 h-4 ${page.desc_length >= 120 && page.desc_length <= 160 ? 'text-green-500' : 'text-yellow-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    )}
+                    <span class="text-xs text-gray-500">Desc ({page.desc_length}/160)</span>
+                  </div>
+                </div>
+              </td>
+              <td class="px-6 py-4">
+                <div class="flex items-center gap-1">
+                  {page.image_count > 0 ? (
+                    <>
+                      {page.images_with_alt === page.image_count ? (
+                        <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <svg class="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                      )}
+                      <span class="text-xs text-gray-500">{page.images_with_alt}/{page.image_count} with alt</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      <span class="text-xs text-gray-500">No images</span>
+                    </>
+                  )}
+                </div>
+              </td>
+              <td class="px-6 py-4 text-right">
+                <button 
+                  class="text-primary-600 hover:text-primary-700 text-sm font-medium mr-3 analyze-btn"
+                  data-id={page.id}
+                  data-type={page.type}
+                >
+                  Analyze
+                </button>
+                <a 
+                  href={`/admin/seo/meta?edit=${page.id}`}
+                  class="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+                >
+                  Edit Meta
+                </a>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Analysis Detail Modal -->
+  <div id="analysis-modal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50" id="modal-backdrop"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <h3 class="font-semibold text-gray-900" id="modal-title">Content Analysis</h3>
+          <button id="close-modal" class="text-gray-400 hover:text-gray-600">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div id="modal-content" class="p-6">
+          <div class="flex items-center justify-center py-12">
+            <svg class="animate-spin w-8 h-8 text-primary-600" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script define:vars={{ apiUrl }}>
+  const modal = document.getElementById('analysis-modal');
+  const modalBackdrop = document.getElementById('modal-backdrop');
+  const closeBtn = document.getElementById('close-modal');
+  const modalContent = document.getElementById('modal-content');
+  const modalTitle = document.getElementById('modal-title');
+
+  function closeModal() {
+    modal?.classList.add('hidden');
+  }
+
+  closeBtn?.addEventListener('click', closeModal);
+  modalBackdrop?.addEventListener('click', closeModal);
+
+  // Analyze buttons
+  document.querySelectorAll('.analyze-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.id;
+      const type = btn.dataset.type;
+      
+      modal?.classList.remove('hidden');
+      modalTitle.textContent = 'Analyzing Content...';
+      modalContent.innerHTML = `
+        <div class="flex items-center justify-center py-12">
+          <svg class="animate-spin w-8 h-8 text-primary-600" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+      `;
+
+      try {
+        const response = await fetch(`${apiUrl}/api/seo/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content_id: id, content_type: type })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          renderAnalysis(data);
+        } else {
+          modalContent.innerHTML = `<p class="text-red-600">Failed to analyze content</p>`;
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        modalContent.innerHTML = `<p class="text-red-600">Failed to analyze content</p>`;
+      }
+    });
+  });
+
+  function renderAnalysis(data) {
+    modalTitle.textContent = `Analysis: ${data.name || 'Content'}`;
+    
+    const scoreColor = data.seo_score >= 80 ? 'green' : data.seo_score >= 50 ? 'yellow' : 'red';
+    
+    modalContent.innerHTML = `
+      <div class="space-y-6">
+        <!-- Overall Score -->
+        <div class="text-center">
+          <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-${scoreColor}-100">
+            <span class="text-3xl font-bold text-${scoreColor}-600">${data.seo_score}</span>
+          </div>
+          <p class="text-sm text-gray-500 mt-2">Overall SEO Score</p>
+        </div>
+
+        <!-- Metrics -->
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-gray-50 rounded-lg p-4">
+            <p class="text-sm text-gray-500">Word Count</p>
+            <p class="text-lg font-semibold">${data.word_count || 0}</p>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-4">
+            <p class="text-sm text-gray-500">Readability</p>
+            <p class="text-lg font-semibold">${data.readability_score ? data.readability_score + '/100' : 'N/A'}</p>
+          </div>
+        </div>
+
+        <!-- Issues -->
+        ${data.issues && data.issues.length > 0 ? `
+          <div>
+            <h4 class="font-medium text-gray-900 mb-3">Issues Found</h4>
+            <div class="space-y-2">
+              ${data.issues.map(issue => `
+                <div class="flex items-start gap-2 p-3 rounded-lg ${issue.severity === 'error' ? 'bg-red-50' : 'bg-yellow-50'}">
+                  <svg class="w-5 h-5 ${issue.severity === 'error' ? 'text-red-600' : 'text-yellow-600'} flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <span class="text-sm ${issue.severity === 'error' ? 'text-red-700' : 'text-yellow-700'}">${issue.message}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- Recommendations -->
+        ${data.recommendations && data.recommendations.length > 0 ? `
+          <div>
+            <h4 class="font-medium text-gray-900 mb-3">Recommendations</h4>
+            <ul class="space-y-2">
+              ${data.recommendations.map(rec => `
+                <li class="flex items-start gap-2 text-sm text-gray-700">
+                  <svg class="w-5 h-5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  ${rec}
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  // Analyze all button
+  document.getElementById('analyze-all-btn')?.addEventListener('click', async () => {
+    if (!confirm('This will analyze all content. This may take a while. Continue?')) return;
+
+    const btn = document.getElementById('analyze-all-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Analyzing...';
+
+    try {
+      const response = await fetch(`${apiUrl}/api/seo/analyze-all`, {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(`Analyzed ${result.count} pages`);
+        window.location.reload();
+      } else {
+        alert('Failed to analyze all content');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Failed to analyze all content');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg> Analyze All Content';
+    }
+  });
+</script>

@@ -18,8 +18,13 @@ import { handleAdminCategories } from './routes/admin-categories';
 import { handleAdminOrders } from './routes/admin-orders';
 import { handleAdminCoupons, handleCouponValidation } from './routes/admin-coupons';
 import { handleAdminBrands } from './routes/admin-brands';
+import { handleAdminTemplates } from './routes/admin-templates';
+import { handleSeo } from './routes/seo';
+import { handleMonitoring } from './routes/monitoring';
 import { cors, errorHandler, jsonResponse } from './utils/response';
 import { resolveBrandContext, withBrandRequest } from './middleware/brand';
+import { createRequestLogger } from './utils/logger';
+import { metricsCollector, createRequestMetrics } from './utils/metrics';
 import Stripe from 'stripe';
 import { getSupabase, Tables } from './utils/supabase';
 import { sendResendEmail } from './utils/email';
@@ -202,6 +207,15 @@ export default {
         return await handleAdminBrands(routedRequest, env, path);
       }
 
+      if (path.startsWith('/api/admin/templates')) {
+        return await handleAdminTemplates(routedRequest, env, path);
+      }
+
+      // SEO Tools Routes
+      if (path.startsWith('/api/seo')) {
+        return await handleSeo(routedRequest, env, path);
+      }
+
       // API Routes
       if (path.startsWith('/api/products')) {
         return await handleProducts(routedRequest, env, path);
@@ -252,9 +266,12 @@ export default {
         return await handleStripeWebhook(request, env);
       }
 
-      // Health check
-      if (path === '/api/health') {
-        return jsonResponse({ status: 'ok', environment: env.ENVIRONMENT });
+      // Monitoring and health routes
+      if (path === '/api/health' || path === '/api/health/detailed' || 
+          path === '/api/ready' || path === '/api/live' ||
+          path === '/api/metrics' || path === '/api/metrics/endpoints' ||
+          path === '/api/metrics/prometheus' || path === '/api/system') {
+        return await handleMonitoring(request, env, path);
       }
 
       // 404 for unknown routes

@@ -118,9 +118,14 @@ export async function handleAdminBrands(
         slug?: string;
         domain?: string | null;
         logo_url?: string | null;
+        favicon_url?: string | null;
         owner_email?: string;
         is_active?: boolean;
         settings?: Record<string, any>;
+        theme?: Record<string, any>;
+        social_links?: Record<string, any>;
+        contact_info?: Record<string, any>;
+        custom_css?: string | null;
       };
 
       // Check slug uniqueness if changing
@@ -159,9 +164,14 @@ export async function handleAdminBrands(
       if (body.slug !== undefined) updateData.slug = body.slug;
       if (body.domain !== undefined) updateData.domain = body.domain;
       if (body.logo_url !== undefined) updateData.logo_url = body.logo_url;
+      if (body.favicon_url !== undefined) updateData.favicon_url = body.favicon_url;
       if (body.owner_email !== undefined) updateData.owner_email = body.owner_email;
       if (body.is_active !== undefined) updateData.is_active = body.is_active;
       if (body.settings !== undefined) updateData.settings = body.settings;
+      if (body.theme !== undefined) updateData.theme = body.theme;
+      if (body.social_links !== undefined) updateData.social_links = body.social_links;
+      if (body.contact_info !== undefined) updateData.contact_info = body.contact_info;
+      if (body.custom_css !== undefined) updateData.custom_css = body.custom_css;
 
       const { data, error } = await supabase
         .from('brands')
@@ -222,6 +232,297 @@ export async function handleAdminBrands(
       message: 'Brand deleted successfully',
       deleted_data: warnings.length > 0 ? warnings.join(', ') : null
     });
+  }
+
+  // ============================================
+  // Domain Management Endpoints
+  // ============================================
+
+  // GET /api/admin/brands/:id/domains - List brand domains
+  const listDomainsMatch = path.match(/^\/api\/admin\/brands\/([^\/]+)\/domains$/);
+  if (listDomainsMatch && method === 'GET') {
+    const brandId = listDomainsMatch[1];
+
+    const { data, error } = await supabase
+      .from('brand_domains')
+      .select('*')
+      .eq('brand_id', brandId)
+      .order('is_primary', { ascending: false });
+
+    if (error) {
+      return errorResponse(error.message, 500);
+    }
+
+    return jsonResponse(data || []);
+  }
+
+  // POST /api/admin/brands/:id/domains - Add domain
+  if (listDomainsMatch && method === 'POST') {
+    const brandId = listDomainsMatch[1];
+
+    try {
+      const body = await request.json() as {
+        domain: string;
+        is_primary?: boolean;
+      };
+
+      if (!body.domain) {
+        return errorResponse('Domain is required', 400);
+      }
+
+      // Normalize domain (remove protocol, trailing slash)
+      const normalizedDomain = body.domain
+        .replace(/^https?:\/\//, '')
+        .replace(/\/$/, '')
+        .toLowerCase();
+
+      // Check domain uniqueness
+      const { data: existing } = await supabase
+        .from('brand_domains')
+        .select('id')
+        .eq('domain', normalizedDomain)
+        .single();
+
+      if (existing) {
+        return errorResponse('This domain is already registered', 400);
+      }
+
+      // If setting as primary, unset other primary domains
+      if (body.is_primary) {
+        await supabase
+          .from('brand_domains')
+          .update({ is_primary: false })
+          .eq('brand_id', brandId);
+      }
+
+      const { data, error } = await supabase
+        .from('brand_domains')
+        .insert({
+          brand_id: brandId,
+          domain: normalizedDomain,
+          is_primary: body.is_primary ?? false,
+          ssl_status: 'pending',
+          dns_verified: false,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        return errorResponse(error.message, 500);
+      }
+
+      return jsonResponse(data, 201);
+    } catch (e) {
+      return errorResponse('Invalid request body', 400);
+    }
+  }
+
+  // PUT /api/admin/brands/:id/domains/:domainId - Update domain
+  const updateDomainMatch = path.match(/^\/api\/admin\/brands\/([^\/]+)\/domains\/([^\/]+)$/);
+  if (updateDomainMatch && method === 'PUT') {
+    const brandId = updateDomainMatch[1];
+    const domainId = updateDomainMatch[2];
+
+    try {
+      const body = await request.json() as {
+        is_primary?: boolean;
+        ssl_status?: string;
+        dns_verified?: boolean;
+      };
+
+      // If setting as primary, unset other primary domains
+      if (body.is_primary) {
+        await supabase
+          .from('brand_domains')
+          .update({ is_primary: false })
+          .eq('brand_id', brandId);
+      }
+
+      const updateData: Record<string, any> = {
+        updated_at: new Date().toISOString(),
+      };
+
+      if (body.is_primary !== undefined) updateData.is_primary = body.is_primary;
+      if (body.ssl_status !== undefined) updateData.ssl_status = body.ssl_status;
+      if (body.dns_verified !== undefined) {
+        updateData.dns_verified = body.dns_verified;
+        if (body.dns_verified) {
+          updateData.verified_at = new Date().toISOString();
+        }
+      }
+
+      const { data, error } = await supabase
+        .from('brand_domains')
+        .update(updateData)
+        .eq('id', domainId)
+        .eq('brand_id', brandId)
+        .select()
+        .single();
+
+      if (error) {
+        return errorResponse(error.message, 500);
+      }
+
+      if (!data) {
+        return errorResponse('Domain not found', 404);
+      }
+
+      return jsonResponse(data);
+    } catch (e) {
+      return errorResponse('Invalid request body', 400);
+    }
+  }
+
+  // DELETE /api/admin/brands/:id/domains/:domainId - Remove domain
+  if (updateDomainMatch && method === 'DELETE') {
+    const brandId = updateDomainMatch[1];
+    const domainId = updateDomainMatch[2];
+
+    const { error } = await supabase
+      .from('brand_domains')
+      .delete()
+      .eq('id', domainId)
+      .eq('brand_id', brandId);
+
+    if (error) {
+      return errorResponse(error.message, 500);
+    }
+
+    return jsonResponse({ message: 'Domain removed successfully' });
+  }
+
+  // ============================================
+  // User Assignment Endpoints
+  // ============================================
+
+  // GET /api/admin/brands/:id/users - List brand users
+  const listUsersMatch = path.match(/^\/api\/admin\/brands\/([^\/]+)\/users$/);
+  if (listUsersMatch && method === 'GET') {
+    const brandId = listUsersMatch[1];
+
+    const { data, error } = await supabase
+      .from('brand_user_assignments')
+      .select(`
+        *,
+        admin_user:admin_users(id, email, name, avatar_url, role, is_active)
+      `)
+      .eq('brand_id', brandId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return errorResponse(error.message, 500);
+    }
+
+    return jsonResponse(data || []);
+  }
+
+  // POST /api/admin/brands/:id/users - Add user to brand
+  if (listUsersMatch && method === 'POST') {
+    const brandId = listUsersMatch[1];
+
+    try {
+      const body = await request.json() as {
+        admin_user_id: string;
+        role: string;
+        permissions?: Record<string, any>;
+      };
+
+      if (!body.admin_user_id || !body.role) {
+        return errorResponse('admin_user_id and role are required', 400);
+      }
+
+      // Check if user exists
+      const { data: user } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('id', body.admin_user_id)
+        .single();
+
+      if (!user) {
+        return errorResponse('Admin user not found', 404);
+      }
+
+      const { data, error } = await supabase
+        .from('brand_user_assignments')
+        .insert({
+          brand_id: brandId,
+          admin_user_id: body.admin_user_id,
+          role: body.role,
+          permissions: body.permissions || {},
+        })
+        .select()
+        .single();
+
+      if (error) {
+        if (error.code === '23505') {
+          return errorResponse('User is already assigned to this brand', 400);
+        }
+        return errorResponse(error.message, 500);
+      }
+
+      return jsonResponse(data, 201);
+    } catch (e) {
+      return errorResponse('Invalid request body', 400);
+    }
+  }
+
+  // PUT /api/admin/brands/:id/users/:userId - Update user assignment
+  const updateUserMatch = path.match(/^\/api\/admin\/brands\/([^\/]+)\/users\/([^\/]+)$/);
+  if (updateUserMatch && method === 'PUT') {
+    const brandId = updateUserMatch[1];
+    const assignmentId = updateUserMatch[2];
+
+    try {
+      const body = await request.json() as {
+        role?: string;
+        permissions?: Record<string, any>;
+      };
+
+      const updateData: Record<string, any> = {
+        updated_at: new Date().toISOString(),
+      };
+
+      if (body.role !== undefined) updateData.role = body.role;
+      if (body.permissions !== undefined) updateData.permissions = body.permissions;
+
+      const { data, error } = await supabase
+        .from('brand_user_assignments')
+        .update(updateData)
+        .eq('id', assignmentId)
+        .eq('brand_id', brandId)
+        .select()
+        .single();
+
+      if (error) {
+        return errorResponse(error.message, 500);
+      }
+
+      if (!data) {
+        return errorResponse('Assignment not found', 404);
+      }
+
+      return jsonResponse(data);
+    } catch (e) {
+      return errorResponse('Invalid request body', 400);
+    }
+  }
+
+  // DELETE /api/admin/brands/:id/users/:userId - Remove user from brand
+  if (updateUserMatch && method === 'DELETE') {
+    const brandId = updateUserMatch[1];
+    const assignmentId = updateUserMatch[2];
+
+    const { error } = await supabase
+      .from('brand_user_assignments')
+      .delete()
+      .eq('id', assignmentId)
+      .eq('brand_id', brandId);
+
+    if (error) {
+      return errorResponse(error.message, 500);
+    }
+
+    return jsonResponse({ message: 'User removed from brand successfully' });
   }
 
   return errorResponse('Method not allowed', 405);

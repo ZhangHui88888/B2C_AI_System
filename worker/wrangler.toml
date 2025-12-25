@@ -1,30 +1,39 @@
+# ============================================
 # Cloudflare Worker Configuration
 # DTC E-commerce API - Multi-brand Independent Store System
+# ============================================
+
 name = "dtc-ecommerce-api"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Worker limits
-# account_id = "your-account-id"  # Optional: specify account
+# Worker limits and account
+# account_id = "your-account-id"  # Set via CLOUDFLARE_ACCOUNT_ID env var
 
-# Development settings
+# ============================================
+# Development Settings
+# ============================================
 [dev]
 port = 8787
 local_protocol = "http"
+ip = "0.0.0.0"
 
 # ============================================
-# Environment Variables
+# Environment Variables (Non-sensitive)
 # ============================================
-# Non-sensitive variables can be set here
-# Sensitive variables should use: wrangler secret put <KEY>
 [vars]
 ENVIRONMENT = "development"
 DEFAULT_BRAND_SLUG = "techgear"
+LOG_LEVEL = "debug"
+CORS_ORIGINS = "http://localhost:4321,http://localhost:3000"
 
 # ============================================
-# Required Secrets (use wrangler secret put)
+# Required Secrets
 # ============================================
+# Set via: wrangler secret put <KEY>
+# Or via GitHub Actions secrets
+#
 # SUPABASE_URL = "https://xxx.supabase.co"
 # SUPABASE_SERVICE_KEY = "eyJ..."
 # STRIPE_SECRET_KEY = "sk_live_..."
@@ -39,33 +48,68 @@ DEFAULT_BRAND_SLUG = "techgear"
 # [[kv_namespaces]]
 # binding = "CACHE"
 # id = "your-kv-namespace-id"
+# preview_id = "your-preview-kv-namespace-id"
 
 # ============================================
-# Production Environment
+# Durable Objects (for real-time features)
 # ============================================
-[env.production]
-name = "dtc-ecommerce-api"
-vars = { ENVIRONMENT = "production" }
-# routes = [
-#   { pattern = "api.yourdomain.com/*", zone_name = "yourdomain.com" }
-# ]
+# [[durable_objects.bindings]]
+# name = "RATE_LIMITER"
+# class_name = "RateLimiter"
 
-# Production KV (create separate namespace for prod)
-# [[env.production.kv_namespaces]]
-# binding = "CACHE"
-# id = "your-prod-kv-namespace-id"
+# ============================================
+# Analytics Engine (for metrics)
+# ============================================
+# [[analytics_engine_datasets]]
+# binding = "ANALYTICS"
 
 # ============================================
 # Staging Environment
 # ============================================
 [env.staging]
 name = "dtc-ecommerce-api-staging"
-vars = { ENVIRONMENT = "staging" }
+workers_dev = true
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+LOG_LEVEL = "info"
+CORS_ORIGINS = "https://staging.yourdomain.com"
+
+# Staging KV
+# [[env.staging.kv_namespaces]]
+# binding = "CACHE"
+# id = "your-staging-kv-namespace-id"
 
 # ============================================
-# Custom Domains (configure after deployment)
+# Production Environment
 # ============================================
+[env.production]
+name = "dtc-ecommerce-api"
+workers_dev = false
+
+[env.production.vars]
+ENVIRONMENT = "production"
+LOG_LEVEL = "warn"
+CORS_ORIGINS = "https://yourdomain.com,https://brand1.com,https://brand2.com"
+
+# Production routes (multi-domain)
 # routes = [
+#   { pattern = "api.yourdomain.com/*", zone_name = "yourdomain.com" },
 #   { pattern = "api.brand1.com/*", zone_name = "brand1.com" },
 #   { pattern = "api.brand2.com/*", zone_name = "brand2.com" }
 # ]
+
+# Production KV
+# [[env.production.kv_namespaces]]
+# binding = "CACHE"
+# id = "your-prod-kv-namespace-id"
+
+# ============================================
+# Observability
+# ============================================
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+invocation_logs = true
