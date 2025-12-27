@@ -13,6 +13,11 @@ dist/
 .env.*.local
 .dev.vars
 
+# Local credentials (DO NOT COMMIT)
+.credentials.local.md
+*.credentials.md
+credentials.local.*
+
 # IDE
 .vscode/
 .idea/

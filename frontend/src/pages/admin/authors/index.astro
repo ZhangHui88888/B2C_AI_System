@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { supabase } from '@lib/supabase';
 
@@ -9,14 +11,14 @@ const { data: authors } = await supabase
   .order('name');
 ---
 
-<AdminLayout title="Authors" activePage="authors">
+<AdminLayout title="作者" activePage="authors">
   <div class="flex items-center justify-between mb-6">
     <div>
-      <h1 class="text-2xl font-bold text-gray-900">Authors</h1>
-      <p class="text-sm text-gray-500 mt-1">Manage content authors for E-E-A-T compliance</p>
+      <h1 class="text-2xl font-bold text-gray-900">作者</h1>
+      <p class="text-sm text-gray-500 mt-1">管理内容作者以符合 E-E-A-T 要求</p>
     </div>
     <button id="add-author-btn" class="px-4 py-2 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 transition-colors">
-      Add Author
+      添加作者
     </button>
   </div>
 
@@ -36,9 +38,9 @@ const { data: authors } = await supabase
             <div class="flex items-center gap-2">
               <h3 class="font-semibold text-gray-900 truncate">{author.name}</h3>
               {author.is_active ? (
-                <span class="px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">Active</span>
+                <span class="px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">活跃</span>
               ) : (
-                <span class="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">Inactive</span>
+                <span class="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">不活跃</span>
               )}
             </div>
             <p class="text-sm text-gray-500 mt-1">@{author.slug}</p>
@@ -61,14 +63,14 @@ const { data: authors } = await supabase
 
         <div class="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
           <div class="text-sm text-gray-500">
-            <span class="font-medium text-gray-900">{author.article_count || 0}</span> articles
+            <span class="font-medium text-gray-900">{author.article_count || 0}</span> 篇文章
           </div>
           <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
             <button class="edit-author text-primary-600 hover:text-primary-700 text-sm font-medium" data-id={author.id}>
-              Edit
+              编辑
             </button>
             <button class="delete-author text-red-600 hover:text-red-700 text-sm font-medium" data-id={author.id}>
-              Delete
+              删除
             </button>
           </div>
         </div>
@@ -78,10 +80,10 @@ const { data: authors } = await supabase
         <svg class="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
         </svg>
-        <h3 class="text-lg font-medium text-gray-900 mb-1">No authors yet</h3>
-        <p class="text-gray-500 mb-4">Add authors to attribute content for better E-E-A-T signals</p>
+        <h3 class="text-lg font-medium text-gray-900 mb-1">暂无作者</h3>
+        <p class="text-gray-500 mb-4">添加作者以归属内容，提高 E-E-A-T 信号</p>
         <button id="add-first-author-btn" class="px-4 py-2 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 transition-colors">
-          Add First Author
+          添加第一个作者
         </button>
       </div>
     )}
@@ -93,7 +95,7 @@ const { data: authors } = await supabase
     <div class="fixed inset-0 flex items-center justify-center p-4">
       <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
         <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 id="modal-title" class="text-lg font-semibold text-gray-900">Add Author</h2>
+          <h2 id="modal-title" class="text-lg font-semibold text-gray-900">添加作者</h2>
           <button id="close-modal" class="text-gray-400 hover:text-gray-600">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -104,39 +106,39 @@ const { data: authors } = await supabase
           <input type="hidden" id="author-id" name="id" value="" />
           
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">姓名 *</label>
             <input type="text" id="author-name" name="name" required 
               class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
-              placeholder="John Doe" />
+              placeholder="张三" />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Slug</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">别名</label>
             <input type="text" id="author-slug" name="slug" 
               class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
-              placeholder="john-doe (auto-generated if empty)" />
+              placeholder="zhang-san（留空自动生成）" />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Avatar URL</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">头像 URL</label>
             <input type="url" id="author-avatar" name="avatar_url" 
               class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
               placeholder="https://example.com/avatar.jpg" />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Bio</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">简介</label>
             <textarea id="author-bio" name="bio" rows="3"
               class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
-              placeholder="Brief biography or expertise description..."></textarea>
+              placeholder="简短介绍或专业背景..."></textarea>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Credentials</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">资质</label>
             <input type="text" id="author-credentials" name="credentials" 
               class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500"
-              placeholder="PhD, Certified Expert, 10+ years experience (comma separated)" />
-            <p class="text-xs text-gray-500 mt-1">Separate multiple credentials with commas</p>
+              placeholder="博士, 认证专家, 10+年经验（逗号分隔）" />
+            <p class="text-xs text-gray-500 mt-1">用逗号分隔多个资质</p>
           </div>
 
           <div class="grid grid-cols-2 gap-4">
@@ -157,15 +159,15 @@ const { data: authors } = await supabase
           <div class="flex items-center">
             <input type="checkbox" id="author-active" name="is_active" checked
               class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" />
-            <label for="author-active" class="ml-2 text-sm text-gray-700">Active</label>
+            <label for="author-active" class="ml-2 text-sm text-gray-700">活跃</label>
           </div>
 
           <div class="flex gap-3 pt-4">
             <button type="submit" class="flex-1 px-4 py-2 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 transition-colors">
-              Save Author
+              保存作者
             </button>
             <button type="button" id="cancel-btn" class="px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors">
-              Cancel
+              取消
             </button>
           </div>
         </form>
@@ -189,7 +191,7 @@ const { data: authors } = await supabase
 
     function openModal(author?: any) {
       editingId = author?.id || null;
-      modalTitle!.textContent = author ? 'Edit Author' : 'Add Author';
+      modalTitle!.textContent = author ? '编辑作者' : '添加作者';
       
       // Reset form
       form.reset();
@@ -238,17 +240,17 @@ const { data: authors } = await supabase
     document.querySelectorAll('.delete-author').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         const id = (e.target as HTMLElement).dataset.id;
-        if (!id || !confirm('Delete this author? Their content will remain but become unattributed.')) return;
+        if (!id || !confirm('删除此作者？其内容将保留但变为未归属。')) return;
         
         try {
           const result = await api.deleteAuthor(id);
           if (result.success) {
             window.location.reload();
           } else {
-            alert('Failed to delete author');
+            alert('删除作者失败');
           }
         } catch (err) {
-          alert('Failed to delete author');
+          alert('删除作者失败');
         }
       });
     });
@@ -291,10 +293,10 @@ const { data: authors } = await supabase
         if (result.success) {
           window.location.reload();
         } else {
-          alert(result.error || 'Failed to save author');
+          alert(result.error || '保存作者失败');
         }
       } catch (err) {
-        alert('Failed to save author');
+        alert('保存作者失败');
       }
     });
   </script>

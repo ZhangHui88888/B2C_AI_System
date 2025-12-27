@@ -1,0 +1,326 @@
+---
+export const prerender = false;
+
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { supabase } from '@lib/supabase';
+
+// Get member levels
+const { data: levels } = await supabase
+  .from('member_levels')
+  .select('*')
+  .order('level_order');
+
+// Get membership stats
+const { data: memberships } = await supabase
+  .from('customer_memberships')
+  .select('current_level_id, points_balance, lifetime_points');
+
+// Get points rules
+const { data: pointsRules } = await supabase
+  .from('points_rules')
+  .select('*')
+  .eq('is_active', true);
+
+// Get redemption options
+const { data: redemptions } = await supabase
+  .from('points_redemptions')
+  .select('*')
+  .eq('is_active', true);
+
+// Calculate stats
+const totalMembers = memberships?.length || 0;
+const totalPointsOutstanding = memberships?.reduce((sum: number, m: any) => sum + (m.points_balance || 0), 0) || 0;
+const levelCounts: Record<string, number> = {};
+for (const level of levels || []) {
+  levelCounts[level.id] = memberships?.filter((m: any) => m.current_level_id === level.id).length || 0;
+}
+---
+
+<AdminLayout title="会员计划" activePage="marketing">
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h2 class="text-2xl font-bold text-gray-900">会员计划</h2>
+      <p class="text-gray-600 mt-1">管理积分、会员等级和奖励</p>
+    </div>
+    <div class="flex gap-3">
+      <a href="/admin/marketing/referrals" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium">
+        推荐计划 →
+      </a>
+    </div>
+  </div>
+
+  <!-- Stats Overview -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">总会员数</p>
+      <p class="text-2xl font-bold text-gray-900">{totalMembers}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">未使用积分</p>
+      <p class="text-2xl font-bold text-blue-600">{totalPointsOutstanding.toLocaleString()}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">活跃规则</p>
+      <p class="text-2xl font-bold text-green-600">{pointsRules?.length || 0}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">兑换选项</p>
+      <p class="text-2xl font-bold text-purple-600">{redemptions?.length || 0}</p>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 mb-6">
+    <div class="border-b border-gray-100">
+      <nav class="flex -mb-px">
+        <button class="tab-btn px-6 py-3 text-sm font-medium border-b-2 border-primary-600 text-primary-600" data-tab="levels">
+          会员等级
+        </button>
+        <button class="tab-btn px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="rules">
+          积分规则
+        </button>
+        <button class="tab-btn px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="redemptions">
+          兑换选项
+        </button>
+        <button class="tab-btn px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="members">
+          会员
+        </button>
+      </nav>
+    </div>
+
+    <!-- Levels Tab -->
+    <div id="tab-levels" class="tab-content p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-semibold text-gray-900">会员等级</h3>
+        <button id="init-levels-btn" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium">初始化默认等级
+        </button>
+      </div>
+
+      {levels && levels.length > 0 ? (
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {levels.map((level: any) => (
+            <div class="border border-gray-200 rounded-lg p-4" style={`border-top: 4px solid ${level.badge_color || '#ccc'}`}>
+              <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold" style={`background-color: ${level.badge_color || '#ccc'}`}>
+                  {level.level_name.charAt(0)}
+                </div>
+                <div>
+                  <h4 class="font-semibold text-gray-900">{level.level_name}</h4>
+                  <p class="text-xs text-gray-500">{levelCounts[level.id] || 0} 位会员</p>
+                </div>
+              </div>
+              <div class="space-y-1 text-sm text-gray-600">
+                <p>最低积分：<span class="font-medium">{level.min_points || 0}</span></p>
+                <p>积分倍数：<span class="font-medium">{level.points_multiplier}x</span></p>
+                <p>折扣：<span class="font-medium">{level.discount_percentage || 0}%</span></p>
+                {level.free_shipping_threshold === 0 && (
+                  <p class="text-green-600 font-medium">✓ 免运费</p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div class="text-center py-12 text-gray-500">
+          <p class="mb-4">尚未配置会员等级。</p>
+          <p class="text-sm">点击“初始化默认等级”创建铜牌、银牌、金牌和铂金等级。</p>
+        </div>
+      )}
+    </div>
+
+    <!-- Rules Tab -->
+    <div id="tab-rules" class="tab-content p-6 hidden">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-semibold text-gray-900">积分获取规则</h3>
+        <button id="add-rule-btn" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium">添加规则
+        </button>
+      </div>
+
+      {pointsRules && pointsRules.length > 0 ? (
+        <div class="space-y-3">
+          {pointsRules.map((rule: any) => (
+            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div>
+                <p class="font-medium text-gray-900">{rule.rule_name}</p>
+                <p class="text-sm text-gray-500">
+                  Type: {rule.rule_type} | 
+                  {rule.points_per_dollar ? ` ${rule.points_per_dollar} pts/$` : ''} 
+                  {rule.fixed_points ? ` ${rule.fixed_points} pts fixed` : ''}
+                </p>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class={`text-xs px-2 py-1 rounded ${rule.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                  {rule.is_active ? '活跃' : '停用'}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div class="text-center py-12 text-gray-500">
+          <p>未配置积分规则。添加规则以开始购物积分。</p>
+        </div>
+      )}
+    </div>
+
+    <!-- Redemptions Tab -->
+    <div id="tab-redemptions" class="tab-content p-6 hidden">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-semibold text-gray-900">兑换选项</h3>
+        <button id="add-redemption-btn" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm font-medium">添加兑换
+        </button>
+      </div>
+
+      {redemptions && redemptions.length > 0 ? (
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {redemptions.map((r: any) => (
+            <div class="border border-gray-200 rounded-lg p-4">
+              <h4 class="font-semibold text-gray-900 mb-2">{r.redemption_name}</h4>
+              <p class="text-2xl font-bold text-primary-600 mb-2">{r.points_required} pts</p>
+              <p class="text-sm text-gray-600">
+                {r.redemption_type === 'discount_fixed' && `$${r.discount_amount} off`}
+                {r.redemption_type === 'discount_percent' && `${r.discount_percent}% off`}
+                {r.redemption_type === 'free_shipping' && '免运费'}
+              </p>
+              {r.description && <p class="text-xs text-gray-500 mt-2">{r.description}</p>}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div class="text-center py-12 text-gray-500">
+          <p>未配置兑换选项。添加客户兑换积分的方式。</p>
+        </div>
+      )}
+    </div>
+
+    <!-- Members Tab -->
+    <div id="tab-members" class="tab-content p-6 hidden">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-semibold text-gray-900">顶级会员</h3>
+        <button id="recalculate-btn" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium">重新计算等级
+        </button>
+      </div>
+      <div id="members-list" class="text-center py-12 text-gray-500">
+        <p>加载会员中...</p>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = (btn as HTMLElement).dataset.tab;
+
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('border-primary-600', 'text-primary-600');
+        b.classList.add('border-transparent', 'text-gray-500');
+      });
+      btn.classList.remove('border-transparent', 'text-gray-500');
+      btn.classList.add('border-primary-600', 'text-primary-600');
+
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+      document.getElementById(`tab-${tab}`)?.classList.remove('hidden');
+
+      if (tab === 'members') {
+        loadMembers();
+      }
+    });
+  });
+
+  // Initialize default levels
+  document.getElementById('init-levels-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('init-levels-btn') as HTMLButtonElement;
+    btn.disabled = true;
+    btn.textContent = '初始化中...';
+
+    try {
+      const response = await fetch('/api/membership/levels/init', { method: 'POST' });
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`已创建 ${data.levels_created} 个等级。正在刷新...`);
+        window.location.reload();
+      } else {
+        alert(data.error || data.message || '初始化失败');
+      }
+    } catch (error) {
+      alert('初始化等级失败');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '初始化默认等级';
+    }
+  });
+
+  // Load members
+  async function loadMembers() {
+    const container = document.getElementById('members-list');
+    if (!container) return;
+
+    try {
+      const response = await fetch('/api/membership/customers?limit=20');
+      const data = await response.json();
+
+      if (data.memberships && data.memberships.length > 0) {
+        container.innerHTML = `
+          <table class="w-full text-left">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-2 text-xs font-medium text-gray-500 uppercase">客户</th>
+                <th class="px-4 py-2 text-xs font-medium text-gray-500 uppercase">等级</th>
+                <th class="px-4 py-2 text-xs font-medium text-gray-500 uppercase">积分</th>
+                <th class="px-4 py-2 text-xs font-medium text-gray-500 uppercase">累计</th>
+                <th class="px-4 py-2 text-xs font-medium text-gray-500 uppercase">订单</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              ${data.memberships.map((m: any) => `
+                <tr>
+                  <td class="px-4 py-3">
+                    <p class="text-sm font-medium text-gray-900">${m.customer?.first_name || ''} ${m.customer?.last_name || ''}</p>
+                    <p class="text-xs text-gray-500">${m.customer?.email || ''}</p>
+                  </td>
+                  <td class="px-4 py-3">
+                    <span class="text-sm" style="color: ${m.current_level?.badge_color || '#666'}">${m.current_level?.level_name || 'None'}</span>
+                  </td>
+                  <td class="px-4 py-3 text-sm font-medium text-blue-600">${m.points_balance?.toLocaleString() || 0}</td>
+                  <td class="px-4 py-3 text-sm text-gray-600">${m.lifetime_points?.toLocaleString() || 0}</td>
+                  <td class="px-4 py-3 text-sm text-gray-600">${m.total_orders || 0}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } else {
+        container.innerHTML = '<p class="py-8 text-gray-500">暂无会员。</p>';
+      }
+    } catch (error) {
+      container.innerHTML = '<p class="py-8 text-red-500">加载会员失败。</p>';
+    }
+  }
+
+  // Recalculate levels
+  document.getElementById('recalculate-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('recalculate-btn') as HTMLButtonElement;
+    btn.disabled = true;
+    btn.textContent = '重新计算中...';
+
+    try {
+      const response = await fetch('/api/membership/recalculate', { method: 'POST' });
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`已更新 ${data.updated} 位会员（${data.upgraded} 升级，${data.downgraded} 降级）`);
+        loadMembers();
+      } else {
+        alert(data.error || '重新计算失败');
+      }
+    } catch (error) {
+      alert('重新计算等级失败');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '重新计算等级';
+    }
+  });
+</script>

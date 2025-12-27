@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { supabase } from '@lib/supabase';
 
@@ -22,45 +24,43 @@ const totalPages = Math.ceil((count || 0) / limit);
 const sourceTypes = ['manual', 'product', 'faq', 'policy', 'blog'];
 ---
 
-<AdminLayout title="Knowledge Base" activePage="knowledge">
+<AdminLayout title="知识库" activePage="knowledge">
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <!-- Entry Form -->
     <div class="lg:col-span-1">
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 sticky top-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Add Knowledge Entry</h2>
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">添加知识条目</h2>
         
         <form id="add-form" class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>
-            <input type="text" id="entry-title" name="title" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="Optional title..." />
+            <label class="block text-sm font-medium text-gray-700 mb-1">标题</label>
+            <input type="text" id="entry-title" name="title" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="可选标题..." />
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Content *</label>
-            <textarea id="entry-content" name="content" rows="6" required class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="Enter knowledge content..."></textarea>
+            <label class="block text-sm font-medium text-gray-700 mb-1">内容 *</label>
+            <textarea id="entry-content" name="content" rows="6" required class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="输入知识内容..."></textarea>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Source Type</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">来源类型</label>
             <select id="entry-source" name="source_type" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500">
-              <option value="manual">Manual Entry</option>
-              <option value="faq">FAQ</option>
-              <option value="policy">Policy</option>
-              <option value="blog">Blog</option>
+              <option value="manual">手动输入</option>
+              <option value="faq">常见问题</option>
+              <option value="policy">政策</option>
+              <option value="blog">博客</option>
             </select>
           </div>
 
           <button type="submit" id="add-btn" class="w-full px-4 py-2 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50">
-            Add Entry
+            添加条目
           </button>
         </form>
 
         <div class="mt-6 pt-6 border-t border-gray-100">
-          <h3 class="text-sm font-medium text-gray-700 mb-3">Quick Actions</h3>
-          <button id="sync-products-btn" class="w-full px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors text-sm">
-            Sync from Products
-          </button>
-          <p class="text-xs text-gray-500 mt-2">Import product info into knowledge base for AI to use</p>
+          <h3 class="text-sm font-medium text-gray-700 mb-3">快速操作</h3>
+          <button id="sync-products-btn" class="w-full px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors text-sm">从商品同步</button>
+          <p class="text-xs text-gray-500 mt-2">将商品信息导入知识库供 AI 使用</p>
         </div>
       </div>
     </div>
@@ -70,11 +70,11 @@ const sourceTypes = ['manual', 'product', 'faq', 'policy', 'blog'];
       <div class="bg-white rounded-xl shadow-sm border border-gray-100">
         <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
           <div class="flex items-center gap-4">
-            <h2 class="text-lg font-semibold text-gray-900">Entries</h2>
-            <span class="text-sm text-gray-500">{count || 0} total</span>
+            <h2 class="text-lg font-semibold text-gray-900">条目</h2>
+            <span class="text-sm text-gray-500">共 {count || 0} 条</span>
           </div>
           <select id="source-filter" class="text-sm border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500">
-            <option value="">All Sources</option>
+            <option value="">所有来源</option>
             {sourceTypes.map((s) => (
               <option value={s} selected={sourceType === s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
             ))}
@@ -112,19 +112,19 @@ const sourceTypes = ['manual', 'product', 'faq', 'policy', 'blog'];
               </div>
             ))
           ) : (
-            <div class="p-8 text-center text-gray-500">No entries found</div>
+            <div class="p-8 text-center text-gray-500">未找到条目</div>
           )}
         </div>
 
         {totalPages > 1 && (
           <div class="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
-            <span class="text-sm text-gray-500">Page {page} of {totalPages}</span>
+            <span class="text-sm text-gray-500">第 {page} 页，共 {totalPages} 页</span>
             <div class="flex gap-2">
               {page > 1 && (
-                <a href={`/admin/knowledge?page=${page - 1}${sourceType ? `&source_type=${sourceType}` : ''}`} class="px-3 py-1 text-sm border rounded hover:bg-gray-50">Previous</a>
+                <a href={`/admin/knowledge?page=${page - 1}${sourceType ? `&source_type=${sourceType}` : ''}`} class="px-3 py-1 text-sm border rounded hover:bg-gray-50">上一页</a>
               )}
               {page < totalPages && (
-                <a href={`/admin/knowledge?page=${page + 1}${sourceType ? `&source_type=${sourceType}` : ''}`} class="px-3 py-1 text-sm border rounded hover:bg-gray-50">Next</a>
+                <a href={`/admin/knowledge?page=${page + 1}${sourceType ? `&source_type=${sourceType}` : ''}`} class="px-3 py-1 text-sm border rounded hover:bg-gray-50">下一页</a>
               )}
             </div>
           </div>
@@ -156,47 +156,47 @@ const sourceTypes = ['manual', 'product', 'faq', 'policy', 'blog'];
       if (!content) return;
 
       addBtn.disabled = true;
-      addBtn.textContent = 'Adding...';
+      addBtn.textContent = '添加中...';
 
       try {
         const result = await api.addKnowledge({ title, content, source_type });
         if (result.success) {
           window.location.reload();
         } else {
-          alert('Failed to add entry');
+          alert('添加条目失败');
         }
       } catch {
-        alert('Failed to add entry');
+        alert('添加条目失败');
       } finally {
         addBtn.disabled = false;
-        addBtn.textContent = 'Add Entry';
+        addBtn.textContent = '添加条目';
       }
     });
 
     syncBtn?.addEventListener('click', async () => {
       syncBtn.disabled = true;
-      syncBtn.textContent = 'Syncing...';
+      syncBtn.textContent = '同步中...';
 
       try {
         const result = await api.syncKnowledge(['product']);
         if (result.success) {
-          alert(result.data?.message || 'Sync complete');
+          alert(result.data?.message || '同步完成');
           window.location.reload();
         } else {
-          alert('Sync failed');
+          alert('同步失败');
         }
       } catch {
-        alert('Sync failed');
+        alert('同步失败');
       } finally {
         syncBtn.disabled = false;
-        syncBtn.textContent = 'Sync from Products';
+        syncBtn.textContent = '从商品同步';
       }
     });
 
     document.querySelectorAll('.delete-entry').forEach((btn) => {
       btn.addEventListener('click', async (e) => {
         const id = (e.currentTarget as HTMLElement).dataset.id;
-        if (!id || !confirm('Delete this entry?')) return;
+        if (!id || !confirm('删除此条目？')) return;
 
         try {
           const result = await api.deleteKnowledge(id);
@@ -204,7 +204,7 @@ const sourceTypes = ['manual', 'product', 'faq', 'policy', 'blog'];
             window.location.reload();
           }
         } catch {
-          alert('Failed to delete');
+          alert('删除失败');
         }
       });
     });

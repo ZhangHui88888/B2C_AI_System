@@ -1,44 +1,58 @@
 ---
+export const prerender = false;
+
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { supabase } from '@lib/supabase';
 
-// Fetch dashboard stats
-const today = new Date().toISOString().split('T')[0];
-const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+let error: string | null = null;
+let totalOrders = 0;
+let totalProducts = 0;
+let totalCustomers = 0;
+let totalRevenue = 0;
+let recentOrders: any[] = [];
 
-// Orders stats
-const { count: totalOrders } = await supabase
-  .from('orders')
-  .select('*', { count: 'exact', head: true });
+try {
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-const { data: recentOrders } = await supabase
-  .from('orders')
-  .select('id, total_amount, status, created_at, customer_email')
-  .order('created_at', { ascending: false })
-  .limit(5);
+  // Orders stats
+  const ordersResult = await supabase
+    .from('orders')
+    .select('*', { count: 'exact', head: true });
+  totalOrders = ordersResult.count || 0;
 
-const { data: orderStats } = await supabase
-  .from('orders')
-  .select('total_amount')
-  .gte('created_at', thirtyDaysAgo);
+  const recentResult = await supabase
+    .from('orders')
+    .select('id, total_amount, status, created_at, customer_email')
+    .order('created_at', { ascending: false })
+    .limit(5);
+  recentOrders = recentResult.data || [];
 
-const totalRevenue = orderStats?.reduce((sum, o) => sum + (o.total_amount || 0), 0) || 0;
+  const statsResult = await supabase
+    .from('orders')
+    .select('total_amount')
+    .gte('created_at', thirtyDaysAgo);
+  totalRevenue = statsResult.data?.reduce((sum, o) => sum + (o.total_amount || 0), 0) || 0;
 
-// Products stats
-const { count: totalProducts } = await supabase
-  .from('products')
-  .select('*', { count: 'exact', head: true });
+  // Products stats
+  const productsResult = await supabase
+    .from('products')
+    .select('*', { count: 'exact', head: true });
+  totalProducts = productsResult.count || 0;
 
-// Customers stats
-const { count: totalCustomers } = await supabase
-  .from('customers')
-  .select('*', { count: 'exact', head: true });
+  // Customers stats  
+  const customersResult = await supabase
+    .from('customers')
+    .select('*', { count: 'exact', head: true });
+  totalCustomers = customersResult.count || 0;
+} catch (e) {
+  error = e instanceof Error ? e.message : String(e);
+}
 
 const stats = [
-  { label: 'Total Revenue (30d)', value: `$${totalRevenue.toFixed(2)}`, change: '+12%', icon: 'dollar' },
-  { label: 'Total Orders', value: totalOrders || 0, change: '+8%', icon: 'cart' },
-  { label: 'Total Products', value: totalProducts || 0, change: '', icon: 'package' },
-  { label: 'Total Customers', value: totalCustomers || 0, change: '+15%', icon: 'users' },
+  { label: '30天营收', value: `$${totalRevenue.toFixed(2)}`, change: '+12%', icon: 'dollar' },
+  { label: '总订单数', value: totalOrders || 0, change: '+8%', icon: 'cart' },
+  { label: '商品数量', value: totalProducts || 0, change: '', icon: 'package' },
+  { label: '客户数量', value: totalCustomers || 0, change: '+15%', icon: 'users' },
 ];
 
 function getStatusColor(status: string): string {
@@ -54,7 +68,12 @@ function getStatusColor(status: string): string {
 }
 ---
 
-<AdminLayout title="Dashboard" activePage="dashboard">
+<AdminLayout title="仪表盘" activePage="dashboard">
+  {error && (
+    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+      <strong>Error:</strong> {error}
+    </div>
+  )}
   <!-- Stats Grid -->
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
     {stats.map((stat) => (
@@ -64,7 +83,7 @@ function getStatusColor(status: string): string {
             <p class="text-sm font-medium text-gray-500">{stat.label}</p>
             <p class="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
             {stat.change && (
-              <p class="text-sm text-green-600 mt-1">{stat.change} from last month</p>
+              <p class="text-sm text-green-600 mt-1">{stat.change} 较上月</p>
             )}
           </div>
           <div class="w-12 h-12 bg-primary-50 rounded-lg flex items-center justify-center">
@@ -84,8 +103,8 @@ function getStatusColor(status: string): string {
     <!-- Recent Orders -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100">
       <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-        <h2 class="text-lg font-semibold text-gray-900">Recent Orders</h2>
-        <a href="/admin/orders" class="text-sm text-primary-600 hover:text-primary-700">View all →</a>
+        <h2 class="text-lg font-semibold text-gray-900">最近订单</h2>
+        <a href="/admin/orders" class="text-sm text-primary-600 hover:text-primary-700">查看全部 →</a>
       </div>
       <div class="divide-y divide-gray-100">
         {recentOrders && recentOrders.length > 0 ? (
@@ -104,7 +123,7 @@ function getStatusColor(status: string): string {
             </div>
           ))
         ) : (
-          <div class="px-6 py-8 text-center text-gray-500">No orders yet</div>
+          <div class="px-6 py-8 text-center text-gray-500">暂无订单</div>
         )}
       </div>
     </div>
@@ -112,33 +131,33 @@ function getStatusColor(status: string): string {
     <!-- Quick Actions -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100">
       <div class="px-6 py-4 border-b border-gray-100">
-        <h2 class="text-lg font-semibold text-gray-900">Quick Actions</h2>
+        <h2 class="text-lg font-semibold text-gray-900">快捷操作</h2>
       </div>
       <div class="p-6 grid grid-cols-2 gap-4">
         <a href="/admin/products/new" class="flex flex-col items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
           <svg class="w-8 h-8 text-primary-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
           </svg>
-          <span class="text-sm font-medium text-gray-700">Add Product</span>
+          <span class="text-sm font-medium text-gray-700">添加商品</span>
         </a>
         <a href="/admin/content" class="flex flex-col items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
           <svg class="w-8 h-8 text-primary-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
           </svg>
-          <span class="text-sm font-medium text-gray-700">Generate Content</span>
+          <span class="text-sm font-medium text-gray-700">生成内容</span>
         </a>
         <a href="/admin/knowledge" class="flex flex-col items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
           <svg class="w-8 h-8 text-primary-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
           </svg>
-          <span class="text-sm font-medium text-gray-700">Knowledge Base</span>
+          <span class="text-sm font-medium text-gray-700">知识库</span>
         </a>
         <a href="/admin/settings" class="flex flex-col items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
           <svg class="w-8 h-8 text-primary-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
-          <span class="text-sm font-medium text-gray-700">Settings</span>
+          <span class="text-sm font-medium text-gray-700">系统设置</span>
         </a>
       </div>
     </div>

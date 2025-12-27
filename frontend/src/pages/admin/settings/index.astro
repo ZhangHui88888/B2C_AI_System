@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { supabase } from '@lib/supabase';
 
@@ -7,7 +9,7 @@ const { data: settings } = await supabase
   .from('settings')
   .select('key, value');
 
-const settingsMap = new Map<string, any>();
+const settingsMap = new Map();
 settings?.forEach((s) => settingsMap.set(s.key, s.value));
 
 const aiEnabled = settingsMap.get('ai_enabled') === true || settingsMap.get('ai_enabled') === 'true';
@@ -52,38 +54,38 @@ const countryOptions = [
 ];
 ---
 
-<AdminLayout title="Settings" activePage="settings">
+<AdminLayout title="设置" activePage="settings">
   <div class="max-w-3xl space-y-6">
     <!-- Store Settings -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <h2 class="text-lg font-semibold text-gray-900 mb-4">Store Settings</h2>
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">店铺设置</h2>
       
       <form id="store-form" class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Store Name</label>
-          <input type="text" name="store_name" value={storeName} class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="Your Store Name" />
+          <label class="block text-sm font-medium text-gray-700 mb-1">店铺名称</label>
+          <input type="text" name="store_name" value={storeName} class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="您的店铺名称" />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Notification Email</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">通知邮箱</label>
           <input type="email" name="notify_email" value={notifyEmail} class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="orders@yourstore.com" />
-          <p class="text-xs text-gray-500 mt-1">Receive order notifications at this email</p>
+          <p class="text-xs text-gray-500 mt-1">在此邮箱接收订单通知</p>
         </div>
 
         <button type="submit" class="px-4 py-2 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 transition-colors">
-          Save Store Settings
+          保存店铺设置
         </button>
       </form>
     </div>
 
     <!-- Payment Settings -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <h2 class="text-lg font-semibold text-gray-900 mb-4">Payment Settings</h2>
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">支付设置</h2>
       
       <form id="payment-form" class="space-y-4">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">货币</label>
             <select name="currency" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500">
               {currencyOptions.map((opt) => (
                 <option value={opt.value} selected={currency === opt.value}>{opt.label}</option>
@@ -92,17 +94,17 @@ const countryOptions = [
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Stripe Public Key</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Stripe 公钥</label>
             <input type="text" name="stripe_public_key" value={stripePublicKey} class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500 font-mono text-sm" placeholder="pk_live_..." />
           </div>
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Payment Methods</label>
+          <label class="block text-sm font-medium text-gray-700 mb-2">支付方式</label>
           <div class="flex flex-wrap gap-4">
             <label class="flex items-center">
               <input type="checkbox" name="payment_methods" value="card" checked={paymentMethods.includes('card')} class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" />
-              <span class="ml-2 text-sm text-gray-700">Credit/Debit Card</span>
+              <span class="ml-2 text-sm text-gray-700">信用卡/借记卡</span>
             </label>
             <label class="flex items-center">
               <input type="checkbox" name="payment_methods" value="apple_pay" checked={paymentMethods.includes('apple_pay')} class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" />
@@ -113,23 +115,23 @@ const countryOptions = [
               <span class="ml-2 text-sm text-gray-700">Google Pay</span>
             </label>
           </div>
-          <p class="text-xs text-gray-500 mt-2">Stripe automatically handles supported payment methods</p>
+          <p class="text-xs text-gray-500 mt-2">Stripe 自动处理支持的支付方式</p>
         </div>
 
         <button type="submit" class="px-4 py-2 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 transition-colors">
-          Save Payment Settings
+          保存支付设置
         </button>
       </form>
     </div>
 
     <!-- Shipping Settings -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <h2 class="text-lg font-semibold text-gray-900 mb-4">Shipping Settings</h2>
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">物流设置</h2>
       
       <form id="shipping-form" class="space-y-4">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Default Shipping Cost</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">默认运费</label>
             <div class="relative">
               <span class="absolute left-3 top-2 text-gray-500">$</span>
               <input type="number" name="shipping_default_cost" value={shippingDefaultCost} min="0" step="0.01" class="w-full pl-7 border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" />
@@ -137,22 +139,22 @@ const countryOptions = [
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Free Shipping Threshold</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">免运费门槛</label>
             <div class="relative">
               <span class="absolute left-3 top-2 text-gray-500">$</span>
               <input type="number" name="shipping_free_threshold" value={shippingFreeThreshold} min="0" step="0.01" class="w-full pl-7 border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" />
             </div>
-            <p class="text-xs text-gray-500 mt-1">Free shipping for orders above this amount (0 = no free shipping)</p>
+            <p class="text-xs text-gray-500 mt-1">超过此金额的订单免运费 (0 = 无免运费)</p>
           </div>
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Estimated Delivery Time</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">预计配送时间</label>
           <input type="text" name="shipping_estimate" value={shippingEstimate} class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="3-7 business days" />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Shipping Countries</label>
+          <label class="block text-sm font-medium text-gray-700 mb-2">配送国家</label>
           <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
             {countryOptions.map((country) => (
               <label class="flex items-center">
@@ -164,7 +166,7 @@ const countryOptions = [
         </div>
 
         <button type="submit" class="px-4 py-2 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 transition-colors">
-          Save Shipping Settings
+          保存物流设置
         </button>
       </form>
     </div>
@@ -172,41 +174,41 @@ const countryOptions = [
     <!-- AI Settings -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold text-gray-900">AI Customer Service</h2>
+        <h2 class="text-lg font-semibold text-gray-900">AI 客服</h2>
         <label class="relative inline-flex items-center cursor-pointer">
           <input type="checkbox" id="ai-toggle" class="sr-only peer" checked={aiEnabled} />
           <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-          <span class="ml-2 text-sm font-medium text-gray-700">Enabled</span>
+          <span class="ml-2 text-sm font-medium text-gray-700">已启用</span>
         </label>
       </div>
       
       <form id="ai-form" class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Welcome Message</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">欢迎语</label>
           <input type="text" name="ai_welcome_message" value={aiWelcomeMessage} class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">System Prompt</label>
-          <textarea name="ai_system_prompt" rows="4" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="Custom instructions for the AI assistant...">{aiSystemPrompt}</textarea>
-          <p class="text-xs text-gray-500 mt-1">Use {'{brand_name}'} as a placeholder for your store name</p>
+          <label class="block text-sm font-medium text-gray-700 mb-1">系统提示词</label>
+          <textarea name="ai_system_prompt" rows="4" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="AI 助手的自定义指令...">{aiSystemPrompt}</textarea>
+          <p class="text-xs text-gray-500 mt-1">使用 {'{brand_name}'} 作为店铺名称的占位符</p>
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Human Handoff Keywords</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">人工服务触发关键词</label>
           <input type="text" name="ai_handoff_keywords" value={aiHandoffKeywords.join(', ')} class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" />
-          <p class="text-xs text-gray-500 mt-1">Comma-separated keywords that trigger human support flag</p>
+          <p class="text-xs text-gray-500 mt-1">用逗号分隔的关键词，触发人工服务标记</p>
         </div>
 
         <button type="submit" class="px-4 py-2 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 transition-colors">
-          Save AI Settings
+          保存 AI 设置
         </button>
       </form>
     </div>
 
     <!-- Email Templates -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <h2 class="text-lg font-semibold text-gray-900 mb-4">Email Templates</h2>
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">邮件模板</h2>
       <p class="text-sm text-gray-600 mb-4">Customize the emails sent to customers. Use variables like <code class="bg-gray-100 px-1 rounded">{`{{customer_name}}`}</code>, <code class="bg-gray-100 px-1 rounded">{`{{order_id}}`}</code>, <code class="bg-gray-100 px-1 rounded">{`{{order_total}}`}</code>.</p>
       
       <div class="space-y-4">
@@ -214,8 +216,8 @@ const countryOptions = [
         <div class="border border-gray-200 rounded-lg">
           <button type="button" class="template-toggle w-full flex items-center justify-between p-4 text-left" data-template="order_confirmation">
             <div>
-              <span class="font-medium text-gray-900">Order Confirmation</span>
-              <p class="text-sm text-gray-500">Sent when an order is placed</p>
+              <span class="font-medium text-gray-900">订单确认</span>
+              <p class="text-sm text-gray-500">下单时发送</p>
             </div>
             <svg class="w-5 h-5 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
@@ -251,8 +253,8 @@ Thanks for shopping with us!</textarea>
         <div class="border border-gray-200 rounded-lg">
           <button type="button" class="template-toggle w-full flex items-center justify-between p-4 text-left" data-template="shipping_notification">
             <div>
-              <span class="font-medium text-gray-900">Shipping Notification</span>
-              <p class="text-sm text-gray-500">Sent when an order is shipped</p>
+              <span class="font-medium text-gray-900">发货通知</span>
+              <p class="text-sm text-gray-500">发货时发送</p>
             </div>
             <svg class="w-5 h-5 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
@@ -289,8 +291,8 @@ Thanks for shopping with us!</textarea>
         <div class="border border-gray-200 rounded-lg">
           <button type="button" class="template-toggle w-full flex items-center justify-between p-4 text-left" data-template="review_invitation">
             <div>
-              <span class="font-medium text-gray-900">Review Invitation</span>
-              <p class="text-sm text-gray-500">Sent after order delivery to request a review</p>
+              <span class="font-medium text-gray-900">评价邀请</span>
+              <p class="text-sm text-gray-500">订单送达后发送，请求评价</p>
             </div>
             <svg class="w-5 h-5 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
@@ -327,26 +329,26 @@ Thanks!</textarea>
 
     <!-- Danger Zone -->
     <div class="bg-white rounded-xl shadow-sm border border-red-200 p-6">
-      <h2 class="text-lg font-semibold text-red-600 mb-4">Danger Zone</h2>
+      <h2 class="text-lg font-semibold text-red-600 mb-4">危险区域</h2>
       
       <div class="space-y-4">
         <div class="flex items-center justify-between p-4 bg-red-50 rounded-lg">
           <div>
-            <p class="font-medium text-gray-900">Clear All Conversations</p>
-            <p class="text-sm text-gray-500">Delete all AI chat history</p>
+            <p class="font-medium text-gray-900">清除所有对话</p>
+            <p class="text-sm text-gray-500">删除所有 AI 聊天记录</p>
           </div>
           <button id="clear-chats-btn" class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors">
-            Clear
+            清除
           </button>
         </div>
 
         <div class="flex items-center justify-between p-4 bg-red-50 rounded-lg">
           <div>
-            <p class="font-medium text-gray-900">Reset Knowledge Base</p>
-            <p class="text-sm text-gray-500">Delete all knowledge entries</p>
+            <p class="font-medium text-gray-900">重置知识库</p>
+            <p class="text-sm text-gray-500">删除所有知识条目</p>
           </div>
           <button id="reset-kb-btn" class="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors">
-            Reset
+            重置
           </button>
         </div>
       </div>
@@ -377,9 +379,9 @@ Thanks!</textarea>
       ]);
       
       if (results.every(Boolean)) {
-        alert('Settings saved!');
+        alert('设置已保存！');
       } else {
-        alert('Failed to save some settings');
+        alert('部分设置保存失败');
       }
     });
 
@@ -407,9 +409,9 @@ Thanks!</textarea>
       ]);
       
       if (results.every(Boolean)) {
-        alert('AI settings saved!');
+        alert('AI 设置已保存！');
       } else {
-        alert('Failed to save some settings');
+        alert('部分设置保存失败');
       }
     });
 
@@ -428,9 +430,9 @@ Thanks!</textarea>
       ]);
       
       if (results.every(Boolean)) {
-        alert('Payment settings saved!');
+        alert('支付设置已保存！');
       } else {
-        alert('Failed to save some settings');
+        alert('部分设置保存失败');
       }
     });
 
@@ -452,23 +454,23 @@ Thanks!</textarea>
       ]);
       
       if (results.every(Boolean)) {
-        alert('Shipping settings saved!');
+        alert('物流设置已保存！');
       } else {
-        alert('Failed to save some settings');
+        alert('部分设置保存失败');
       }
     });
 
     // Danger zone
     document.getElementById('clear-chats-btn')?.addEventListener('click', async () => {
-      if (!confirm('Are you sure? This will delete ALL chat conversations.')) return;
+      if (!confirm('确定吗？这将删除所有聊天记录。')) return;
       // Would need a backend endpoint for this
-      alert('Feature not yet implemented');
+      alert('功能尚未实现');
     });
 
     document.getElementById('reset-kb-btn')?.addEventListener('click', async () => {
-      if (!confirm('Are you sure? This will delete ALL knowledge base entries.')) return;
+      if (!confirm('确定吗？这将删除所有知识库条目。')) return;
       // Would need a backend endpoint for this
-      alert('Feature not yet implemented');
+      alert('功能尚未实现');
     });
 
     // Email template toggles
@@ -496,9 +498,9 @@ Thanks!</textarea>
         ]);
         
         if (results.every(Boolean)) {
-          alert('Template saved!');
+          alert('模板已保存！');
         } else {
-          alert('Failed to save template');
+          alert('保存模板失败');
         }
       });
     });

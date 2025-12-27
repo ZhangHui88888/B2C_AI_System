@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { supabase } from '@lib/supabase';
 
@@ -40,14 +42,14 @@ function formatDate(dateStr: string): string {
 }
 ---
 
-<AdminLayout title="Orders" activePage="orders">
+<AdminLayout title="订单管理" activePage="orders">
   <div class="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
     <div>
-      <p class="text-sm text-gray-500">{count || 0} total orders</p>
+      <p class="text-sm text-gray-500">共 {count || 0} 个订单</p>
     </div>
     <div class="flex items-center gap-2">
       <select id="status-filter" class="text-sm border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500">
-        <option value="">All Status</option>
+        <option value="">所有状态</option>
         {statusOptions.map((s) => (
           <option value={s} selected={status === s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
         ))}
@@ -59,13 +61,13 @@ function formatDate(dateStr: string): string {
     <table class="min-w-full divide-y divide-gray-200">
       <thead class="bg-gray-50">
         <tr>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">订单号</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">客户</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">商品</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">金额</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">日期</th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
         </tr>
       </thead>
       <tbody class="bg-white divide-y divide-gray-200">
@@ -84,7 +86,7 @@ function formatDate(dateStr: string): string {
                   <div class="text-sm text-gray-500">{address?.city}, {address?.country}</div>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {itemCount} item{itemCount !== 1 ? 's' : ''}
+                  {itemCount} 件
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                   ${order.total_amount?.toFixed(2)}
@@ -102,14 +104,14 @@ function formatDate(dateStr: string): string {
                   {formatDate(order.created_at)}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <a href={`/admin/orders/${order.id}`} class="text-primary-600 hover:text-primary-900">View</a>
+                  <a href={`/admin/orders/${order.id}`} class="text-primary-600 hover:text-primary-900">查看</a>
                 </td>
               </tr>
             );
           })
         ) : (
           <tr>
-            <td colspan="7" class="px-6 py-8 text-center text-gray-500">No orders found</td>
+            <td colspan="7" class="px-6 py-8 text-center text-gray-500">暂无订单</td>
           </tr>
         )}
       </tbody>
@@ -118,13 +120,13 @@ function formatDate(dateStr: string): string {
 
   {totalPages > 1 && (
     <div class="mt-6 flex items-center justify-between">
-      <div class="text-sm text-gray-500">Page {page} of {totalPages}</div>
+      <div class="text-sm text-gray-500">第 {page} 页，共 {totalPages} 页</div>
       <div class="flex gap-2">
         {page > 1 && (
-          <a href={`/admin/orders?page=${page - 1}${status ? `&status=${status}` : ''}`} class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Previous</a>
+          <a href={`/admin/orders?page=${page - 1}${status ? `&status=${status}` : ''}`} class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">上一页</a>
         )}
         {page < totalPages && (
-          <a href={`/admin/orders?page=${page + 1}${status ? `&status=${status}` : ''}`} class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Next</a>
+          <a href={`/admin/orders?page=${page + 1}${status ? `&status=${status}` : ''}`} class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">下一页</a>
         )}
       </div>
     </div>
@@ -150,11 +152,11 @@ function formatDate(dateStr: string): string {
             body: JSON.stringify({ status: newStatus }),
           });
           if (!res.ok) {
-            alert('Failed to update order status');
+            alert('更新订单状态失败');
             window.location.reload();
           }
         } catch {
-          alert('Failed to update order status');
+          alert('更新订单状态失败');
           window.location.reload();
         }
       });

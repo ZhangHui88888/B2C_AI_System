@@ -21,6 +21,22 @@ import { handleAdminBrands } from './routes/admin-brands';
 import { handleAdminTemplates } from './routes/admin-templates';
 import { handleSeo } from './routes/seo';
 import { handleMonitoring } from './routes/monitoring';
+import { handleTracking } from './routes/tracking';
+import { handleEmailSequences } from './routes/email-sequences';
+import { handleWebVitals } from './routes/web-vitals';
+import { handleConversions } from './routes/conversions';
+import { handleImages } from './routes/images';
+import { handleSearchConsole } from './routes/search-console';
+import { handleSeoLinks } from './routes/seo-links';
+import { handleSitemap } from './routes/sitemap';
+import { handleKeywords } from './routes/keywords';
+import { handleEeat } from './routes/eeat';
+import { handleIndexStatus } from './routes/index-status';
+import { handleSeoReports } from './routes/seo-reports';
+import { handleRelatedContent } from './routes/related-content';
+import { handlePoints } from './routes/points';
+import { handleMembership } from './routes/membership';
+import { handleReferrals } from './routes/referrals';
 import { cors, errorHandler, jsonResponse } from './utils/response';
 import { resolveBrandContext, withBrandRequest } from './middleware/brand';
 import { createRequestLogger } from './utils/logger';
@@ -214,6 +230,86 @@ export default {
       // SEO Tools Routes
       if (path.startsWith('/api/seo')) {
         return await handleSeo(routedRequest, env, path);
+      }
+
+      // Marketing & Tracking Routes
+      if (path.startsWith('/api/tracking')) {
+        return await handleTracking(routedRequest, env, path);
+      }
+
+      // Email Sequences Routes
+      if (path.startsWith('/api/email-sequences')) {
+        return await handleEmailSequences(routedRequest, env, path);
+      }
+
+      // Web Vitals Routes
+      if (path.startsWith('/api/vitals')) {
+        return await handleWebVitals(routedRequest, env, path);
+      }
+
+      // Server-Side Conversions Routes
+      if (path.startsWith('/api/conversions')) {
+        return await handleConversions(routedRequest, env, path);
+      }
+
+      // Image Processing Routes
+      if (path.startsWith('/api/images')) {
+        return await handleImages(routedRequest, env, path);
+      }
+
+      // Google Search Console Routes
+      if (path.startsWith('/api/search-console')) {
+        return await handleSearchConsole(routedRequest, env, path);
+      }
+
+      // SEO Link Analysis Routes (Orphan pages, Link density)
+      if (path.startsWith('/api/seo/links')) {
+        return await handleSeoLinks(routedRequest, env, path);
+      }
+
+      // Sitemap Sharding Routes
+      if (path.startsWith('/api/sitemap')) {
+        return await handleSitemap(routedRequest, env, path);
+      }
+
+      // Keyword Research Routes
+      if (path.startsWith('/api/keywords')) {
+        return await handleKeywords(routedRequest, env, path);
+      }
+
+      // E-E-A-T Scoring Routes
+      if (path.startsWith('/api/eeat')) {
+        return await handleEeat(routedRequest, env, path);
+      }
+
+      // Index Status Routes
+      if (path.startsWith('/api/index-status')) {
+        return await handleIndexStatus(routedRequest, env, path);
+      }
+
+      // Automated SEO Reports Routes
+      if (path.startsWith('/api/seo-reports')) {
+        return await handleSeoReports(routedRequest, env, path);
+      }
+
+      // Related Content Recommendations Routes
+      if (path.startsWith('/api/related-content')) {
+        return await handleRelatedContent(routedRequest, env, path);
+      }
+
+      // Points System Routes
+      if (path.startsWith('/api/points')) {
+        return await handlePoints(routedRequest, env, path);
+      }
+
+      // Membership Levels Routes
+      if (path.startsWith('/api/membership')) {
+        return await handleMembership(routedRequest, env, path);
+      }
+
+      // Referral Program Routes
+      if (path.startsWith('/api/referrals')) {
+        return await handleReferrals(routedRequest, env, path);
       }
 
       // API Routes

@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { supabase } from '@lib/supabase';
 
@@ -21,23 +23,23 @@ const { data: coupons, count } = await query;
 const totalPages = Math.ceil((count || 0) / limit);
 
 const statusOptions = [
-  { value: '', label: 'All Status' },
-  { value: 'active', label: 'Active' },
-  { value: 'inactive', label: 'Inactive' },
-  { value: 'expired', label: 'Expired' },
+  { value: '', label: '所有状态' },
+  { value: 'active', label: '有效' },
+  { value: 'inactive', label: '无效' },
+  { value: 'expired', label: '已过期' },
 ];
 
 const typeLabels: Record<string, string> = {
-  percentage: '% Off',
-  fixed_amount: '$ Off',
-  free_shipping: 'Free Shipping',
+  percentage: '百分比折扣',
+  fixed_amount: '固定金额',
+  free_shipping: '免运费',
 };
 ---
 
-<AdminLayout title="Coupons" activePage="coupons">
+<AdminLayout title="优惠券" activePage="coupons">
   <div class="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
     <div>
-      <p class="text-sm text-gray-500">{count || 0} total coupons</p>
+      <p class="text-sm text-gray-500">共 {count || 0} 个优惠券</p>
     </div>
     <div class="flex items-center gap-3">
       <select id="status-filter" class="text-sm border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500">
@@ -49,7 +51,7 @@ const typeLabels: Record<string, string> = {
         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
         </svg>
-        Add Coupon
+        添加优惠券
       </button>
     </div>
   </div>
@@ -58,12 +60,12 @@ const typeLabels: Record<string, string> = {
     <table class="min-w-full divide-y divide-gray-200">
       <thead class="bg-gray-50">
         <tr>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Discount</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usage</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valid Until</th>
-          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">优惠码</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">折扣</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">使用次数</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">有效期</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
         </tr>
       </thead>
       <tbody class="bg-white divide-y divide-gray-200">
@@ -82,19 +84,19 @@ const typeLabels: Record<string, string> = {
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
                   <div class="text-sm font-medium text-gray-900">
-                    {coupon.type === 'percentage' && `${coupon.value}% off`}
-                    {coupon.type === 'fixed_amount' && `$${coupon.value} off`}
-                    {coupon.type === 'free_shipping' && 'Free Shipping'}
+                    {coupon.type === 'percentage' && `${coupon.value}% 折扣`}
+                    {coupon.type === 'fixed_amount' && `$${coupon.value} 优惠`}
+                    {coupon.type === 'free_shipping' && '免运费'}
                   </div>
                   {coupon.min_order_amount > 0 && (
-                    <div class="text-xs text-gray-500">Min. ${coupon.min_order_amount}</div>
+                    <div class="text-xs text-gray-500">最低消费 ${coupon.min_order_amount}</div>
                   )}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {coupon.usage_count}{coupon.usage_limit ? ` / ${coupon.usage_limit}` : ' / ∞'}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {coupon.expires_at ? new Date(coupon.expires_at).toLocaleDateString() : 'No expiry'}
+                  {coupon.expires_at ? new Date(coupon.expires_at).toLocaleDateString() : '永久有效'}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
                   <span class={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
@@ -103,19 +105,19 @@ const typeLabels: Record<string, string> = {
                     coupon.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
                     'bg-red-100 text-red-800'
                   }`}>
-                    {isExpired ? 'Expired' : coupon.status}
+                    {isExpired ? '已过期' : coupon.status === 'active' ? '有效' : '无效'}
                   </span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button class="text-primary-600 hover:text-primary-900 mr-3 edit-btn" data-coupon={JSON.stringify(coupon)}>Edit</button>
-                  <button class="text-red-600 hover:text-red-900 delete-btn" data-id={coupon.id}>Delete</button>
+                  <button class="text-primary-600 hover:text-primary-900 mr-3 edit-btn" data-coupon={JSON.stringify(coupon)}>编辑</button>
+                  <button class="text-red-600 hover:text-red-900 delete-btn" data-id={coupon.id}>删除</button>
                 </td>
               </tr>
             );
           })
         ) : (
           <tr>
-            <td colspan="6" class="px-6 py-8 text-center text-gray-500">No coupons found</td>
+            <td colspan="6" class="px-6 py-8 text-center text-gray-500">暂无优惠券</td>
           </tr>
         )}
       </tbody>
@@ -124,13 +126,13 @@ const typeLabels: Record<string, string> = {
 
   {totalPages > 1 && (
     <div class="mt-6 flex items-center justify-between">
-      <div class="text-sm text-gray-500">Page {page} of {totalPages}</div>
+      <div class="text-sm text-gray-500">第 {page} 页，共 {totalPages} 页</div>
       <div class="flex gap-2">
         {page > 1 && (
-          <a href={`/admin/coupons?page=${page - 1}${status ? `&status=${status}` : ''}`} class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Previous</a>
+          <a href={`/admin/coupons?page=${page - 1}${status ? `&status=${status}` : ''}`} class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">上一页</a>
         )}
         {page < totalPages && (
-          <a href={`/admin/coupons?page=${page + 1}${status ? `&status=${status}` : ''}`} class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Next</a>
+          <a href={`/admin/coupons?page=${page + 1}${status ? `&status=${status}` : ''}`} class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">下一页</a>
         )}
       </div>
     </div>
@@ -142,7 +144,7 @@ const typeLabels: Record<string, string> = {
     <div class="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto">
       <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
         <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h3 id="modal-title" class="text-lg font-medium text-gray-900">Add Coupon</h3>
+          <h3 id="modal-title" class="text-lg font-medium text-gray-900">添加优惠券</h3>
           <button id="close-modal" class="text-gray-400 hover:text-gray-600">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -154,67 +156,67 @@ const typeLabels: Record<string, string> = {
           
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Coupon Code *</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1">优惠码 *</label>
               <input type="text" name="code" required class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500 uppercase" placeholder="SAVE20" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1">状态</label>
               <select name="status" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500">
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
+                <option value="active">有效</option>
+                <option value="inactive">无效</option>
               </select>
             </div>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-            <input type="text" name="description" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="20% off your order" />
+            <label class="block text-sm font-medium text-gray-700 mb-1">描述</label>
+            <input type="text" name="description" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="订单享受 20% 折扣" />
           </div>
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Discount Type *</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1">折扣类型 *</label>
               <select name="type" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500">
-                <option value="percentage">Percentage (%)</option>
-                <option value="fixed_amount">Fixed Amount ($)</option>
-                <option value="free_shipping">Free Shipping</option>
+                <option value="percentage">百分比 (%)</option>
+                <option value="fixed_amount">固定金额 ($)</option>
+                <option value="free_shipping">免运费</option>
               </select>
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Discount Value *</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1">折扣值 *</label>
               <input type="number" name="value" required step="0.01" min="0" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="20" />
             </div>
           </div>
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Min Order Amount</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1">最低订单金额</label>
               <input type="number" name="min_order_amount" step="0.01" min="0" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="0" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Max Discount (for %)</label>
-              <input type="number" name="max_discount_amount" step="0.01" min="0" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="No limit" />
+              <label class="block text-sm font-medium text-gray-700 mb-1">最高折扣 (百分比用)</label>
+              <input type="number" name="max_discount_amount" step="0.01" min="0" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="无限制" />
             </div>
           </div>
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Total Usage Limit</label>
-              <input type="number" name="usage_limit" min="0" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="Unlimited" />
+              <label class="block text-sm font-medium text-gray-700 mb-1">总使用次数限制</label>
+              <input type="number" name="usage_limit" min="0" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="无限制" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Per Customer Limit</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1">每用户限制</label>
               <input type="number" name="usage_limit_per_customer" min="1" value="1" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" />
             </div>
           </div>
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1">开始日期</label>
               <input type="datetime-local" name="starts_at" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1">过期日期</label>
               <input type="datetime-local" name="expires_at" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" />
             </div>
           </div>
@@ -222,13 +224,13 @@ const typeLabels: Record<string, string> = {
           <div class="flex items-center gap-4 pt-2">
             <label class="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" name="first_order_only" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
-              <span class="text-sm text-gray-700">First order only</span>
+              <span class="text-sm text-gray-700">仅首单</span>
             </label>
           </div>
 
           <div class="flex gap-3 pt-4 border-t">
-            <button type="button" id="cancel-btn" class="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
-            <button type="submit" class="flex-1 px-4 py-2 text-white bg-primary-600 rounded-lg hover:bg-primary-700">Save Coupon</button>
+            <button type="button" id="cancel-btn" class="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">取消</button>
+            <button type="submit" class="flex-1 px-4 py-2 text-white bg-primary-600 rounded-lg hover:bg-primary-700">保存优惠券</button>
           </div>
         </form>
       </div>
@@ -262,7 +264,7 @@ const typeLabels: Record<string, string> = {
     function openModal(coupon?: any) {
       form.reset();
       if (coupon) {
-        modalTitle!.textContent = 'Edit Coupon';
+        modalTitle!.textContent = '编辑优惠券';
         (form.elements.namedItem('id') as HTMLInputElement).value = coupon.id;
         (form.elements.namedItem('code') as HTMLInputElement).value = coupon.code;
         (form.elements.namedItem('description') as HTMLInputElement).value = coupon.description || '';
@@ -281,7 +283,7 @@ const typeLabels: Record<string, string> = {
         }
         (form.elements.namedItem('first_order_only') as HTMLInputElement).checked = coupon.first_order_only;
       } else {
-        modalTitle!.textContent = 'Add Coupon';
+        modalTitle!.textContent = '添加优惠券';
       }
       modal?.classList.remove('hidden');
     }
@@ -314,18 +316,18 @@ const typeLabels: Record<string, string> = {
     document.querySelectorAll('.delete-btn').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const id = (btn as HTMLElement).dataset.id;
-        if (!confirm('Delete this coupon?')) return;
+        if (!confirm('删除这个优惠券？')) return;
         
         try {
           const res = await fetch(`${API_URL}/api/admin/coupons/${id}`, { method: 'DELETE' });
           if (res.ok) {
-            showToast('Coupon deleted');
+            showToast('优惠券已删除');
             setTimeout(() => window.location.reload(), 500);
           } else {
-            showToast('Failed to delete coupon', 'error');
+            showToast('删除优惠券失败', 'error');
           }
         } catch {
-          showToast('Failed to delete coupon', 'error');
+          showToast('删除优惠券失败', 'error');
         }
       });
     });
@@ -363,14 +365,14 @@ const typeLabels: Record<string, string> = {
 
         const result = await res.json();
         if (res.ok && result.success) {
-          showToast(id ? 'Coupon updated!' : 'Coupon created!');
+          showToast(id ? '优惠券已更新！' : '优惠券已创建！');
           closeModal();
           setTimeout(() => window.location.reload(), 500);
         } else {
-          showToast(result.error || 'Failed to save coupon', 'error');
+          showToast(result.error || '保存优惠券失败', 'error');
         }
       } catch {
-        showToast('Failed to save coupon', 'error');
+        showToast('保存优惠券失败', 'error');
       }
     });
   </script>

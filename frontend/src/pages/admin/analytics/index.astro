@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { supabase } from '@lib/supabase';
 
@@ -41,7 +43,7 @@ const { count: productCount } = await supabase
   .eq('is_active', true);
 
 // Group orders by date for chart
-const dailyData = new Map<string, { revenue: number; orders: number }>();
+const dailyData = new Map();
 orders?.forEach(order => {
   const date = order.created_at.split('T')[0];
   const existing = dailyData.get(date) || { revenue: 0, orders: 0 };
@@ -65,7 +67,7 @@ const chartData = Array.from(dailyData.entries())
   .map(([date, data]) => ({ date, ...data }));
 
 // Product rankings from order items
-const productSales = new Map<string, { name: string; quantity: number; revenue: number }>();
+const productSales = new Map();
 orders?.forEach(order => {
   const items = order.items || [];
   items.forEach((item: any) => {
@@ -103,14 +105,14 @@ function formatChange(current: number, previous: number): { value: string; posit
 }
 ---
 
-<AdminLayout title="Analytics" activePage="analytics">
+<AdminLayout title="数据分析" activePage="analytics">
   <!-- Time Range Selector -->
   <div class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-bold text-gray-900">Analytics Dashboard</h1>
+    <h1 class="text-2xl font-bold text-gray-900">数据分析</h1>
     <select id="time-range" class="border-gray-300 rounded-lg text-sm focus:ring-primary-500 focus:border-primary-500">
-      <option value="7">Last 7 days</option>
-      <option value="30" selected>Last 30 days</option>
-      <option value="90">Last 90 days</option>
+      <option value="7">最近 7 天</option>
+      <option value="30" selected>最近 30 天</option>
+      <option value="90">最近 90 天</option>
     </select>
   </div>
 
@@ -119,9 +121,9 @@ function formatChange(current: number, previous: number): { value: string; posit
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-sm font-medium text-gray-500">Total Revenue</p>
+          <p class="text-sm font-medium text-gray-500">总收入</p>
           <p class="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(totalRevenue)}</p>
-          <p class="text-sm text-gray-500 mt-1">Last 30 days</p>
+          <p class="text-sm text-gray-500 mt-1">最近 30 天</p>
         </div>
         <div class="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
           <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -134,9 +136,9 @@ function formatChange(current: number, previous: number): { value: string; posit
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-sm font-medium text-gray-500">Total Orders</p>
+          <p class="text-sm font-medium text-gray-500">总订单</p>
           <p class="text-2xl font-bold text-gray-900 mt-1">{totalOrders}</p>
-          <p class="text-sm text-gray-500 mt-1">Last 30 days</p>
+          <p class="text-sm text-gray-500 mt-1">最近 30 天</p>
         </div>
         <div class="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
           <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -149,9 +151,9 @@ function formatChange(current: number, previous: number): { value: string; posit
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-sm font-medium text-gray-500">Avg Order Value</p>
+          <p class="text-sm font-medium text-gray-500">平均订单金额</p>
           <p class="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(avgOrderValue)}</p>
-          <p class="text-sm text-gray-500 mt-1">Last 30 days</p>
+          <p class="text-sm text-gray-500 mt-1">最近 30 天</p>
         </div>
         <div class="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
           <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -164,9 +166,9 @@ function formatChange(current: number, previous: number): { value: string; posit
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
       <div class="flex items-center justify-between">
         <div>
-          <p class="text-sm font-medium text-gray-500">Today</p>
+          <p class="text-sm font-medium text-gray-500">今日</p>
           <p class="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(todayRevenue)}</p>
-          <p class="text-sm text-gray-500 mt-1">{todayOrders.length} orders</p>
+          <p class="text-sm text-gray-500 mt-1">{todayOrders.length} 笔订单</p>
         </div>
         <div class="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
           <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -181,10 +183,10 @@ function formatChange(current: number, previous: number): { value: string; posit
     <!-- Sales Trend Chart -->
     <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold text-gray-900">Sales Trend</h2>
+        <h2 class="text-lg font-semibold text-gray-900">销售趋势</h2>
         <div class="flex gap-2">
-          <button class="chart-toggle px-3 py-1 text-sm rounded-lg bg-primary-100 text-primary-700" data-metric="revenue">Revenue</button>
-          <button class="chart-toggle px-3 py-1 text-sm rounded-lg text-gray-600 hover:bg-gray-100" data-metric="orders">Orders</button>
+          <button class="chart-toggle px-3 py-1 text-sm rounded-lg bg-primary-100 text-primary-700" data-metric="revenue">收入</button>
+          <button class="chart-toggle px-3 py-1 text-sm rounded-lg text-gray-600 hover:bg-gray-100" data-metric="orders">订单</button>
         </div>
       </div>
       <div class="h-64">
@@ -194,11 +196,11 @@ function formatChange(current: number, previous: number): { value: string; posit
 
     <!-- Order Status Breakdown -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <h2 class="text-lg font-semibold text-gray-900 mb-4">Order Status</h2>
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">订单状态</h2>
       <div class="space-y-3">
         {Object.entries(statusCounts).map(([status, count]) => {
           const percentage = totalOrders > 0 ? (count / totalOrders * 100) : 0;
-          const colors: Record<string, string> = {
+          const colors = {
             pending: 'bg-yellow-500',
             paid: 'bg-blue-500',
             shipped: 'bg-purple-500',
@@ -217,7 +219,7 @@ function formatChange(current: number, previous: number): { value: string; posit
           );
         })}
         {Object.keys(statusCounts).length === 0 && (
-          <p class="text-sm text-gray-500 text-center py-4">No orders yet</p>
+          <p class="text-sm text-gray-500 text-center py-4">暂无订单</p>
         )}
       </div>
     </div>
@@ -227,16 +229,16 @@ function formatChange(current: number, previous: number): { value: string; posit
     <!-- Top Products -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold text-gray-900">Top Products</h2>
-        <span class="text-sm text-gray-500">By revenue</span>
+        <h2 class="text-lg font-semibold text-gray-900">热销商品</h2>
+        <span class="text-sm text-gray-500">按收入排序</span>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full">
           <thead>
             <tr class="text-left text-sm text-gray-500 border-b">
-              <th class="pb-3 font-medium">Product</th>
-              <th class="pb-3 font-medium text-right">Qty</th>
-              <th class="pb-3 font-medium text-right">Revenue</th>
+              <th class="pb-3 font-medium">商品</th>
+              <th class="pb-3 font-medium text-right">数量</th>
+              <th class="pb-3 font-medium text-right">收入</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
@@ -247,7 +249,7 @@ function formatChange(current: number, previous: number): { value: string; posit
                     <span class="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-xs font-medium text-gray-600">
                       {index + 1}
                     </span>
-                    <span class="text-sm font-medium text-gray-900 truncate max-w-[200px]">{product.name || 'Unknown'}</span>
+                    <span class="text-sm font-medium text-gray-900 truncate max-w-[200px]">{product.name || '未知商品'}</span>
                   </div>
                 </td>
                 <td class="py-3 text-sm text-right text-gray-600">{product.quantity}</td>
@@ -255,7 +257,7 @@ function formatChange(current: number, previous: number): { value: string; posit
               </tr>
             )) : (
               <tr>
-                <td colspan="3" class="py-8 text-center text-sm text-gray-500">No sales data yet</td>
+                <td colspan="3" class="py-8 text-center text-sm text-gray-500">暂无销售数据</td>
               </tr>
             )}
           </tbody>
@@ -265,35 +267,35 @@ function formatChange(current: number, previous: number): { value: string; posit
 
     <!-- Quick Stats -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <h2 class="text-lg font-semibold text-gray-900 mb-4">Quick Stats</h2>
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">快速统计</h2>
       <div class="grid grid-cols-2 gap-4">
         <div class="p-4 bg-gray-50 rounded-lg">
-          <p class="text-sm text-gray-500">Total Customers</p>
+          <p class="text-sm text-gray-500">总客户数</p>
           <p class="text-xl font-bold text-gray-900">{customerCount || 0}</p>
         </div>
         <div class="p-4 bg-gray-50 rounded-lg">
-          <p class="text-sm text-gray-500">Active Products</p>
+          <p class="text-sm text-gray-500">上架商品</p>
           <p class="text-xl font-bold text-gray-900">{productCount || 0}</p>
         </div>
         <div class="p-4 bg-gray-50 rounded-lg">
-          <p class="text-sm text-gray-500">7-Day Revenue</p>
+          <p class="text-sm text-gray-500">7日收入</p>
           <p class="text-xl font-bold text-gray-900">{formatCurrency(last7DaysRevenue)}</p>
         </div>
         <div class="p-4 bg-gray-50 rounded-lg">
-          <p class="text-sm text-gray-500">7-Day Orders</p>
+          <p class="text-sm text-gray-500">7日订单</p>
           <p class="text-xl font-bold text-gray-900">{last7DaysOrders.length}</p>
         </div>
       </div>
 
       <!-- Conversion Funnel Preview -->
       <div class="mt-6 pt-6 border-t border-gray-100">
-        <h3 class="text-sm font-medium text-gray-900 mb-3">Conversion Funnel</h3>
+        <h3 class="text-sm font-medium text-gray-900 mb-3">转化漏斗</h3>
         <div class="space-y-2">
           {[
-            { stage: 'Orders Placed', count: totalOrders },
-            { stage: 'Paid', count: statusCounts['paid'] || 0 + (statusCounts['shipped'] || 0) + (statusCounts['delivered'] || 0) },
-            { stage: 'Shipped', count: (statusCounts['shipped'] || 0) + (statusCounts['delivered'] || 0) },
-            { stage: 'Delivered', count: statusCounts['delivered'] || 0 },
+            { stage: '已下单', count: totalOrders },
+            { stage: '已支付', count: statusCounts['paid'] || 0 + (statusCounts['shipped'] || 0) + (statusCounts['delivered'] || 0) },
+            { stage: '已发货', count: (statusCounts['shipped'] || 0) + (statusCounts['delivered'] || 0) },
+            { stage: '已送达', count: statusCounts['delivered'] || 0 },
           ].map((step, i) => (
             <div class="flex items-center gap-3">
               <div class="w-24 text-xs text-gray-500">{step.stage}</div>

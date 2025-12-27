@@ -1,0 +1,385 @@
+---
+export const prerender = false;
+
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { supabase } from '@lib/supabase';
+
+// Get advanced SEO stats
+const { data: orphanPages } = await supabase
+  .from('orphan_pages')
+  .select('*')
+  .eq('is_resolved', false)
+  .order('detected_at', { ascending: false })
+  .limit(10);
+
+const { data: linkDensity } = await supabase
+  .from('link_density_analysis')
+  .select('*')
+  .order('analyzed_at', { ascending: false })
+  .limit(10);
+
+const { data: keywords } = await supabase
+  .from('keyword_research')
+  .select('*')
+  .eq('is_tracked', true)
+  .order('search_volume_monthly', { ascending: false, nullsFirst: false })
+  .limit(10);
+
+const { data: eeatScores } = await supabase
+  .from('eeat_scores')
+  .select('*')
+  .order('overall_score', { ascending: true })
+  .limit(10);
+
+const { data: indexStatus } = await supabase
+  .from('index_status')
+  .select('*')
+  .order('last_checked_at', { ascending: false })
+  .limit(20);
+
+// Calculate stats
+const orphanCount = orphanPages?.length || 0;
+const lowDensityCount = linkDensity?.filter((l: any) => l.density_status === 'too_low').length || 0;
+const highDensityCount = linkDensity?.filter((l: any) => l.density_status === 'too_high').length || 0;
+const trackedKeywords = keywords?.length || 0;
+const lowEeatCount = eeatScores?.filter((e: any) => e.overall_score < 50).length || 0;
+const indexedCount = indexStatus?.filter((i: any) => i.is_indexed).length || 0;
+const notIndexedCount = indexStatus?.filter((i: any) => !i.is_indexed).length || 0;
+const indexRate = indexStatus?.length ? Math.round((indexedCount / indexStatus.length) * 100) : 0;
+
+const quickActions = [
+  { label: '扫描孤立页面', api: '/api/seo/links/orphans/scan', icon: '🔗' },
+  { label: '检查所有排名', api: '/api/keywords/rankings/check', icon: '📊' },
+  { label: '分析所有 E-E-A-T', api: '/api/eeat/analyze-all', icon: '⭐' },
+  { label: '检查索引状态', api: '/api/index-status/check-all', icon: '🔍' },
+  { label: '生成相关内容', api: '/api/related-content/generate-all', icon: '🔄' },
+  { label: '重新生成站点地图', api: '/api/sitemap/regenerate', icon: '📄' },
+];
+---
+
+<AdminLayout title="高级 SEO 工具" activePage="seo">
+  <div class="mb-6">
+    <h2 class="text-2xl font-bold text-gray-900">高级 SEO 分析</h2>
+    <p class="text-gray-600 mt-1">用于全面 SEO 优化的深度分析工具</p>
+  </div>
+
+  <!-- Stats Overview -->
+  <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">孤立页面</p>
+      <p class="text-2xl font-bold text-red-600">{orphanCount}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">低链接密度</p>
+      <p class="text-2xl font-bold text-yellow-600">{lowDensityCount}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">跟踪关键词</p>
+      <p class="text-2xl font-bold text-blue-600">{trackedKeywords}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">低 E-E-A-T</p>
+      <p class="text-2xl font-bold text-orange-600">{lowEeatCount}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">索引率</p>
+      <p class="text-2xl font-bold text-green-600">{indexRate}%</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">未索引</p>
+      <p class="text-2xl font-bold text-gray-600">{notIndexedCount}</p>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+    <h3 class="font-semibold text-gray-900 mb-4">快速操作</h3>
+    <div class="flex flex-wrap gap-3">
+      {quickActions.map((action) => (
+        <button
+          class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors"
+          data-api={action.api}
+          onclick="runAction(this)"
+        >
+          <span>{action.icon}</span>
+          <span>{action.label}</span>
+        </button>
+      ))}
+    </div>
+    <div id="action-result" class="mt-4 hidden">
+      <div class="p-4 bg-green-50 text-green-700 rounded-lg text-sm"></div>
+    </div>
+  </div>
+
+  <!-- Feature Cards Grid -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+    <!-- Orphan Pages -->
+    <a href="/admin/seo/orphans" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-4 mb-4">
+        <div class="w-12 h-12 bg-red-50 rounded-lg flex items-center justify-center text-2xl">🔗</div>
+        <div>
+          <h3 class="font-semibold text-gray-900">孤立页面</h3>
+          <p class="text-sm text-gray-500">{orphanCount} 个无链接页面</p>
+        </div>
+      </div>
+      <p class="text-sm text-gray-600">检测没有内部链接指向的页面</p>
+    </a>
+
+    <!-- Link Density -->
+    <a href="/admin/seo/link-density" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-4 mb-4">
+        <div class="w-12 h-12 bg-yellow-50 rounded-lg flex items-center justify-center text-2xl">📊</div>
+        <div>
+          <h3 class="font-semibold text-gray-900">链接密度</h3>
+          <p class="text-sm text-gray-500">{lowDensityCount + highDensityCount} 个页面需要关注</p>
+        </div>
+      </div>
+      <p class="text-sm text-gray-600">分析内部链接结构和密度</p>
+    </a>
+
+    <!-- Keyword Research -->
+    <a href="/admin/seo/keywords" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-4 mb-4">
+        <div class="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center text-2xl">🔑</div>
+        <div>
+          <h3 class="font-semibold text-gray-900">关键词研究</h3>
+          <p class="text-sm text-gray-500">{trackedKeywords} 个关键词跟踪</p>
+        </div>
+      </div>
+      <p class="text-sm text-gray-600">使用 AI 驱动分析研究关键词</p>
+    </a>
+
+    <!-- E-E-A-T Scoring -->
+    <a href="/admin/seo/eeat" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-4 mb-4">
+        <div class="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center text-2xl">⭐</div>
+        <div>
+          <h3 class="font-semibold text-gray-900">E-E-A-T 评分</h3>
+          <p class="text-sm text-gray-500">{lowEeatCount} 个页面需要改进</p>
+        </div>
+      </div>
+      <p class="text-sm text-gray-600">经验、专业、权威、信任分析</p>
+    </a>
+
+    <!-- Index Status -->
+    <a href="/admin/seo/index-status" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-4 mb-4">
+        <div class="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center text-2xl">🔍</div>
+        <div>
+          <h3 class="font-semibold text-gray-900">索引状态</h3>
+          <p class="text-sm text-gray-500">{indexRate}% 已索引</p>
+        </div>
+      </div>
+      <p class="text-sm text-gray-600">监控所有页面的 Google 索引状态</p>
+    </a>
+
+    <!-- Automated Reports -->
+    <a href="/admin/seo/reports" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-4 mb-4">
+        <div class="w-12 h-12 bg-indigo-50 rounded-lg flex items-center justify-center text-2xl">📧</div>
+        <div>
+          <h3 class="font-semibold text-gray-900">自动化报告</h3>
+          <p class="text-sm text-gray-500">计划 SEO 报告</p>
+        </div>
+      </div>
+      <p class="text-sm text-gray-600">配置和计划自动化 SEO 报告</p>
+    </a>
+
+    <!-- Related Content -->
+    <a href="/admin/seo/related" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-4 mb-4">
+        <div class="w-12 h-12 bg-teal-50 rounded-lg flex items-center justify-center text-2xl">🔗</div>
+        <div>
+          <h3 class="font-semibold text-gray-900">相关内容推荐</h3>
+          <p class="text-sm text-gray-500">AI 智能推荐</p>
+        </div>
+      </div>
+      <p class="text-sm text-gray-600">使用 AI 生成产品和内容的智能推荐关系</p>
+    </a>
+  </div>
+
+  <!-- Recent Data Tables -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Orphan Pages Table -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="font-semibold text-gray-900">孤立页面</h3>
+        <a href="/admin/seo/orphans" class="text-sm text-primary-600 hover:text-primary-700">查看全部 →</a>
+      </div>
+      <div class="divide-y divide-gray-100">
+        {orphanPages && orphanPages.length > 0 ? (
+          orphanPages.slice(0, 5).map((page: any) => (
+            <div class="px-6 py-3 flex items-center justify-between">
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-medium text-gray-900 truncate">{page.page_url}</p>
+                <p class="text-xs text-gray-500">{page.page_type}</p>
+              </div>
+              <span class="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">无链接</span>
+            </div>
+          ))
+        ) : (
+          <div class="px-6 py-8 text-center text-gray-500">
+            未检测到孤立页面。运行扫描以检查。
+          </div>
+        )}
+      </div>
+    </div>
+
+    <!-- Tracked Keywords Table -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="font-semibold text-gray-900">跟踪关键词</h3>
+        <a href="/admin/seo/keywords" class="text-sm text-primary-600 hover:text-primary-700">查看全部 →</a>
+      </div>
+      <div class="divide-y divide-gray-100">
+        {keywords && keywords.length > 0 ? (
+          keywords.slice(0, 5).map((kw: any) => (
+            <div class="px-6 py-3 flex items-center justify-between">
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-medium text-gray-900 truncate">{kw.keyword}</p>
+                <p class="text-xs text-gray-500">{kw.search_intent} • Vol: {kw.search_volume_monthly || 'N/A'}</p>
+              </div>
+              <div class="text-right">
+                {kw.current_ranking ? (
+                  <span class={`text-sm font-medium ${kw.current_ranking <= 10 ? 'text-green-600' : kw.current_ranking <= 20 ? 'text-yellow-600' : 'text-gray-600'}`}>
+                    #{kw.current_ranking}
+                  </span>
+                ) : (
+                  <span class="text-xs text-gray-400">未排名</span>
+                )}
+              </div>
+            </div>
+          ))
+        ) : (
+          <div class="px-6 py-8 text-center text-gray-500">
+            尚未跟踪关键词。开始研究关键词。
+          </div>
+        )}
+      </div>
+    </div>
+
+    <!-- E-E-A-T Scores Table -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="font-semibold text-gray-900">低 E-E-A-T 分数</h3>
+        <a href="/admin/seo/eeat" class="text-sm text-primary-600 hover:text-primary-700">查看全部 →</a>
+      </div>
+      <div class="divide-y divide-gray-100">
+        {eeatScores && eeatScores.filter((e: any) => e.overall_score < 50).length > 0 ? (
+          eeatScores.filter((e: any) => e.overall_score < 50).slice(0, 5).map((score: any) => (
+            <div class="px-6 py-3 flex items-center justify-between">
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-medium text-gray-900 truncate">{score.content_type}: {score.content_id?.substring(0, 8)}...</p>
+                <div class="flex gap-2 mt-1">
+                  <span class="text-xs text-gray-500">E:{score.experience_score}</span>
+                  <span class="text-xs text-gray-500">E:{score.expertise_score}</span>
+                  <span class="text-xs text-gray-500">A:{score.authoritativeness_score}</span>
+                  <span class="text-xs text-gray-500">T:{score.trustworthiness_score}</span>
+                </div>
+              </div>
+              <div class="text-right">
+                <span class={`text-lg font-bold ${score.overall_score < 30 ? 'text-red-600' : 'text-yellow-600'}`}>
+                  {score.overall_score}
+                </span>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div class="px-6 py-8 text-center text-gray-500">
+            没有低 E-E-A-T 分数。干得漂亮！
+          </div>
+        )}
+      </div>
+    </div>
+
+    <!-- Not Indexed Pages -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="font-semibold text-gray-900">未索引页面</h3>
+        <a href="/admin/seo/index-status" class="text-sm text-primary-600 hover:text-primary-700">查看全部 →</a>
+      </div>
+      <div class="divide-y divide-gray-100">
+        {indexStatus && indexStatus.filter((i: any) => !i.is_indexed).length > 0 ? (
+          indexStatus.filter((i: any) => !i.is_indexed).slice(0, 5).map((page: any) => (
+            <div class="px-6 py-3 flex items-center justify-between">
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-medium text-gray-900 truncate">{page.page_url}</p>
+                <p class="text-xs text-gray-500">{page.index_coverage_state || 'Unknown'}</p>
+              </div>
+              <button
+                class="text-xs text-primary-600 hover:text-primary-700"
+                data-url={page.page_url}
+                onclick="requestIndexing(this)"
+              >
+                请求索引
+              </button>
+            </div>
+          ))
+        ) : (
+          <div class="px-6 py-8 text-center text-gray-500">
+            所有页面已索引！🎉
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  async function runAction(btn: HTMLElement) {
+    const api = btn.dataset.api;
+    if (!api) return;
+
+    btn.classList.add('opacity-50');
+    btn.setAttribute('disabled', 'true');
+
+    try {
+      const response = await fetch(api, { method: 'POST' });
+      const data = await response.json();
+
+      const resultDiv = document.getElementById('action-result');
+      const resultContent = resultDiv?.querySelector('div');
+      if (resultDiv && resultContent) {
+        resultDiv.classList.remove('hidden');
+        if (response.ok) {
+          resultContent.className = 'p-4 bg-green-50 text-green-700 rounded-lg text-sm';
+          resultContent.textContent = `Success: ${JSON.stringify(data)}`;
+        } else {
+          resultContent.className = 'p-4 bg-red-50 text-red-700 rounded-lg text-sm';
+          resultContent.textContent = `Error: ${data.error || 'Unknown error'}`;
+        }
+      }
+    } catch (error) {
+      console.error('Action failed:', error);
+    } finally {
+      btn.classList.remove('opacity-50');
+      btn.removeAttribute('disabled');
+    }
+  }
+
+  async function requestIndexing(btn: HTMLElement) {
+    const pageUrl = btn.dataset.url;
+    if (!pageUrl) return;
+
+    try {
+      const response = await fetch('/api/index-status/request-indexing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ page_url: pageUrl }),
+      });
+
+      if (response.ok) {
+        btn.textContent = '已请求！';
+        btn.classList.add('text-green-600');
+      } else {
+        const data = await response.json();
+        alert(data.error || '请求索引失败');
+      }
+    } catch (error) {
+      console.error('Request indexing failed:', error);
+    }
+  }
+
+  (window as any).runAction = runAction;
+  (window as any).requestIndexing = requestIndexing;
+</script>

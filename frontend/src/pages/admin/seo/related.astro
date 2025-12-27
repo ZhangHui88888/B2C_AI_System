@@ -1,0 +1,355 @@
+---
+export const prerender = false;
+
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { supabase } from '@lib/supabase';
+
+// Get related content data
+const { data: relatedContent } = await supabase
+  .from('related_content')
+  .select('*')
+  .eq('is_active', true)
+  .order('updated_at', { ascending: false });
+
+// Get products for source selection
+const { data: products } = await supabase
+  .from('products')
+  .select('id, name, slug')
+  .eq('is_active', true)
+  .order('name')
+  .limit(100);
+
+// Get blogs for source selection  
+const { data: blogs } = await supabase
+  .from('blog_posts')
+  .select('id, title, slug')
+  .eq('status', 'published')
+  .order('title')
+  .limit(50);
+
+const allRelated = relatedContent || [];
+const allProducts = products || [];
+const allBlogs = blogs || [];
+
+// Group by source
+const groupedBySource = allRelated.reduce((acc: any, item: any) => {
+  const key = `${item.source_type}:${item.source_id}`;
+  if (!acc[key]) {
+    acc[key] = { source_type: item.source_type, source_id: item.source_id, items: [] };
+  }
+  acc[key].items.push(item);
+  return acc;
+}, {});
+
+const sourceGroups = Object.values(groupedBySource);
+
+const stats = {
+  totalRelations: allRelated.length,
+  aiGenerated: allRelated.filter((r: any) => r.is_ai_generated).length,
+  manualOverride: allRelated.filter((r: any) => !r.is_ai_generated).length,
+  avgRelevance: allRelated.length 
+    ? Math.round(allRelated.reduce((sum: number, r: any) => sum + (r.relevance_score || 0), 0) / allRelated.length * 100) 
+    : 0,
+};
+
+const relationshipTypes = {
+  similar: allRelated.filter((r: any) => r.relationship_type === 'similar').length,
+  complementary: allRelated.filter((r: any) => r.relationship_type === 'complementary').length,
+  frequently_bought: allRelated.filter((r: any) => r.relationship_type === 'frequently_bought_together').length,
+};
+---
+
+<AdminLayout title="相关内容推荐" activePage="seo">
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h2 class="text-2xl font-bold text-gray-900">相关内容推荐</h2>
+      <p class="text-gray-600 mt-1">使用 AI 生成产品和内容之间的智能推荐关系</p>
+    </div>
+    <button
+      id="generate-all-btn"
+      class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium flex items-center gap-2"
+    >
+      <span>🤖</span>
+      <span>批量生成推荐</span>
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">推荐关系总数</p>
+      <p class="text-2xl font-bold text-gray-900">{stats.totalRelations}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">AI 生成</p>
+      <p class="text-2xl font-bold text-blue-600">{stats.aiGenerated}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">手动设置</p>
+      <p class="text-2xl font-bold text-purple-600">{stats.manualOverride}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">平均相关度</p>
+      <p class="text-2xl font-bold text-green-600">{stats.avgRelevance}%</p>
+    </div>
+  </div>
+
+  <!-- Relationship Types -->
+  <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 mb-6">
+    <h3 class="font-semibold text-gray-900 mb-3">推荐类型分布</h3>
+    <div class="grid grid-cols-3 gap-4 text-center">
+      <div>
+        <p class="text-2xl font-bold text-blue-600">{relationshipTypes.similar}</p>
+        <p class="text-sm text-gray-600">相似产品</p>
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-green-600">{relationshipTypes.complementary}</p>
+        <p class="text-sm text-gray-600">互补产品</p>
+      </div>
+      <div>
+        <p class="text-2xl font-bold text-purple-600">{relationshipTypes.frequently_bought}</p>
+        <p class="text-sm text-gray-600">经常一起购买</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generate for Single Item -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+    <h3 class="font-semibold text-gray-900 mb-4">为单个内容生成推荐</h3>
+    <div class="flex flex-wrap gap-4">
+      <div class="flex-1 min-w-[200px]">
+        <label class="block text-sm font-medium text-gray-700 mb-1">内容类型</label>
+        <select id="source-type" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500">
+          <option value="product">产品</option>
+          <option value="blog">博客文章</option>
+        </select>
+      </div>
+      <div class="flex-1 min-w-[200px]">
+        <label class="block text-sm font-medium text-gray-700 mb-1">选择内容</label>
+        <select id="source-id" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500">
+          {allProducts.map((p: any) => (
+            <option value={p.id} data-type="product">{p.name}</option>
+          ))}
+        </select>
+      </div>
+      <div class="flex items-end">
+        <button
+          id="generate-single-btn"
+          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+        >
+          生成推荐
+        </button>
+      </div>
+    </div>
+    <div id="single-result" class="mt-4 hidden">
+      <div class="p-4 bg-green-50 text-green-700 rounded-lg text-sm"></div>
+    </div>
+  </div>
+
+  <!-- Related Content List -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+      <h3 class="font-semibold text-gray-900">现有推荐关系</h3>
+      <span class="text-sm text-gray-500">{sourceGroups.length} 个来源</span>
+    </div>
+
+    {sourceGroups.length > 0 ? (
+      <div class="divide-y divide-gray-100">
+        {(sourceGroups as any[]).slice(0, 20).map((group: any) => {
+          const sourceName = group.source_type === 'product' 
+            ? allProducts.find((p: any) => p.id === group.source_id)?.name 
+            : allBlogs.find((b: any) => b.id === group.source_id)?.title;
+          
+          return (
+            <div class="px-6 py-4">
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                  <span class={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                    group.source_type === 'product' ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'
+                  }`}>
+                    {group.source_type === 'product' ? '产品' : '博客'}
+                  </span>
+                  <span class="font-medium text-gray-900">{sourceName || group.source_id}</span>
+                </div>
+                <span class="text-sm text-gray-500">{group.items.length} 个推荐</span>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                {group.items.map((item: any) => {
+                  const relatedName = item.related_type === 'product'
+                    ? allProducts.find((p: any) => p.id === item.related_id)?.name
+                    : allBlogs.find((b: any) => b.id === item.related_id)?.title;
+                  
+                  return (
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg text-sm">
+                      <span class={`w-2 h-2 rounded-full ${
+                        item.relationship_type === 'similar' ? 'bg-blue-500' :
+                        item.relationship_type === 'complementary' ? 'bg-green-500' :
+                        'bg-purple-500'
+                      }`}></span>
+                      <span class="text-gray-700">{relatedName || item.related_id}</span>
+                      <span class="text-gray-400">({Math.round((item.relevance_score || 0) * 100)}%)</span>
+                      <button
+                        class="delete-btn text-red-400 hover:text-red-600"
+                        data-id={item.id}
+                        title="删除"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    ) : (
+      <div class="px-6 py-12 text-center">
+        <div class="text-4xl mb-4">🔗</div>
+        <p class="text-gray-500">暂无推荐关系</p>
+        <p class="text-sm text-gray-400 mt-1">点击"批量生成推荐"开始为所有产品生成智能推荐</p>
+      </div>
+    )}
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-4 right-4 hidden">
+    <div class="bg-gray-900 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3">
+      <span id="toast-icon">✓</span>
+      <span id="toast-message">操作成功</span>
+    </div>
+  </div>
+</AdminLayout>
+
+<script define:vars={{ allProducts, allBlogs }}>
+  const API_URL = import.meta.env.PUBLIC_API_URL || '';
+
+  function showToast(message, isSuccess = true) {
+    const toast = document.getElementById('toast');
+    const icon = document.getElementById('toast-icon');
+    const msg = document.getElementById('toast-message');
+    if (toast && icon && msg) {
+      icon.textContent = isSuccess ? '✓' : '✗';
+      msg.textContent = message;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 3000);
+    }
+  }
+
+  // Update source options when type changes
+  document.getElementById('source-type')?.addEventListener('change', (e) => {
+    const type = (e.target as HTMLSelectElement).value;
+    const select = document.getElementById('source-id') as HTMLSelectElement;
+    select.innerHTML = '';
+
+    const items = type === 'product' ? allProducts : allBlogs;
+    items.forEach((item) => {
+      const option = document.createElement('option');
+      option.value = item.id;
+      option.textContent = item.name || item.title;
+      select.appendChild(option);
+    });
+  });
+
+  // Generate for all
+  document.getElementById('generate-all-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('generate-all-btn') as HTMLButtonElement;
+    
+    if (!confirm('这将为所有产品生成 AI 推荐，可能需要几分钟时间。确定继续吗？')) {
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="animate-spin">⏳</span> 生成中...';
+
+    try {
+      const res = await fetch(`${API_URL}/api/related-content/generate-all`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        showToast(`生成完成！已处理 ${data.products_processed} 个产品`);
+        setTimeout(() => location.reload(), 1500);
+      } else {
+        showToast(data.error || '生成失败', false);
+      }
+    } catch (error) {
+      showToast('生成失败', false);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<span>🤖</span><span>批量生成推荐</span>';
+    }
+  });
+
+  // Generate for single
+  document.getElementById('generate-single-btn')?.addEventListener('click', async () => {
+    const sourceType = (document.getElementById('source-type') as HTMLSelectElement).value;
+    const sourceId = (document.getElementById('source-id') as HTMLSelectElement).value;
+    const resultDiv = document.getElementById('single-result');
+    const resultContent = resultDiv?.querySelector('div');
+
+    if (!sourceId) {
+      showToast('请选择内容', false);
+      return;
+    }
+
+    const btn = document.getElementById('generate-single-btn') as HTMLButtonElement;
+    btn.disabled = true;
+    btn.textContent = '生成中...';
+
+    try {
+      const res = await fetch(`${API_URL}/api/related-content/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source_type: sourceType,
+          source_id: sourceId,
+          count: 5,
+        }),
+      });
+      const data = await res.json();
+      
+      if (data.related_items) {
+        resultDiv?.classList.remove('hidden');
+        if (resultContent) {
+          resultContent.textContent = `✓ 已为 "${data.source.name}" 生成 ${data.count} 个推荐`;
+        }
+        setTimeout(() => location.reload(), 2000);
+      } else {
+        showToast(data.error || '生成失败', false);
+      }
+    } catch (error) {
+      showToast('生成失败', false);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '生成推荐';
+    }
+  });
+
+  // Delete buttons
+  document.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const target = e.currentTarget as HTMLButtonElement;
+      const id = target.dataset.id;
+
+      if (!confirm('确定删除此推荐关系？')) return;
+
+      try {
+        const res = await fetch(`${API_URL}/api/related-content/${id}`, {
+          method: 'DELETE',
+        });
+
+        if (res.ok) {
+          showToast('已删除');
+          target.closest('.inline-flex')?.remove();
+        } else {
+          showToast('删除失败', false);
+        }
+      } catch (error) {
+        showToast('删除失败', false);
+      }
+    });
+  });
+</script>

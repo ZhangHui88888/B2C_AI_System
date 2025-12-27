@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { supabase } from '@lib/supabase';
 
@@ -39,43 +41,38 @@ const templateTypes: Record<string, { label: string; icon: string; color: string
 };
 ---
 
-<AdminLayout title="Shared Templates" activePage="templates">
+<AdminLayout title="共享模板" activePage="templates">
   <div class="space-y-6">
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h2 class="text-lg font-semibold text-gray-900">Shared Templates</h2>
+        <h2 class="text-lg font-semibold text-gray-900">共享模板</h2>
         <p class="text-sm text-gray-600">
           {isAllBrandsView 
-            ? 'Manage templates across all brands' 
-            : 'Templates available to your brand'}
+            ? '管理所有品牌的模板' 
+            : '您品牌可用的模板'}
         </p>
       </div>
       <button id="create-template-btn" class="inline-flex items-center px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors">
         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
         </svg>
-        Create Template
+        创建模板
       </button>
     </div>
 
     <!-- Filter Tabs -->
     <div class="border-b border-gray-200">
       <nav class="flex space-x-8">
-        <button class="filter-tab active py-4 px-1 border-b-2 font-medium text-sm border-primary-500 text-primary-600" data-filter="all">
-          All Templates
+        <button class="filter-tab active py-4 px-1 border-b-2 font-medium text-sm border-primary-500 text-primary-600" data-filter="all">所有模板
         </button>
-        <button class="filter-tab py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700" data-filter="email">
-          Email
+        <button class="filter-tab py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700" data-filter="email">邮件
         </button>
-        <button class="filter-tab py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700" data-filter="page">
-          Page
+        <button class="filter-tab py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700" data-filter="page">页面
         </button>
-        <button class="filter-tab py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700" data-filter="content">
-          Content
+        <button class="filter-tab py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700" data-filter="content">内容
         </button>
-        <button class="filter-tab py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700" data-filter="script">
-          Script
+        <button class="filter-tab py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700" data-filter="script">脚本
         </button>
       </nav>
     </div>
@@ -96,15 +93,15 @@ const templateTypes: Record<string, { label: string; icon: string; color: string
                   </span>
                   {template.is_public && (
                     <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
-                      Public
+                      公开
                     </span>
                   )}
                 </div>
-                <span class="text-xs text-gray-400">Used {template.use_count || 0} times</span>
+                <span class="text-xs text-gray-400">已使用 {template.use_count || 0} 次</span>
               </div>
               
               <h3 class="font-semibold text-gray-900 mb-2">{template.name}</h3>
-              <p class="text-sm text-gray-600 line-clamp-2 mb-4">{template.description || 'No description'}</p>
+              <p class="text-sm text-gray-600 line-clamp-2 mb-4">{template.description || '无描述'}</p>
               
               <div class="flex items-center justify-between pt-3 border-t border-gray-100">
                 <div class="flex items-center gap-2">
@@ -124,22 +121,20 @@ const templateTypes: Record<string, { label: string; icon: string; color: string
                     data-id={template.id}
                     data-content={JSON.stringify(template.content)}
                   >
-                    Use
+                    使用
                   </button>
                   {(isAllBrandsView || template.owner_brand_id === currentBrandId) && (
                     <>
                       <button 
                         class="edit-template-btn text-sm text-gray-600 hover:text-gray-700"
                         data-template={JSON.stringify(template)}
-                      >
-                        Edit
+                      >编辑
                       </button>
                       <button 
                         class="delete-template-btn text-sm text-red-600 hover:text-red-700"
                         data-id={template.id}
                         data-name={template.name}
-                      >
-                        Delete
+                      >删除
                       </button>
                     </>
                   )}
@@ -155,10 +150,9 @@ const templateTypes: Record<string, { label: string; icon: string; color: string
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
             </svg>
           </div>
-          <h3 class="text-lg font-medium text-gray-900 mb-1">No templates yet</h3>
-          <p class="text-gray-500 mb-4">Create your first template to share across brands</p>
-          <button id="create-template-empty-btn" class="inline-flex items-center px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700">
-            Create Template
+          <h3 class="text-lg font-medium text-gray-900 mb-1">暂无模板</h3>
+          <p class="text-gray-500 mb-4">创建您的第一个模板以在品牌间共享</p>
+          <button id="create-template-empty-btn" class="inline-flex items-center px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700">创建模板
           </button>
         </div>
       )}
@@ -171,7 +165,7 @@ const templateTypes: Record<string, { label: string; icon: string; color: string
     <div class="fixed inset-0 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div class="p-6 border-b border-gray-100">
-          <h3 id="modal-title" class="text-lg font-semibold text-gray-900">Create Template</h3>
+          <h3 id="modal-title" class="text-lg font-semibold text-gray-900">创建模板</h3>
         </div>
         
         <form id="template-form" class="p-6 space-y-4">
@@ -179,44 +173,43 @@ const templateTypes: Record<string, { label: string; icon: string; color: string
           
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Template Name *</label>
-              <input type="text" id="template-name" required class="w-full border-gray-300 rounded-lg" placeholder="Welcome Email" />
+              <label class="block text-sm font-medium text-gray-700 mb-1">模板名称 *</label>
+              <input type="text" id="template-name" required class="w-full border-gray-300 rounded-lg" placeholder="欢迎邮件" />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Type *</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1">类型 *</label>
               <select id="template-type" required class="w-full border-gray-300 rounded-lg">
-                <option value="email">Email</option>
-                <option value="page">Page</option>
-                <option value="content">Content</option>
-                <option value="script">Script</option>
+                <option value="email">邮件</option>
+                <option value="page">页面</option>
+                <option value="content">内容</option>
+                <option value="script">脚本</option>
               </select>
             </div>
           </div>
           
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-            <textarea id="template-description" rows="2" class="w-full border-gray-300 rounded-lg" placeholder="A brief description of this template"></textarea>
+            <label class="block text-sm font-medium text-gray-700 mb-1">描述</label>
+            <textarea id="template-description" rows="2" class="w-full border-gray-300 rounded-lg" placeholder="此模板的简要描述"></textarea>
           </div>
           
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Content (JSON) *</label>
-            <textarea id="template-content" rows="10" required class="w-full border-gray-300 rounded-lg font-mono text-sm" placeholder='{"subject": "Welcome!", "body": "..."}'></textarea>
-            <p class="text-xs text-gray-500 mt-1">Template content in JSON format</p>
+            <label class="block text-sm font-medium text-gray-700 mb-1">内容 (JSON) *</label>
+            <textarea id="template-content" rows="10" required class="w-full border-gray-300 rounded-lg font-mono text-sm" placeholder='{"subject": "欢迎！", "body": "..."}'></textarea>
+            <p class="text-xs text-gray-500 mt-1">JSON 格式的模板内容</p>
           </div>
           
           <div class="flex items-center gap-6">
             <div class="flex items-center">
               <input type="checkbox" id="template-public" class="h-4 w-4 text-primary-600 rounded border-gray-300" />
-              <label for="template-public" class="ml-2 text-sm text-gray-700">Make public (available to all brands)</label>
+              <label for="template-public" class="ml-2 text-sm text-gray-700">设为公开（所有品牌可用）</label>
             </div>
           </div>
           
           <div class="flex gap-3 pt-4">
             <button type="button" id="cancel-btn" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
-              Cancel
+              取消
             </button>
-            <button type="submit" class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
-              Save Template
+            <button type="submit" class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">保存模板
             </button>
           </div>
         </form>
@@ -257,7 +250,7 @@ const templateTypes: Record<string, { label: string; icon: string; color: string
 
     function openModal(template = null) {
       if (template) {
-        modalTitle.textContent = 'Edit Template';
+        modalTitle.textContent = '编辑模板';
         document.getElementById('template-id').value = template.id;
         document.getElementById('template-name').value = template.name;
         document.getElementById('template-type').value = template.template_type;
@@ -265,7 +258,7 @@ const templateTypes: Record<string, { label: string; icon: string; color: string
         document.getElementById('template-content').value = JSON.stringify(template.content, null, 2);
         document.getElementById('template-public').checked = template.is_public;
       } else {
-        modalTitle.textContent = 'Create Template';
+        modalTitle.textContent = '创建模板';
         form?.reset();
         document.getElementById('template-id').value = '';
         document.getElementById('template-content').value = '{\n  \n}';
@@ -297,7 +290,7 @@ const templateTypes: Record<string, { label: string; icon: string; color: string
         const id = btn.dataset.id;
         const name = btn.dataset.name;
         
-        if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
+        if (!confirm(`确定要删除 "${name}" 吗？`)) return;
         
         try {
           const res = await fetch(`${API_URL}/api/admin/templates/${id}`, {
@@ -308,10 +301,10 @@ const templateTypes: Record<string, { label: string; icon: string; color: string
             window.location.reload();
           } else {
             const data = await res.json();
-            alert(data.error || 'Failed to delete template');
+            alert(data.error || '删除模板失败');
           }
         } catch (err) {
-          alert('Failed to delete template');
+          alert('删除模板失败');
         }
       });
     });
@@ -330,7 +323,7 @@ const templateTypes: Record<string, { label: string; icon: string; color: string
         // Copy content to clipboard
         try {
           await navigator.clipboard.writeText(JSON.stringify(content, null, 2));
-          alert('Template content copied to clipboard!');
+          alert('模板内容已复制到剪贴板！');
         } catch (e) {
           alert('Template content:\n' + JSON.stringify(content, null, 2));
         }
@@ -347,7 +340,7 @@ const templateTypes: Record<string, { label: string; icon: string; color: string
       try {
         content = JSON.parse(document.getElementById('template-content').value);
       } catch (e) {
-        alert('Invalid JSON in content field');
+        alert('内容字段中的 JSON 无效');
         return;
       }
       
@@ -375,10 +368,10 @@ const templateTypes: Record<string, { label: string; icon: string; color: string
           window.location.reload();
         } else {
           const err = await res.json();
-          alert(err.error || 'Failed to save template');
+          alert(err.error || '保存模板失败');
         }
       } catch (err) {
-        alert('Failed to save template');
+        alert('保存模板失败');
       }
     });
   </script>

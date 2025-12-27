@@ -1,0 +1,282 @@
+---
+export const prerender = false;
+
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { supabase } from '@lib/supabase';
+
+const { data: orphanPages } = await supabase
+  .from('orphan_pages')
+  .select('*')
+  .order('detected_at', { ascending: false });
+
+const allOrphans = orphanPages || [];
+const unresolvedCount = allOrphans.filter((p: any) => !p.is_resolved).length;
+const resolvedCount = allOrphans.filter((p: any) => p.is_resolved).length;
+
+const byType = {
+  product: allOrphans.filter((p: any) => p.page_type === 'product' && !p.is_resolved).length,
+  category: allOrphans.filter((p: any) => p.page_type === 'category' && !p.is_resolved).length,
+  blog: allOrphans.filter((p: any) => p.page_type === 'blog' && !p.is_resolved).length,
+};
+---
+
+<AdminLayout title="孤立页面检测" activePage="seo">
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h2 class="text-2xl font-bold text-gray-900">孤立页面检测</h2>
+      <p class="text-gray-600 mt-1">找出没有内部链接指向的页面，改善网站内链结构</p>
+    </div>
+    <button
+      id="scan-btn"
+      class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium flex items-center gap-2"
+    >
+      <span>🔍</span>
+      <span>扫描孤立页面</span>
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">未解决</p>
+      <p class="text-2xl font-bold text-red-600">{unresolvedCount}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">已解决</p>
+      <p class="text-2xl font-bold text-green-600">{resolvedCount}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">产品页</p>
+      <p class="text-2xl font-bold text-blue-600">{byType.product}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">分类页</p>
+      <p class="text-2xl font-bold text-purple-600">{byType.category}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">博客</p>
+      <p class="text-2xl font-bold text-indigo-600">{byType.blog}</p>
+    </div>
+  </div>
+
+  <!-- Info Box -->
+  <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+    <div class="flex gap-3">
+      <span class="text-2xl">💡</span>
+      <div>
+        <p class="font-medium text-amber-800">什么是孤立页面？</p>
+        <p class="text-sm text-amber-700 mt-1">
+          孤立页面是指没有任何内部链接指向的页面。这类页面难以被搜索引擎发现和收录，
+          也不利于用户浏览。建议为每个重要页面添加至少 2-3 个内部链接。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter Tabs -->
+  <div class="flex gap-2 mb-4">
+    <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-primary-600 text-white" data-filter="unresolved">
+      未解决 ({unresolvedCount})
+    </button>
+    <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200" data-filter="resolved">
+      已解决 ({resolvedCount})
+    </button>
+    <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200" data-filter="all">
+      全部 ({allOrphans.length})
+    </button>
+  </div>
+
+  <!-- Orphan Pages Table -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">页面</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">类型</th>
+            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">入链数</th>
+            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">状态</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">检测时间</th>
+            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">操作</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100" id="orphans-table">
+          {allOrphans.filter((p: any) => !p.is_resolved).map((page: any) => (
+            <tr class="orphan-row hover:bg-gray-50" data-resolved={page.is_resolved ? 'true' : 'false'}>
+              <td class="px-6 py-4">
+                <div>
+                  <p class="font-medium text-gray-900 truncate max-w-xs">{page.page_title || page.page_url}</p>
+                  <a href={page.page_url} target="_blank" class="text-sm text-primary-600 hover:underline truncate block max-w-xs">
+                    {page.page_url}
+                  </a>
+                </div>
+              </td>
+              <td class="px-6 py-4">
+                <span class={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                  page.page_type === 'product' ? 'bg-blue-100 text-blue-700' :
+                  page.page_type === 'category' ? 'bg-purple-100 text-purple-700' :
+                  'bg-indigo-100 text-indigo-700'
+                }`}>
+                  {page.page_type === 'product' ? '产品' : page.page_type === 'category' ? '分类' : '博客'}
+                </span>
+              </td>
+              <td class="px-6 py-4 text-center">
+                <span class="text-red-600 font-medium">{page.incoming_links_count}</span>
+              </td>
+              <td class="px-6 py-4 text-center">
+                {page.is_resolved ? (
+                  <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
+                    ✓ 已解决
+                  </span>
+                ) : (
+                  <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">
+                    待处理
+                  </span>
+                )}
+              </td>
+              <td class="px-6 py-4 text-sm text-gray-500">
+                {new Date(page.detected_at).toLocaleDateString('zh-CN')}
+              </td>
+              <td class="px-6 py-4 text-center">
+                {!page.is_resolved && (
+                  <div class="flex items-center justify-center gap-2">
+                    <button
+                      class="resolve-btn px-3 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded"
+                      data-id={page.id}
+                      data-action="links_added"
+                    >
+                      已添加链接
+                    </button>
+                    <button
+                      class="resolve-btn px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded"
+                      data-id={page.id}
+                      data-action="ignored"
+                    >
+                      忽略
+                    </button>
+                  </div>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    {allOrphans.length === 0 && (
+      <div class="px-6 py-12 text-center">
+        <div class="text-4xl mb-4">🎉</div>
+        <p class="text-gray-500">没有检测到孤立页面</p>
+        <p class="text-sm text-gray-400 mt-1">点击"扫描孤立页面"按钮开始检测</p>
+      </div>
+    )}
+  </div>
+
+  <!-- Scan Result Toast -->
+  <div id="toast" class="fixed bottom-4 right-4 hidden">
+    <div class="bg-gray-900 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3">
+      <span id="toast-icon">✓</span>
+      <span id="toast-message">操作成功</span>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  const API_URL = import.meta.env.PUBLIC_API_URL || '';
+
+  function showToast(message: string, isSuccess = true) {
+    const toast = document.getElementById('toast');
+    const icon = document.getElementById('toast-icon');
+    const msg = document.getElementById('toast-message');
+    if (toast && icon && msg) {
+      icon.textContent = isSuccess ? '✓' : '✗';
+      msg.textContent = message;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 3000);
+    }
+  }
+
+  // Scan button
+  document.getElementById('scan-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('scan-btn') as HTMLButtonElement;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="animate-spin">⏳</span> 扫描中...';
+
+    try {
+      const res = await fetch(`${API_URL}/api/seo/links/orphans/scan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        showToast(`扫描完成！发现 ${data.orphans_found} 个孤立页面`);
+        setTimeout(() => location.reload(), 1500);
+      } else {
+        showToast(data.error || '扫描失败', false);
+      }
+    } catch (error) {
+      showToast('扫描失败', false);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<span>🔍</span><span>扫描孤立页面</span>';
+    }
+  });
+
+  // Resolve buttons
+  document.querySelectorAll('.resolve-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const target = e.currentTarget as HTMLButtonElement;
+      const id = target.dataset.id;
+      const action = target.dataset.action;
+
+      try {
+        const res = await fetch(`${API_URL}/api/seo/links/orphans/${id}/resolve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resolution_action: action }),
+        });
+
+        if (res.ok) {
+          showToast('已标记为解决');
+          const row = target.closest('tr');
+          row?.remove();
+        } else {
+          showToast('操作失败', false);
+        }
+      } catch (error) {
+        showToast('操作失败', false);
+      }
+    });
+  });
+
+  // Filter tabs
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const target = e.currentTarget as HTMLButtonElement;
+      const filter = target.dataset.filter;
+
+      // Update button styles
+      document.querySelectorAll('.filter-btn').forEach(b => {
+        b.classList.remove('bg-primary-600', 'text-white');
+        b.classList.add('bg-gray-100', 'text-gray-700');
+      });
+      target.classList.remove('bg-gray-100', 'text-gray-700');
+      target.classList.add('bg-primary-600', 'text-white');
+
+      // Filter rows
+      document.querySelectorAll('.orphan-row').forEach(row => {
+        const el = row as HTMLElement;
+        const isResolved = el.dataset.resolved === 'true';
+
+        if (filter === 'all') {
+          el.style.display = '';
+        } else if (filter === 'resolved') {
+          el.style.display = isResolved ? '' : 'none';
+        } else {
+          el.style.display = isResolved ? 'none' : '';
+        }
+      });
+    });
+  });
+</script>

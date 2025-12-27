@@ -1,0 +1,194 @@
+---
+export const prerender = false;
+
+import AdminLayout from '@layouts/AdminLayout.astro';
+---
+
+<AdminLayout title="归因报告" activePage="marketing">
+  <div class="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">归因报告</h1>
+      <p class="text-sm text-gray-500">按流量来源跟踪转化</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <select id="days-filter" class="text-sm border-gray-300 rounded-lg">
+        <option value="7">近 7 天</option>
+        <option value="30" selected>近 30 天</option>
+        <option value="90">近 90 天</option>
+      </select>
+      <select id="group-filter" class="text-sm border-gray-300 rounded-lg">
+        <option value="source" selected>按来源</option>
+        <option value="medium">按媒介</option>
+        <option value="campaign">按活动</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div class="text-sm text-gray-500 mb-1">总转化数</div>
+      <div id="total-conversions" class="text-2xl font-bold text-gray-900">-</div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div class="text-sm text-gray-500 mb-1">总收入</div>
+      <div id="total-revenue" class="text-2xl font-bold text-gray-900">-</div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div class="text-sm text-gray-500 mb-1">平均订单价值</div>
+      <div id="avg-order-value" class="text-2xl font-bold text-gray-900">-</div>
+    </div>
+  </div>
+
+  <!-- Attribution Table -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th id="group-header" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">来源</th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">转化数</th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">收入</th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">平均订单</th>
+          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">占比</th>
+        </tr>
+      </thead>
+      <tbody id="attribution-body" class="divide-y divide-gray-200">
+        <tr>
+          <td colspan="5" class="px-6 py-12 text-center text-gray-500">
+            加载中...
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Chart -->
+  <div class="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <h3 class="text-lg font-semibold mb-4">按来源收入</h3>
+    <div id="chart-container" class="h-64">
+      <canvas id="attribution-chart"></canvas>
+    </div>
+  </div>
+</AdminLayout>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+  const API_BASE = import.meta.env.PUBLIC_API_URL || '';
+  let chart: any = null;
+
+  async function loadData() {
+    const days = (document.getElementById('days-filter') as HTMLSelectElement).value;
+    const groupBy = (document.getElementById('group-filter') as HTMLSelectElement).value;
+
+    try {
+      const response = await fetch(`${API_BASE}/api/tracking/attribution?days=${days}&group_by=${groupBy}`);
+      const result = await response.json();
+
+      if (result.data) {
+        renderTable(result.data, result.totals, groupBy);
+        renderChart(result.data, groupBy);
+        renderTotals(result.totals);
+      }
+    } catch (error) {
+      console.error('Error loading attribution data:', error);
+    }
+  }
+
+  function formatMoney(amount: number): string {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  }
+
+  function renderTotals(totals: { conversions: number; revenue: number; avg_order_value: number }) {
+    document.getElementById('total-conversions')!.textContent = totals.conversions.toLocaleString();
+    document.getElementById('total-revenue')!.textContent = formatMoney(totals.revenue);
+    document.getElementById('avg-order-value')!.textContent = formatMoney(totals.avg_order_value);
+  }
+
+  function renderTable(data: any[], totals: any, groupBy: string) {
+    const header = document.getElementById('group-header')!;
+    header.textContent = groupBy.charAt(0).toUpperCase() + groupBy.slice(1);
+
+    const tbody = document.getElementById('attribution-body')!;
+    
+    if (data.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="5" class="px-6 py-12 text-center text-gray-500">
+            此期间未找到转化数据
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = data.map((row) => {
+      const percentage = totals.revenue > 0 ? (row.revenue / totals.revenue * 100).toFixed(1) : 0;
+      return `
+        <tr class="hover:bg-gray-50">
+          <td class="px-6 py-4 text-sm font-medium text-gray-900">${row[groupBy]}</td>
+          <td class="px-6 py-4 text-sm text-gray-900 text-right">${row.conversions}</td>
+          <td class="px-6 py-4 text-sm font-medium text-gray-900 text-right">${formatMoney(row.revenue)}</td>
+          <td class="px-6 py-4 text-sm text-gray-500 text-right">${formatMoney(row.avg_order_value)}</td>
+          <td class="px-6 py-4 text-right">
+            <div class="flex items-center justify-end gap-2">
+              <div class="w-24 bg-gray-200 rounded-full h-2">
+                <div class="bg-primary-600 h-2 rounded-full" style="width: ${percentage}%"></div>
+              </div>
+              <span class="text-sm text-gray-500 w-12 text-right">${percentage}%</span>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function renderChart(data: any[], groupBy: string) {
+    const ctx = (document.getElementById('attribution-chart') as HTMLCanvasElement).getContext('2d');
+    
+    if (chart) {
+      chart.destroy();
+    }
+
+    const colors = [
+      '#0ea5e9', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444',
+      '#6366f1', '#14b8a6', '#f97316', '#ec4899', '#84cc16'
+    ];
+
+    chart = new (window as any).Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: data.map(d => d[groupBy]),
+        datasets: [{
+          data: data.map(d => d.revenue),
+          backgroundColor: colors.slice(0, data.length),
+          borderWidth: 0,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'right',
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context: any) {
+                const value = context.raw;
+                return ` ${formatMoney(value)}`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Event listeners
+  document.getElementById('days-filter')?.addEventListener('change', loadData);
+  document.getElementById('group-filter')?.addEventListener('change', loadData);
+
+  // Initial load
+  loadData();
+</script>

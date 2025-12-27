@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+
 import Layout from '@layouts/Layout.astro';
 import { supabase } from '@lib/supabase';
 import ProductCard from '@components/catalog/ProductCard.astro';
@@ -8,15 +10,6 @@ const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
 const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
 
 const pageSize = 12;
-
-export async function getStaticPaths() {
-  const { data: categories } = await supabase
-    .from('categories')
-    .select('slug')
-    .eq('is_active', true);
-
-  return (categories || []).map((c) => ({ params: { slug: c.slug } }));
-}
 
 const { slug } = Astro.params;
 
@@ -157,10 +150,7 @@ const breadcrumbItems = [
     </section>
   </main>
 
-  <script type="module">
-    import { api } from '@lib/api';
-
-    const categorySlug = {JSON.stringify(category.slug)};
+  <script define:vars={{ categorySlug: category.slug }}>
     const pageSize = 12;
 
     const searchEl = document.getElementById('category-search');

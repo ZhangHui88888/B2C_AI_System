@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { supabase } from '@lib/supabase';
 
@@ -70,11 +72,11 @@ const enrichedOrders = (recentOrders || []).map(order => ({
 }));
 
 function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'USD' }).format(amount);
 }
 
 function formatDate(date: string): string {
-  return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return new Date(date).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 const statusColors: Record<string, string> = {
@@ -87,19 +89,19 @@ const statusColors: Record<string, string> = {
 };
 ---
 
-<AdminLayout title="Cross-Brand Overview" activePage="dashboard">
+<AdminLayout title="品牌概览" activePage="overview">
   <div class="space-y-6">
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h2 class="text-2xl font-bold text-gray-900">Cross-Brand Overview</h2>
-        <p class="text-sm text-gray-600">Aggregate statistics across all {totals.brands} brands</p>
+        <h2 class="text-2xl font-bold text-gray-900">多品牌概览</h2>
+        <p class="text-sm text-gray-600">汇总 {totals.brands} 个品牌的统计数据</p>
       </div>
       <div class="flex items-center gap-2 text-sm text-gray-500">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        Updated just now
+        刚刚更新
       </div>
     </div>
 
@@ -114,7 +116,7 @@ const statusColors: Record<string, string> = {
           </div>
           <div>
             <p class="text-2xl font-bold text-gray-900">{totals.brands}</p>
-            <p class="text-xs text-gray-500">Active Brands</p>
+            <p class="text-xs text-gray-500">活跃品牌</p>
           </div>
         </div>
       </div>
@@ -128,7 +130,7 @@ const statusColors: Record<string, string> = {
           </div>
           <div>
             <p class="text-2xl font-bold text-gray-900">{formatCurrency(totals.revenue)}</p>
-            <p class="text-xs text-gray-500">Total Revenue</p>
+            <p class="text-xs text-gray-500">总营收</p>
           </div>
         </div>
       </div>
@@ -142,7 +144,7 @@ const statusColors: Record<string, string> = {
           </div>
           <div>
             <p class="text-2xl font-bold text-gray-900">{totals.orders}</p>
-            <p class="text-xs text-gray-500">Total Orders</p>
+            <p class="text-xs text-gray-500">总订单</p>
           </div>
         </div>
       </div>
@@ -156,7 +158,7 @@ const statusColors: Record<string, string> = {
           </div>
           <div>
             <p class="text-2xl font-bold text-gray-900">{totals.pendingOrders}</p>
-            <p class="text-xs text-gray-500">Pending Orders</p>
+            <p class="text-xs text-gray-500">待处理订单</p>
           </div>
         </div>
       </div>
@@ -170,7 +172,7 @@ const statusColors: Record<string, string> = {
           </div>
           <div>
             <p class="text-2xl font-bold text-gray-900">{totals.products}</p>
-            <p class="text-xs text-gray-500">Total Products</p>
+            <p class="text-xs text-gray-500">总商品</p>
           </div>
         </div>
       </div>
@@ -184,7 +186,7 @@ const statusColors: Record<string, string> = {
           </div>
           <div>
             <p class="text-2xl font-bold text-gray-900">{totals.customers}</p>
-            <p class="text-xs text-gray-500">Total Customers</p>
+            <p class="text-xs text-gray-500">总客户</p>
           </div>
         </div>
       </div>
@@ -193,20 +195,20 @@ const statusColors: Record<string, string> = {
     <!-- Brand Performance Grid -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100">
       <div class="p-4 border-b border-gray-100">
-        <h3 class="font-semibold text-gray-900">Brand Performance</h3>
+        <h3 class="font-semibold text-gray-900">品牌业绩</h3>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full">
           <thead class="bg-gray-50">
             <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Brand</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Orders</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Pending</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Products</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Customers</th>
-              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Order</th>
-              <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">品牌</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">营收</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">订单</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">待处理</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">商品</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">客户</th>
+              <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">客单价</th>
+              <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
@@ -251,13 +253,13 @@ const statusColors: Record<string, string> = {
                       href={`/admin/brands/${brand.id}/settings`}
                       class="text-primary-600 hover:text-primary-700 text-sm"
                     >
-                      Settings
+                      设置
                     </a>
                     <button 
                       class="switch-brand-btn text-gray-600 hover:text-gray-700 text-sm"
                       data-brand-id={brand.id}
                     >
-                      Switch
+                      切换
                     </button>
                   </div>
                 </td>
@@ -271,8 +273,8 @@ const statusColors: Record<string, string> = {
     <!-- Recent Orders Across All Brands -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100">
       <div class="p-4 border-b border-gray-100 flex items-center justify-between">
-        <h3 class="font-semibold text-gray-900">Recent Orders (All Brands)</h3>
-        <a href="/admin/orders" class="text-sm text-primary-600 hover:text-primary-700">View all</a>
+        <h3 class="font-semibold text-gray-900">最近订单（所有品牌）</h3>
+        <a href="/admin/orders" class="text-sm text-primary-600 hover:text-primary-700">查看全部</a>
       </div>
       <div class="divide-y divide-gray-100">
         {enrichedOrders.length > 0 ? (
@@ -305,7 +307,7 @@ const statusColors: Record<string, string> = {
           ))
         ) : (
           <div class="p-8 text-center text-gray-500">
-            No orders yet across any brand
+            暂无任何品牌的订单
           </div>
         )}
       </div>

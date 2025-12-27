@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { supabase } from '@lib/supabase';
 
@@ -14,17 +16,17 @@ const { data: redirects } = await supabase
 const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
 ---
 
-<AdminLayout title="URL Redirects" activePage="seo">
+<AdminLayout title="URL 重定向" activePage="seo">
   <!-- Header -->
   <div class="flex items-center justify-between mb-6">
     <div>
       <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
-        <a href="/admin/seo" class="hover:text-primary-600">SEO Tools</a>
+        <a href="/admin/seo" class="hover:text-primary-600">SEO 工具</a>
         <span>/</span>
-        <span>Redirects</span>
+        <span>重定向</span>
       </div>
-      <h2 class="text-2xl font-bold text-gray-900">URL Redirects</h2>
-      <p class="text-gray-600 mt-1">Manage 301 and 302 redirects for your site</p>
+      <h2 class="text-2xl font-bold text-gray-900">URL 重定向</h2>
+      <p class="text-gray-600 mt-1">管理网站的 301 和 302 重定向</p>
     </div>
     <button 
       id="add-redirect-btn"
@@ -33,22 +35,22 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
       </svg>
-      Add Redirect
+      添加重定向
     </button>
   </div>
 
   <!-- Stats -->
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-      <p class="text-sm font-medium text-gray-500">Total Redirects</p>
+      <p class="text-sm font-medium text-gray-500">总重定向数</p>
       <p class="text-2xl font-bold text-gray-900 mt-1">{redirects?.length || 0}</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-      <p class="text-sm font-medium text-gray-500">Active Redirects</p>
+      <p class="text-sm font-medium text-gray-500">活跃重定向</p>
       <p class="text-2xl font-bold text-green-600 mt-1">{redirects?.filter(r => r.is_active).length || 0}</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-      <p class="text-sm font-medium text-gray-500">Total Hits</p>
+      <p class="text-sm font-medium text-gray-500">总访问数</p>
       <p class="text-2xl font-bold text-blue-600 mt-1">{redirects?.reduce((sum, r) => sum + (r.hit_count || 0), 0) || 0}</p>
     </div>
   </div>
@@ -59,12 +61,12 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source Path</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target URL</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hits</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">源路径</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">目标 URL</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">访问数</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200" id="redirects-tbody">
@@ -98,7 +100,7 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
                     <span class={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer ${
                       redirect.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                     }`}>
-                      {redirect.is_active ? 'Active' : 'Inactive'}
+                      {redirect.is_active ? '活跃' : '停用'}
                     </span>
                   </button>
                 </td>
@@ -107,13 +109,13 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
                     class="text-primary-600 hover:text-primary-700 text-sm font-medium mr-3 edit-btn"
                     data-redirect={JSON.stringify(redirect)}
                   >
-                    Edit
+                    编辑
                   </button>
                   <button 
                     class="text-red-600 hover:text-red-700 text-sm font-medium delete-btn"
                     data-id={redirect.id}
                   >
-                    Delete
+                    删除
                   </button>
                 </td>
               </tr>
@@ -121,7 +123,7 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
           ) : (
             <tr>
               <td colspan="6" class="px-6 py-12 text-center text-gray-500">
-                No redirects configured yet
+                尚未配置重定向
               </td>
             </tr>
           )}
@@ -136,7 +138,7 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
     <div class="absolute inset-0 flex items-center justify-center p-4">
       <div class="bg-white rounded-xl shadow-xl max-w-lg w-full">
         <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h3 class="font-semibold text-gray-900" id="modal-title">Add Redirect</h3>
+          <h3 class="font-semibold text-gray-900" id="modal-title">添加重定向</h3>
           <button id="close-modal" class="text-gray-400 hover:text-gray-600">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -147,7 +149,7 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
           <input type="hidden" id="redirect-id" name="id" />
           
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Source Path</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">源路径</label>
             <input 
               type="text" 
               id="source-path" 
@@ -156,11 +158,11 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
               placeholder="/old-page"
               required
             />
-            <p class="text-xs text-gray-500 mt-1">The original URL path (without domain)</p>
+            <p class="text-xs text-gray-500 mt-1">原始 URL 路径（不含域名）</p>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Target URL</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">目标 URL</label>
             <input 
               type="text" 
               id="target-url" 
@@ -169,33 +171,32 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
               placeholder="/new-page or https://example.com/page"
               required
             />
-            <p class="text-xs text-gray-500 mt-1">The new URL (path or full URL)</p>
+            <p class="text-xs text-gray-500 mt-1">新 URL（路径或完整 URL）</p>
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Redirect Type</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">重定向类型</label>
             <select 
               id="redirect-type" 
               name="redirect_type"
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             >
-              <option value="301">301 - Permanent Redirect</option>
-              <option value="302">302 - Temporary Redirect</option>
+              <option value="301">301 - 永久重定向</option>
+              <option value="302">302 - 临时重定向</option>
             </select>
-            <p class="text-xs text-gray-500 mt-1">Use 301 for permanent moves, 302 for temporary</p>
+            <p class="text-xs text-gray-500 mt-1">永久移动用 301，临时用 302</p>
           </div>
 
           <div class="flex items-center gap-2">
             <input type="checkbox" id="is-active" name="is_active" checked class="rounded border-gray-300" />
-            <label for="is-active" class="text-sm text-gray-700">Active</label>
+            <label for="is-active" class="text-sm text-gray-700">活跃</label>
           </div>
 
           <div class="flex justify-end gap-3 pt-4">
             <button type="button" id="cancel-btn" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
-              Cancel
+              取消
             </button>
-            <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
-              Save Redirect
+            <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">保存重定向
             </button>
           </div>
         </form>
@@ -214,14 +215,14 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
 
   function openModal(redirect = null) {
     if (redirect) {
-      modalTitle.textContent = 'Edit Redirect';
+      modalTitle.textContent = '编辑重定向';
       document.getElementById('redirect-id').value = redirect.id;
       document.getElementById('source-path').value = redirect.source_path;
       document.getElementById('target-url').value = redirect.target_url;
       document.getElementById('redirect-type').value = redirect.redirect_type;
       document.getElementById('is-active').checked = redirect.is_active;
     } else {
-      modalTitle.textContent = 'Add Redirect';
+      modalTitle.textContent = '添加重定向';
       form.reset();
       document.getElementById('redirect-id').value = '';
       document.getElementById('is-active').checked = true;
@@ -254,7 +255,7 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
   // Delete buttons
   document.querySelectorAll('.delete-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
-      if (!confirm('Are you sure you want to delete this redirect?')) return;
+      if (!confirm('确定要删除此重定向吗？')) return;
       
       const id = btn.dataset.id;
       try {
@@ -264,11 +265,11 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
         if (response.ok) {
           window.location.reload();
         } else {
-          alert('Failed to delete redirect');
+          alert('删除重定向失败');
         }
       } catch (error) {
         console.error('Error:', error);
-        alert('Failed to delete redirect');
+        alert('删除重定向失败');
       }
     });
   });
@@ -288,11 +289,11 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
         if (response.ok) {
           window.location.reload();
         } else {
-          alert('Failed to update status');
+          alert('更新状态失败');
         }
       } catch (error) {
         console.error('Error:', error);
-        alert('Failed to update status');
+        alert('更新状态失败');
       }
     });
   });
@@ -319,11 +320,11 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
       if (response.ok) {
         window.location.reload();
       } else {
-        alert('Failed to save redirect');
+        alert('保存重定向失败');
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('Failed to save redirect');
+      alert('保存重定向失败');
     }
   });
 

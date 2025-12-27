@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { supabase } from '@lib/supabase';
 
@@ -60,17 +62,17 @@ function generateRobotsPreview(cfg: any): string {
 const robotsPreview = generateRobotsPreview(config);
 ---
 
-<AdminLayout title="Robots.txt Editor" activePage="seo">
+<AdminLayout title="Robots.txt 编辑器" activePage="seo">
   <!-- Header -->
   <div class="flex items-center justify-between mb-6">
     <div>
       <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
-        <a href="/admin/seo" class="hover:text-primary-600">SEO Tools</a>
+        <a href="/admin/seo" class="hover:text-primary-600">SEO 工具</a>
         <span>/</span>
         <span>Robots.txt</span>
       </div>
-      <h2 class="text-2xl font-bold text-gray-900">Robots.txt Editor</h2>
-      <p class="text-gray-600 mt-1">Control how search engines and AI bots crawl your site</p>
+      <h2 class="text-2xl font-bold text-gray-900">Robots.txt 编辑器</h2>
+      <p class="text-gray-600 mt-1">控制搜索引擎和 AI 机器人如何爬取您的网站</p>
     </div>
     <a 
       href="/robots.txt"
@@ -80,7 +82,7 @@ const robotsPreview = generateRobotsPreview(config);
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
       </svg>
-      View robots.txt
+      查看 robots.txt
     </a>
   </div>
 
@@ -90,15 +92,15 @@ const robotsPreview = generateRobotsPreview(config);
       <!-- AI Crawler Settings -->
       <form id="robots-form" class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-100">
-          <h3 class="font-semibold text-gray-900">AI Crawler Settings</h3>
-          <p class="text-sm text-gray-500 mt-1">Control which AI bots can access your content</p>
+          <h3 class="font-semibold text-gray-900">AI 爬虫设置</h3>
+          <p class="text-sm text-gray-500 mt-1">控制哪些 AI 机器人可以访问您的内容</p>
         </div>
 
         <div class="p-6 space-y-4">
           <div class="flex items-center justify-between py-2">
             <div>
               <p class="text-sm font-medium text-gray-900">GPTBot (OpenAI)</p>
-              <p class="text-xs text-gray-500">ChatGPT and OpenAI products</p>
+              <p class="text-xs text-gray-500">ChatGPT 和 OpenAI 产品</p>
             </div>
             <label class="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" name="allow_gptbot" checked={config.allow_gptbot} class="sr-only peer" />
@@ -109,7 +111,7 @@ const robotsPreview = generateRobotsPreview(config);
           <div class="flex items-center justify-between py-2">
             <div>
               <p class="text-sm font-medium text-gray-900">ClaudeBot (Anthropic)</p>
-              <p class="text-xs text-gray-500">Claude AI assistant</p>
+              <p class="text-xs text-gray-500">Claude AI 助手</p>
             </div>
             <label class="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" name="allow_claudebot" checked={config.allow_claudebot} class="sr-only peer" />
@@ -120,7 +122,7 @@ const robotsPreview = generateRobotsPreview(config);
           <div class="flex items-center justify-between py-2">
             <div>
               <p class="text-sm font-medium text-gray-900">PerplexityBot</p>
-              <p class="text-xs text-gray-500">Perplexity AI search</p>
+              <p class="text-xs text-gray-500">Perplexity AI 搜索</p>
             </div>
             <label class="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" name="allow_perplexitybot" checked={config.allow_perplexitybot} class="sr-only peer" />
@@ -133,7 +135,7 @@ const robotsPreview = generateRobotsPreview(config);
           <div class="flex items-center justify-between py-2">
             <div>
               <p class="text-sm font-medium text-gray-900">Googlebot</p>
-              <p class="text-xs text-gray-500">Google Search crawler</p>
+              <p class="text-xs text-gray-500">Google 搜索爬虫</p>
             </div>
             <label class="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" name="allow_googlebot" checked={config.allow_googlebot} class="sr-only peer" />
@@ -144,7 +146,7 @@ const robotsPreview = generateRobotsPreview(config);
           <div class="flex items-center justify-between py-2">
             <div>
               <p class="text-sm font-medium text-gray-900">Bingbot</p>
-              <p class="text-xs text-gray-500">Bing Search crawler</p>
+              <p class="text-xs text-gray-500">Bing 搜索爬虫</p>
             </div>
             <label class="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" name="allow_bingbot" checked={config.allow_bingbot} class="sr-only peer" />
@@ -155,7 +157,7 @@ const robotsPreview = generateRobotsPreview(config);
 
         <!-- Disallow Paths -->
         <div class="px-6 py-4 border-t border-gray-100">
-          <h4 class="text-sm font-medium text-gray-900 mb-3">Disallow Paths</h4>
+          <h4 class="text-sm font-medium text-gray-900 mb-3">禁止路径</h4>
           <div id="disallow-paths" class="space-y-2">
             {(config.disallow_paths || []).map((path: string, i: number) => (
               <div class="flex gap-2 path-item">
@@ -178,13 +180,13 @@ const robotsPreview = generateRobotsPreview(config);
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
-            Add Path
+            添加路径
           </button>
         </div>
 
         <div class="px-6 py-4 bg-gray-50 flex justify-end">
           <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
-            Save Configuration
+            保存配置
           </button>
         </div>
       </form>
@@ -194,12 +196,12 @@ const robotsPreview = generateRobotsPreview(config);
     <div class="space-y-6">
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h3 class="font-semibold text-gray-900">robots.txt Preview</h3>
+          <h3 class="font-semibold text-gray-900">robots.txt 预览</h3>
           <button id="copy-btn" class="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
-            Copy
+            复制
           </button>
         </div>
         <div class="p-4">
@@ -209,25 +211,25 @@ const robotsPreview = generateRobotsPreview(config);
 
       <!-- GEO Tips -->
       <div class="bg-green-50 rounded-xl p-6">
-        <h3 class="font-semibold text-green-900 mb-3">GEO Optimization Tips</h3>
+        <h3 class="font-semibold text-green-900 mb-3">GEO 优化提示</h3>
         <ul class="space-y-2 text-sm text-green-800">
           <li class="flex items-start gap-2">
             <svg class="w-5 h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span>Allow AI crawlers to help your content appear in AI-powered search results</span>
+            <span>允许 AI 爬虫帮助您的内容出现在 AI 驱动的搜索结果中</span>
           </li>
           <li class="flex items-start gap-2">
             <svg class="w-5 h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span>GPTBot powers ChatGPT's browsing and is beneficial for brand visibility</span>
+            <span>GPTBot 为 ChatGPT 浏览提供支持，有利于品牌曝光</span>
           </li>
           <li class="flex items-start gap-2">
             <svg class="w-5 h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span>PerplexityBot helps your content appear in Perplexity AI answers</span>
+            <span>PerplexityBot 帮助您的内容出现在 Perplexity AI 回答中</span>
           </li>
         </ul>
       </div>
@@ -314,7 +316,7 @@ const robotsPreview = generateRobotsPreview(config);
   // Copy button
   document.getElementById('copy-btn')?.addEventListener('click', () => {
     navigator.clipboard.writeText(preview?.textContent || '');
-    alert('Copied to clipboard!');
+    alert('已复制到剪贴板！');
   });
 
   // Form submit
@@ -339,13 +341,13 @@ const robotsPreview = generateRobotsPreview(config);
       });
 
       if (response.ok) {
-        alert('Configuration saved successfully');
+        alert('配置保存成功');
       } else {
-        alert('Failed to save configuration');
+        alert('保存配置失败');
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('Failed to save configuration');
+      alert('保存配置失败');
     }
   });
 </script>

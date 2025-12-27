@@ -1,0 +1,63 @@
+---
+/**
+ * Tracking Scripts Component
+ * Initializes Facebook Pixel, Google Ads, and UTM tracking
+ * Include this in the <head> of your layout
+ */
+
+interface Props {
+  facebookPixelId?: string;
+  googleAdsId?: string;
+  googleConversionLabel?: string;
+  tiktokPixelId?: string;
+  pinterestTagId?: string;
+}
+
+const {
+  facebookPixelId,
+  googleAdsId,
+  googleConversionLabel,
+  tiktokPixelId,
+  pinterestTagId,
+} = Astro.props;
+
+const hasTracking = facebookPixelId || googleAdsId || tiktokPixelId || pinterestTagId;
+---
+
+{hasTracking && (
+  <script
+    define:vars={{
+      facebookPixelId,
+      googleAdsId,
+      googleConversionLabel,
+      tiktokPixelId,
+      pinterestTagId,
+    }}
+  >
+    // Initialize tracking after DOM is ready
+    document.addEventListener('DOMContentLoaded', async () => {
+      const { initTracking } = await import('../lib/tracking');
+      
+      initTracking({
+        facebookPixelId,
+        googleAdsId,
+        googleConversionLabel,
+        tiktokPixelId,
+        pinterestTagId,
+      });
+    });
+  </script>
+)}
+
+{/* Facebook Pixel noscript fallback */}
+{facebookPixelId && (
+  <noscript>
+    <img
+      height="1"
+      width="1"
+      style="display:none"
+      src={`https://www.facebook.com/tr?id=${facebookPixelId}&ev=PageView&noscript=1`}
+      alt=""
+    />
+  </noscript>
+)}

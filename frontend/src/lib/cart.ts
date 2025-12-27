@@ -1,5 +1,6 @@
 // Shopping Cart State Management
 import type { Product } from './database.types';
+import { syncCartToServer, trackAddToCart } from './tracking';
 
 export interface CartItem {
   productId: string;
@@ -37,16 +38,28 @@ export function getCart(): CartState {
   return { items: [], subtotal: 0, itemCount: 0 };
 }
 
-// Save cart to localStorage
+// Save cart to localStorage and sync to server
 function saveCart(items: CartItem[]): void {
   if (typeof window === 'undefined') return;
   
   try {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+    const state = calculateCartState(items);
     // Dispatch custom event for cart updates
     window.dispatchEvent(new CustomEvent('cart-updated', { 
-      detail: calculateCartState(items) 
+      detail: state 
     }));
+    // Sync to server for abandoned cart tracking (async, non-blocking)
+    syncCartToServer(
+      items.map(item => ({
+        product_id: item.productId,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        image_url: item.image || undefined,
+      })),
+      state.subtotal
+    ).catch(() => {}); // Silently ignore sync errors
   } catch (error) {
     console.error('Error saving cart to localStorage:', error);
   }
@@ -83,6 +96,8 @@ export function addToCart(product: Product, quantity: number = 1): CartState {
   }
   
   saveCart(cart.items);
+  // Track add to cart event for advertising pixels
+  trackAddToCart(product.id, product.name, product.price * quantity, quantity);
   return calculateCartState(cart.items);
 }
 
@@ -107,6 +122,8 @@ export function addToCartItem(
   }
 
   saveCart(cart.items);
+  // Track add to cart event for advertising pixels
+  trackAddToCart(product.id, product.name, product.price * quantity, quantity);
   return calculateCartState(cart.items);
 }
 

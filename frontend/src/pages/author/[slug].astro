@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+
 import Layout from '@layouts/Layout.astro';
 import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
 import PersonSchema from '@components/seo/PersonSchema.astro';
@@ -6,12 +8,6 @@ import { api } from '@lib/api';
 
 const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
 const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
-
-export async function getStaticPaths() {
-  // For static generation, we'll return empty array
-  // Pages will be generated on-demand with SSR
-  return [];
-}
 
 const { slug } = Astro.params;
 

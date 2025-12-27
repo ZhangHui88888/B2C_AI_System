@@ -1,0 +1,277 @@
+---
+export const prerender = false;
+
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { supabase } from '@lib/supabase';
+
+// Get existing pixel configuration
+const { data: config } = await supabase
+  .from('tracking_pixels_config')
+  .select('*')
+  .limit(1);
+
+const pixelConfig = config?.[0] || {};
+---
+
+<AdminLayout title="跟踪像素" activePage="marketing">
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">跟踪像素配置</h1>
+    <p class="text-sm text-gray-500 mt-1">配置广告像素以进行转化跟踪</p>
+  </div>
+
+  <form id="pixels-form" class="space-y-6">
+    <!-- Facebook/Meta Pixel -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+          </svg>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold">Facebook / Meta 像素</h2>
+          <p class="text-sm text-gray-500">跟踪来自 Facebook 和 Instagram 广告的转化</p>
+        </div>
+      </div>
+      
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">像素 ID</label>
+          <input 
+            type="text" 
+            name="facebook_pixel_id" 
+            value={pixelConfig.facebook_pixel_id || ''}
+            class="w-full border-gray-300 rounded-lg"
+            placeholder="e.g., 123456789012345"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">访问令牌（用于转化 API）</label>
+          <input 
+            type="password" 
+            name="facebook_access_token" 
+            value={pixelConfig.facebook_access_token ? '***configured***' : ''}
+            class="w-full border-gray-300 rounded-lg"
+            placeholder="Enter access token"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">测试事件代码（可选）</label>
+          <input 
+            type="text" 
+            name="facebook_test_event_code" 
+            value={pixelConfig.facebook_test_event_code || ''}
+            class="w-full border-gray-300 rounded-lg"
+            placeholder="e.g., TEST12345"
+          />
+          <p class="text-xs text-gray-500 mt-1">用于在事件管理器中测试</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Google Ads -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold">Google Ads</h2>
+          <p class="text-sm text-gray-500">跟踪来自 Google 搜索和展示广告的转化</p>
+        </div>
+      </div>
+      
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Google Ads ID</label>
+          <input 
+            type="text" 
+            name="google_ads_id" 
+            value={pixelConfig.google_ads_id || ''}
+            class="w-full border-gray-300 rounded-lg"
+            placeholder="e.g., AW-123456789"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">转化标签</label>
+          <input 
+            type="text" 
+            name="google_conversion_label" 
+            value={pixelConfig.google_conversion_label || ''}
+            class="w-full border-gray-300 rounded-lg"
+            placeholder="e.g., AbCdEfGhIjK"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">再营销 ID（可选）</label>
+          <input 
+            type="text" 
+            name="google_remarketing_id" 
+            value={pixelConfig.google_remarketing_id || ''}
+            class="w-full border-gray-300 rounded-lg"
+            placeholder="e.g., DC-123456789"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- TikTok Pixel -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 bg-gray-900 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-1-.05A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z"/>
+          </svg>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold">TikTok 像素</h2>
+          <p class="text-sm text-gray-500">跟踪来自 TikTok 广告的转化</p>
+        </div>
+      </div>
+      
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">像素 ID</label>
+          <input 
+            type="text" 
+            name="tiktok_pixel_id" 
+            value={pixelConfig.tiktok_pixel_id || ''}
+            class="w-full border-gray-300 rounded-lg"
+            placeholder="e.g., C1234567890"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">访问令牌（用于事件 API）</label>
+          <input 
+            type="password" 
+            name="tiktok_access_token" 
+            value={pixelConfig.tiktok_access_token ? '***configured***' : ''}
+            class="w-full border-gray-300 rounded-lg"
+            placeholder="Enter access token"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- Pinterest Tag -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 0C5.373 0 0 5.372 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738.098.119.112.224.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.631-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12 0-6.628-5.373-12-12-12z"/>
+          </svg>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold">Pinterest 标签</h2>
+          <p class="text-sm text-gray-500">跟踪来自 Pinterest 广告的转化</p>
+        </div>
+      </div>
+      
+      <div class="grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">标签 ID</label>
+          <input 
+            type="text" 
+            name="pinterest_tag_id" 
+            value={pixelConfig.pinterest_tag_id || ''}
+            class="w-full border-gray-300 rounded-lg"
+            placeholder="e.g., 2612345678901"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">访问令牌（用于转化 API）</label>
+          <input 
+            type="password" 
+            name="pinterest_access_token" 
+            value={pixelConfig.pinterest_access_token ? '***configured***' : ''}
+            class="w-full border-gray-300 rounded-lg"
+            placeholder="Enter access token"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- Server-Side Settings -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <h2 class="text-lg font-semibold mb-4">服务端跟踪</h2>
+      <div class="space-y-4">
+        <label class="flex items-center gap-3">
+          <input 
+            type="checkbox" 
+            name="server_side_enabled" 
+            checked={pixelConfig.server_side_enabled}
+            class="rounded border-gray-300 text-primary-600"
+          />
+          <span class="text-sm text-gray-700">启用服务端事件跟踪（转化 API）</span>
+        </label>
+        <label class="flex items-center gap-3">
+          <input 
+            type="checkbox" 
+            name="hash_user_data" 
+            checked={pixelConfig.hash_user_data !== false}
+            class="rounded border-gray-300 text-primary-600"
+          />
+          <span class="text-sm text-gray-700">发送前加密用户数据（推荐以保护隐私）</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="flex justify-end">
+      <button type="submit" class="px-6 py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700">
+        保存配置
+      </button>
+    </div>
+  </form>
+
+  <div id="toast" class="hidden fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg">
+    配置保存成功
+  </div>
+</AdminLayout>
+
+<script>
+  const API_BASE = import.meta.env.PUBLIC_API_URL || '';
+  const form = document.getElementById('pixels-form') as HTMLFormElement;
+  const toast = document.getElementById('toast');
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(form);
+    const data: Record<string, any> = {};
+    
+    formData.forEach((value, key) => {
+      if (key.includes('enabled') || key.includes('hash')) {
+        data[key] = true;
+      } else {
+        data[key] = value || null;
+      }
+    });
+
+    // Handle unchecked checkboxes
+    if (!formData.has('server_side_enabled')) data.server_side_enabled = false;
+    if (!formData.has('hash_user_data')) data.hash_user_data = false;
+
+    try {
+      const response = await fetch(`${API_BASE}/api/tracking/pixels/config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        toast?.classList.remove('hidden');
+        setTimeout(() => toast?.classList.add('hidden'), 3000);
+      } else {
+        alert('保存配置失败');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('发生错误');
+    }
+  });
+</script>

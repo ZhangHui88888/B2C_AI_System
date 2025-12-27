@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { supabase } from '@lib/supabase';
 
@@ -13,19 +15,19 @@ if (error) {
 }
 ---
 
-<AdminLayout title="Brand Management" activePage="brands">
+<AdminLayout title="品牌管理" activePage="brands">
   <div class="space-y-6">
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h2 class="text-lg font-semibold text-gray-900">Brands</h2>
-        <p class="text-sm text-gray-600">Manage your store brands and their settings</p>
+        <h2 class="text-lg font-semibold text-gray-900">品牌</h2>
+        <p class="text-sm text-gray-600">管理您的店铺品牌及其设置</p>
       </div>
       <button id="add-brand-btn" class="inline-flex items-center px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors">
         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
         </svg>
-        Add Brand
+        添加品牌
       </button>
     </div>
 
@@ -53,18 +55,18 @@ if (error) {
                   )}
                 </div>
                 <span class={`px-2 py-1 text-xs font-medium rounded-full ${brand.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                  {brand.is_active ? 'Active' : 'Inactive'}
+                  {brand.is_active ? '活跃' : '停用'}
                 </span>
               </div>
               
               <div class="mt-4 pt-4 border-t border-gray-100">
                 <div class="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span class="text-gray-500">Owner</span>
+                    <span class="text-gray-500">所有者</span>
                     <p class="font-medium text-gray-900 truncate" title={brand.owner_email}>{brand.owner_email}</p>
                   </div>
                   <div>
-                    <span class="text-gray-500">Created</span>
+                    <span class="text-gray-500">创建时间</span>
                     <p class="font-medium text-gray-900">{new Date(brand.created_at).toLocaleDateString()}</p>
                   </div>
                 </div>
@@ -73,14 +75,12 @@ if (error) {
             
             <div class="px-6 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
               <button class="edit-brand-btn text-sm text-primary-600 hover:text-primary-700 font-medium" data-brand={JSON.stringify(brand)}>
-                Edit
+                编辑
               </button>
               <div class="flex items-center gap-3">
-                <a href={`/admin/brands/${brand.id}/settings`} class="text-sm text-gray-600 hover:text-gray-700">
-                  Settings
+                <a href={`/admin/brands/${brand.id}/settings`} class="text-sm text-gray-600 hover:text-gray-700">设置
                 </a>
-                <button class="delete-brand-btn text-sm text-red-600 hover:text-red-700" data-id={brand.id} data-name={brand.name}>
-                  Delete
+                <button class="delete-brand-btn text-sm text-red-600 hover:text-red-700" data-id={brand.id} data-name={brand.name}>删除
                 </button>
               </div>
             </div>
@@ -93,10 +93,9 @@ if (error) {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
             </svg>
           </div>
-          <h3 class="text-lg font-medium text-gray-900 mb-1">No brands yet</h3>
-          <p class="text-gray-500 mb-4">Create your first brand to get started</p>
-          <button id="add-brand-empty-btn" class="inline-flex items-center px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700">
-            Add Brand
+          <h3 class="text-lg font-medium text-gray-900 mb-1">暂无品牌</h3>
+          <p class="text-gray-500 mb-4">创建您的第一个品牌开始</p>
+          <button id="add-brand-empty-btn" class="inline-flex items-center px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700">添加品牌
           </button>
         </div>
       )}
@@ -109,50 +108,49 @@ if (error) {
     <div class="fixed inset-0 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div class="p-6 border-b border-gray-100">
-          <h3 id="modal-title" class="text-lg font-semibold text-gray-900">Add Brand</h3>
+          <h3 id="modal-title" class="text-lg font-semibold text-gray-900">添加品牌</h3>
         </div>
         
         <form id="brand-form" class="p-6 space-y-4">
           <input type="hidden" id="brand-id" />
           
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Brand Name *</label>
-            <input type="text" id="brand-name" required class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="My Store" />
+            <label class="block text-sm font-medium text-gray-700 mb-1">品牌名称 *</label>
+            <input type="text" id="brand-name" required class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="我的店铺" />
           </div>
           
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Slug *</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">别名 *</label>
             <input type="text" id="brand-slug" required class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500 font-mono text-sm" placeholder="my-store" />
-            <p class="text-xs text-gray-500 mt-1">URL-friendly identifier (auto-generated from name)</p>
+            <p class="text-xs text-gray-500 mt-1">URL 友好的标识符（从名称自动生成）</p>
           </div>
           
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Custom Domain</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">自定义域名</label>
             <input type="text" id="brand-domain" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="www.mystore.com" />
-            <p class="text-xs text-gray-500 mt-1">Optional: Your custom domain (without https://)</p>
+            <p class="text-xs text-gray-500 mt-1">可选：您的自定义域名（不含 https://）</p>
           </div>
           
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Logo URL</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Logo 网址</label>
             <input type="url" id="brand-logo" class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="https://..." />
           </div>
           
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Owner Email *</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">所有者邮箱 *</label>
             <input type="email" id="brand-owner" required class="w-full border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500" placeholder="owner@example.com" />
           </div>
           
           <div class="flex items-center">
             <input type="checkbox" id="brand-active" checked class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" />
-            <label for="brand-active" class="ml-2 text-sm text-gray-700">Active</label>
+            <label for="brand-active" class="ml-2 text-sm text-gray-700">活跃</label>
           </div>
           
           <div class="flex gap-3 pt-4">
             <button type="button" id="cancel-btn" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-              Cancel
+              取消
             </button>
-            <button type="submit" class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
-              Save Brand
+            <button type="submit" class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">保存品牌
             </button>
           </div>
         </form>
@@ -175,7 +173,7 @@ if (error) {
 
     function openModal(brand?: any) {
       if (brand) {
-        modalTitle!.textContent = 'Edit Brand';
+        modalTitle!.textContent = '编辑品牌';
         brandIdInput.value = brand.id;
         brandNameInput.value = brand.name;
         brandSlugInput.value = brand.slug;
@@ -184,7 +182,7 @@ if (error) {
         brandOwnerInput.value = brand.owner_email;
         brandActiveInput.checked = brand.is_active;
       } else {
-        modalTitle!.textContent = 'Add Brand';
+        modalTitle!.textContent = '添加品牌';
         form?.reset();
         brandIdInput.value = '';
         brandActiveInput.checked = true;
@@ -230,7 +228,7 @@ if (error) {
         const id = (btn as HTMLElement).dataset.id;
         const name = (btn as HTMLElement).dataset.name;
         
-        if (!confirm(`Are you sure you want to delete "${name}"? This will delete ALL associated data including products, orders, and settings.`)) {
+        if (!confirm(`确定要删除 "${name}" 吗？这将删除所有关联数据，包括产品、订单和设置。`)) {
           return;
         }
 
@@ -243,10 +241,10 @@ if (error) {
             window.location.reload();
           } else {
             const data = await res.json();
-            alert(data.error || 'Failed to delete brand');
+            alert(data.error || '删除品牌失败');
           }
         } catch (err) {
-          alert('Failed to delete brand');
+          alert('删除品牌失败');
         }
       });
     });
@@ -280,10 +278,10 @@ if (error) {
           window.location.reload();
         } else {
           const result = await res.json();
-          alert(result.error || 'Failed to save brand');
+          alert(result.error || '保存品牌失败');
         }
       } catch (err) {
-        alert('Failed to save brand');
+        alert('保存品牌失败');
       }
     });
   </script>

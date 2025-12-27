@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+
 import { supabase } from '@lib/supabase';
 
 // Check if already logged in
@@ -14,7 +16,7 @@ if (session) {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex,nofollow" />
-  <title>Admin Login</title>
+  <title>管理后台登录</title>
   <link rel="stylesheet" href="/src/styles/global.css" />
 </head>
 <body class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
@@ -26,13 +28,13 @@ if (session) {
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
           </svg>
         </div>
-        <h1 class="text-2xl font-bold text-gray-900">Admin Login</h1>
-        <p class="mt-2 text-gray-600">Sign in to manage your store</p>
+        <h1 class="text-2xl font-bold text-gray-900">管理后台登录</h1>
+        <p class="mt-2 text-gray-600">登录以管理您的店铺</p>
       </div>
 
       <form id="login-form" class="space-y-5">
         <div>
-          <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <label for="email" class="block text-sm font-medium text-gray-700 mb-1">邮箱</label>
           <input
             type="email"
             id="email"
@@ -45,7 +47,7 @@ if (session) {
         </div>
 
         <div>
-          <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+          <label for="password" class="block text-sm font-medium text-gray-700 mb-1">密码</label>
           <input
             type="password"
             id="password"
@@ -64,17 +66,17 @@ if (session) {
           id="submit-btn"
           class="w-full py-3 px-4 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Sign In
+          登录
         </button>
       </form>
 
       <div class="mt-6 text-center">
-        <a href="/" class="text-sm text-gray-500 hover:text-gray-700">← Back to store</a>
+        <a href="/" class="text-sm text-gray-500 hover:text-gray-700">← 返回店铺</a>
       </div>
     </div>
 
     <p class="mt-6 text-center text-xs text-gray-500">
-      Protected area. Unauthorized access is prohibited.
+      受保护区域。禁止未授权访问。
     </p>
   </div>
 
@@ -100,7 +102,7 @@ if (session) {
 
     function setLoading(loading) {
       submitBtn.disabled = loading;
-      submitBtn.textContent = loading ? 'Signing in...' : 'Sign In';
+      submitBtn.textContent = loading ? '登录中...' : '登录';
     }
 
     form?.addEventListener('submit', async (e) => {
@@ -112,7 +114,7 @@ if (session) {
       const password = document.getElementById('password').value;
 
       if (!email || !password) {
-        showError('Please enter email and password');
+        showError('请输入邮箱和密码');
         setLoading(false);
         return;
       }
@@ -124,7 +126,7 @@ if (session) {
         });
 
         if (error) {
-          showError(error.message || 'Invalid credentials');
+          showError(error.message || '无效的凭据');
           setLoading(false);
           return;
         }
@@ -134,7 +136,7 @@ if (session) {
           window.location.href = '/admin';
         }
       } catch (err) {
-        showError('An error occurred. Please try again.');
+        showError('发生错误，请重试。');
         setLoading(false);
       }
     });

@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { supabase } from '@lib/supabase';
 
@@ -44,17 +46,17 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
 const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
 ---
 
-<AdminLayout title="Sitemap Configuration" activePage="seo">
+<AdminLayout title="站点地图配置" activePage="seo">
   <!-- Header -->
   <div class="flex items-center justify-between mb-6">
     <div>
       <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
-        <a href="/admin/seo" class="hover:text-primary-600">SEO Tools</a>
+        <a href="/admin/seo" class="hover:text-primary-600">SEO 工具</a>
         <span>/</span>
-        <span>Sitemap</span>
+        <span>站点地图</span>
       </div>
-      <h2 class="text-2xl font-bold text-gray-900">Sitemap Configuration</h2>
-      <p class="text-gray-600 mt-1">Configure how your sitemap is generated</p>
+      <h2 class="text-2xl font-bold text-gray-900">站点地图配置</h2>
+      <p class="text-gray-600 mt-1">配置站点地图的生成方式</p>
     </div>
     <div class="flex gap-3">
       <a 
@@ -65,7 +67,7 @@ const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
         </svg>
-        View Sitemap
+        查看站点地图
       </a>
       <button 
         id="regenerate-btn"
@@ -74,7 +76,7 @@ const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
-        Regenerate Sitemap
+        重新生成站点地图
       </button>
     </div>
   </div>
@@ -82,24 +84,24 @@ const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
   <!-- Stats -->
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-      <p class="text-sm font-medium text-gray-500">Total URLs</p>
+      <p class="text-sm font-medium text-gray-500">总 URL 数</p>
       <p class="text-2xl font-bold text-gray-900 mt-1">{totalUrls}</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-      <p class="text-sm font-medium text-gray-500">Sitemap URL</p>
+      <p class="text-sm font-medium text-gray-500">站点地图 URL</p>
       <p class="text-sm font-mono text-primary-600 mt-2 truncate">{siteUrl}/sitemap.xml</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-      <p class="text-sm font-medium text-gray-500">Last Generated</p>
-      <p class="text-sm text-gray-900 mt-2">Auto-generated on request</p>
+      <p class="text-sm font-medium text-gray-500">最后生成</p>
+      <p class="text-sm text-gray-900 mt-2">按需自动生成</p>
     </div>
   </div>
 
   <!-- Configuration Form -->
   <form id="sitemap-form" class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-100">
-      <h3 class="font-semibold text-gray-900">Page Type Settings</h3>
-      <p class="text-sm text-gray-500 mt-1">Configure which pages are included and their sitemap properties</p>
+      <h3 class="font-semibold text-gray-900">页面类型设置</h3>
+      <p class="text-sm text-gray-500 mt-1">配置包含哪些页面及其站点地图属性</p>
     </div>
 
     <div class="divide-y divide-gray-100">
@@ -120,7 +122,7 @@ const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
 
           <div class="flex items-center gap-4">
             <div>
-              <label class="text-xs text-gray-500 block mb-1">Change Frequency</label>
+              <label class="text-xs text-gray-500 block mb-1">更新频率</label>
               <select 
                 name={`${config.page_type}_changefreq`}
                 class="text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
@@ -136,21 +138,21 @@ const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
             </div>
 
             <div>
-              <label class="text-xs text-gray-500 block mb-1">Priority</label>
+              <label class="text-xs text-gray-500 block mb-1">优先级</label>
               <select 
                 name={`${config.page_type}_priority`}
                 class="text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               >
-                <option value="1.0" selected={config.priority === 1.0}>1.0 (Highest)</option>
+                <option value="1.0" selected={config.priority === 1.0}>1.0 (最高)</option>
                 <option value="0.9" selected={config.priority === 0.9}>0.9</option>
                 <option value="0.8" selected={config.priority === 0.8}>0.8</option>
                 <option value="0.7" selected={config.priority === 0.7}>0.7</option>
                 <option value="0.6" selected={config.priority === 0.6}>0.6</option>
-                <option value="0.5" selected={config.priority === 0.5}>0.5 (Default)</option>
+                <option value="0.5" selected={config.priority === 0.5}>0.5 (默认)</option>
                 <option value="0.4" selected={config.priority === 0.4}>0.4</option>
                 <option value="0.3" selected={config.priority === 0.3}>0.3</option>
                 <option value="0.2" selected={config.priority === 0.2}>0.2</option>
-                <option value="0.1" selected={config.priority === 0.1}>0.1 (Lowest)</option>
+                <option value="0.1" selected={config.priority === 0.1}>0.1 (最低)</option>
               </select>
             </div>
           </div>
@@ -160,32 +162,32 @@ const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
 
     <div class="px-6 py-4 bg-gray-50 flex justify-end">
       <button type="submit" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
-        Save Configuration
+        保存配置
       </button>
     </div>
   </form>
 
   <!-- Sitemap Best Practices -->
   <div class="mt-6 bg-blue-50 rounded-xl p-6">
-    <h3 class="font-semibold text-blue-900 mb-3">Sitemap Best Practices</h3>
+    <h3 class="font-semibold text-blue-900 mb-3">站点地图最佳实践</h3>
     <ul class="space-y-2 text-sm text-blue-800">
       <li class="flex items-start gap-2">
         <svg class="w-5 h-5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        <span>Submit your sitemap to Google Search Console and Bing Webmaster Tools</span>
+        <span>将站点地图提交到 Google Search Console 和 Bing 网站管理员工具</span>
       </li>
       <li class="flex items-start gap-2">
         <svg class="w-5 h-5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        <span>Keep sitemaps under 50,000 URLs and 50MB uncompressed</span>
+        <span>保持站点地图在 50,000 个 URL 和 50MB 未压缩以下</span>
       </li>
       <li class="flex items-start gap-2">
         <svg class="w-5 h-5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        <span>Use higher priority for important pages like products and categories</span>
+        <span>为重要页面（如商品和分类）使用更高优先级</span>
       </li>
       <li class="flex items-start gap-2">
         <svg class="w-5 h-5 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -221,13 +223,13 @@ const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
       });
 
       if (response.ok) {
-        alert('Configuration saved successfully');
+        alert('配置保存成功');
       } else {
-        alert('Failed to save configuration');
+        alert('保存配置失败');
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('Failed to save configuration');
+      alert('保存配置失败');
     }
   });
 
@@ -242,14 +244,14 @@ const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
       });
 
       if (response.ok) {
-        alert('Sitemap regenerated successfully');
+        alert('站点地图重新生成成功');
         window.open('/sitemap.xml', '_blank');
       } else {
-        alert('Failed to regenerate sitemap');
+        alert('重新生成站点地图失败');
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('Failed to regenerate sitemap');
+      alert('重新生成站点地图失败');
     } finally {
       btn.disabled = false;
       btn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg> Regenerate Sitemap';

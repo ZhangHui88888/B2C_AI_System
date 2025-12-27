@@ -2,11 +2,17 @@
 import { supabase } from '@lib/supabase';
 
 // Get all brands for super admin
-const { data: brands } = await supabase
-  .from('brands')
-  .select('id, name, slug, logo_url, is_active')
-  .eq('is_active', true)
-  .order('name');
+let brands: any[] = [];
+try {
+  const result = await supabase
+    .from('brands')
+    .select('id, name, slug, logo_url, is_active')
+    .eq('is_active', true)
+    .order('name');
+  brands = result.data || [];
+} catch (e) {
+  console.error('BrandSwitcher error:', e);
+}
 
 // Get current brand from cookie or default (null = all brands view)
 const currentBrandIdCookie = Astro.cookies.get('brand_id')?.value;
@@ -14,9 +20,9 @@ const isAllBrandsView = currentBrandIdCookie === 'all' || !currentBrandIdCookie;
 const currentBrandId = isAllBrandsView ? null : currentBrandIdCookie;
 const currentBrand = currentBrandId ? brands?.find(b => b.id === currentBrandId) : null;
 
-// Check if user is super admin (simplified check - in production, verify from admin_users table)
-const { data: { session } } = await supabase.auth.getSession();
-const isSuperAdmin = true; // For now, assume super admin. In production: check admin_users.role
+// Check if user is super admin
+const isSuperAdmin = true; // For now, assume super admin
+
 ---
 
 {brands && brands.length > 1 && (

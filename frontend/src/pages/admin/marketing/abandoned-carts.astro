@@ -1,0 +1,264 @@
+---
+export const prerender = false;
+
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { supabase } from '@lib/supabase';
+
+const page = parseInt(Astro.url.searchParams.get('page') || '1');
+const status = Astro.url.searchParams.get('status') || 'abandoned';
+const limit = 20;
+const offset = (page - 1) * limit;
+
+let query = supabase
+  .from('abandoned_carts')
+  .select('*', { count: 'exact' })
+  .order('abandoned_at', { ascending: false, nullsFirst: false });
+
+if (status !== 'all') {
+  query = query.eq('status', status);
+}
+
+const { data: carts, count } = await query.range(offset, offset + limit - 1);
+const totalPages = Math.ceil((count || 0) / limit);
+
+const statusOptions = ['active', 'abandoned', 'email_sent', 'recovered', 'unsubscribed'];
+
+function getStatusColor(s: string): string {
+  const colors: Record<string, string> = {
+    active: 'bg-blue-100 text-blue-800',
+    abandoned: 'bg-yellow-100 text-yellow-800',
+    email_sent: 'bg-purple-100 text-purple-800',
+    recovered: 'bg-green-100 text-green-800',
+    unsubscribed: 'bg-gray-100 text-gray-800',
+  };
+  return colors[s] || 'bg-gray-100 text-gray-800';
+}
+
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return '-';
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+  });
+}
+
+function formatMoney(amount: number | null): string {
+  if (amount === null || amount === undefined) return '$0.00';
+  return `$${amount.toFixed(2)}`;
+}
+---
+
+<AdminLayout title="弃购购物车" activePage="marketing">
+  <div class="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">弃购购物车</h1>
+      <p class="text-sm text-gray-500">共找到 {count || 0} 个购物车</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <select id="status-filter" class="text-sm border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500">
+        <option value="all" selected={status === 'all'}>所有状态</option>
+        {statusOptions.map((s) => (
+          <option value={s} selected={status === s}>{s.charAt(0).toUpperCase() + s.slice(1).replace('_', ' ')}</option>
+        ))}
+      </select>
+      <button id="send-recovery-btn" class="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50">
+        发送挥回邮件
+      </button>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-4 py-3 text-left">
+            <input type="checkbox" id="select-all" class="rounded border-gray-300" />
+          </th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">客户</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">商品</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">金额</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">弃购时间</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">已发邮件</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200">
+        {carts && carts.length > 0 ? (
+          carts.map((cart: any) => {
+            const items = cart.items as any[] || [];
+            const itemCount = items.reduce((sum: number, i: any) => sum + (i.quantity || 1), 0);
+            return (
+              <tr class="hover:bg-gray-50">
+                <td class="px-4 py-4">
+                  <input 
+                    type="checkbox" 
+                    class="cart-checkbox rounded border-gray-300" 
+                    data-id={cart.id}
+                    data-status={cart.status}
+                    disabled={cart.status !== 'abandoned' || !cart.customer_email}
+                  />
+                </td>
+                <td class="px-4 py-4">
+                  <div class="text-sm font-medium text-gray-900">{cart.customer_email || '匿名'}</div>
+                  {cart.customer_name && <div class="text-sm text-gray-500">{cart.customer_name}</div>}
+                </td>
+                <td class="px-4 py-4">
+                  <div class="text-sm text-gray-900">{itemCount} item{itemCount !== 1 ? 's' : ''}</div>
+                  <div class="text-xs text-gray-500 max-w-xs truncate">
+                    {items.slice(0, 2).map((i: any) => i.name).join(', ')}
+                    {items.length > 2 && ` +${items.length - 2} more`}
+                  </div>
+                </td>
+                <td class="px-4 py-4 text-sm font-medium text-gray-900">
+                  {formatMoney(cart.subtotal)}
+                </td>
+                <td class="px-4 py-4">
+                  <span class={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(cart.status)}`}>
+                    {cart.status?.replace('_', ' ')}
+                  </span>
+                </td>
+                <td class="px-4 py-4 text-sm text-gray-500">
+                  {formatDate(cart.abandoned_at)}
+                </td>
+                <td class="px-4 py-4 text-sm text-gray-500">
+                  {cart.recovery_email_count || 0}
+                  {cart.last_email_sent_at && (
+                    <div class="text-xs text-gray-400">Last: {formatDate(cart.last_email_sent_at)}</div>
+                  )}
+                </td>
+              </tr>
+            );
+          })
+        ) : (
+          <tr>
+            <td colspan="7" class="px-6 py-12 text-center text-gray-500">
+              未找到弃购购物车
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+
+  {totalPages > 1 && (
+    <div class="mt-6 flex items-center justify-between">
+      <div class="text-sm text-gray-500">
+        第 {page} 页，共 {totalPages} 页
+      </div>
+      <div class="flex gap-2">
+        {page > 1 && (
+          <a href={`?page=${page - 1}&status=${status}`} class="px-3 py-1 border rounded text-sm hover:bg-gray-50">
+            上一页
+          </a>
+        )}
+        {page < totalPages && (
+          <a href={`?page=${page + 1}&status=${status}`} class="px-3 py-1 border rounded text-sm hover:bg-gray-50">
+            下一页
+          </a>
+        )}
+      </div>
+    </div>
+  )}
+
+  <!-- Recovery Email Modal -->
+  <div id="recovery-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+      <h3 class="text-lg font-semibold mb-4">发送挥回邮件</h3>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">折扣码（可选）</label>
+          <input type="text" id="discount-code" class="w-full border-gray-300 rounded-lg" placeholder="e.g., COMEBACK10" />
+        </div>
+        <p id="selected-count" class="text-sm text-gray-500">已选择 0 个购物车</p>
+      </div>
+      <div class="flex justify-end gap-3 mt-6">
+        <button id="cancel-modal" class="px-4 py-2 border rounded-lg text-sm">取消</button>
+        <button id="confirm-send" class="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700">发送邮件
+        </button>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  const API_BASE = import.meta.env.PUBLIC_API_URL || '';
+  
+  // Status filter
+  document.getElementById('status-filter')?.addEventListener('change', (e) => {
+    const status = (e.target as HTMLSelectElement).value;
+    window.location.href = `?status=${status}`;
+  });
+
+  // Select all
+  document.getElementById('select-all')?.addEventListener('change', (e) => {
+    const checked = (e.target as HTMLInputElement).checked;
+    document.querySelectorAll('.cart-checkbox:not(:disabled)').forEach((cb) => {
+      (cb as HTMLInputElement).checked = checked;
+    });
+    updateSelectedCount();
+  });
+
+  // Individual checkboxes
+  document.querySelectorAll('.cart-checkbox').forEach((cb) => {
+    cb.addEventListener('change', updateSelectedCount);
+  });
+
+  function updateSelectedCount() {
+    const selected = document.querySelectorAll('.cart-checkbox:checked').length;
+    const countEl = document.getElementById('selected-count');
+    if (countEl) countEl.textContent = `已选择 ${selected} 个购物车`;
+  }
+
+  // Modal handling
+  const modal = document.getElementById('recovery-modal');
+  const sendBtn = document.getElementById('send-recovery-btn');
+  const cancelBtn = document.getElementById('cancel-modal');
+  const confirmBtn = document.getElementById('confirm-send');
+
+  sendBtn?.addEventListener('click', () => {
+    const selected = document.querySelectorAll('.cart-checkbox:checked');
+    if (selected.length === 0) {
+      alert('请至少选择一个弃购购物车');
+      return;
+    }
+    updateSelectedCount();
+    modal?.classList.remove('hidden');
+  });
+
+  cancelBtn?.addEventListener('click', () => {
+    modal?.classList.add('hidden');
+  });
+
+  confirmBtn?.addEventListener('click', async () => {
+    const cartIds: string[] = [];
+    document.querySelectorAll('.cart-checkbox:checked').forEach((cb) => {
+      cartIds.push((cb as HTMLElement).dataset.id || '');
+    });
+
+    const discountCode = (document.getElementById('discount-code') as HTMLInputElement)?.value;
+
+    try {
+      const response = await fetch(`${API_BASE}/api/tracking/abandoned/send-recovery`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cart_ids: cartIds,
+          discount_code: discountCode || undefined,
+        }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        const sent = result.results?.filter((r: any) => r.status === 'sent').length || 0;
+        alert(`成功发送 ${sent} 封挥回邮件`);
+        window.location.reload();
+      } else {
+        alert('发送挥回邮件失败');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('发生错误');
+    }
+
+    modal?.classList.add('hidden');
+  });
+</script>

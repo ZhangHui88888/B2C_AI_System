@@ -200,6 +200,66 @@ export interface Database {
         };
         Update: Partial<Database['public']['Tables']['content_library']['Insert']>;
       };
+      reviews: {
+        Row: {
+          id: string;
+          brand_id: string;
+          product_id: string;
+          customer_name: string;
+          customer_email: string | null;
+          rating: number;
+          title: string | null;
+          content: string | null;
+          is_verified: boolean;
+          is_approved: boolean;
+          helpful_count: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['reviews']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['reviews']['Insert']>;
+      };
+      trust_badges: {
+        Row: {
+          id: string;
+          brand_id: string;
+          name: string;
+          icon: string | null;
+          description: string | null;
+          sort_order: number;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['trust_badges']['Row'], 'id' | 'created_at'> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['trust_badges']['Insert']>;
+      };
+      faqs: {
+        Row: {
+          id: string;
+          brand_id: string;
+          product_id: string | null;
+          question: string;
+          answer: string;
+          category: string | null;
+          sort_order: number;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['faqs']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['faqs']['Insert']>;
+      };
     };
     Views: {};
     Functions: {};
@@ -217,3 +277,6 @@ export type Conversation = Database['public']['Tables']['conversations']['Row'];
 export type KnowledgeBase = Database['public']['Tables']['knowledge_base']['Row'];
 export type Setting = Database['public']['Tables']['settings']['Row'];
 export type ContentLibrary = Database['public']['Tables']['content_library']['Row'];
+export type Review = Database['public']['Tables']['reviews']['Row'];
+export type TrustBadge = Database['public']['Tables']['trust_badges']['Row'];
+export type FAQ = Database['public']['Tables']['faqs']['Row'];

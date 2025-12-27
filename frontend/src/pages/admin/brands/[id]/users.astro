@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { supabase } from '@lib/supabase';
 
@@ -37,9 +39,9 @@ const assignedUserIds = new Set((assignments || []).map(a => a.admin_user_id));
 const availableUsers = (adminUsers || []).filter(u => !assignedUserIds.has(u.id));
 
 const roleLabels: Record<string, string> = {
-  brand_admin: 'Brand Admin',
-  editor: 'Editor',
-  read_only: 'Read Only'
+  brand_admin: '品牌管理员',
+  editor: '编辑',
+  read_only: '只读'
 };
 
 const roleBadgeColors: Record<string, string> = {
@@ -60,40 +62,40 @@ const roleBadgeColors: Record<string, string> = {
           </svg>
         </a>
         <div>
-          <h2 class="text-lg font-semibold text-gray-900">{brand.name} - Team Members</h2>
-          <p class="text-sm text-gray-600">Manage who has access to this brand</p>
+          <h2 class="text-lg font-semibold text-gray-900">{brand.name} - 团队成员</h2>
+          <p class="text-sm text-gray-600">管理谁有权访问此品牌</p>
         </div>
       </div>
       <button id="add-user-btn" class="inline-flex items-center px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors">
         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
         </svg>
-        Add Team Member
+        添加团队成员
       </button>
     </div>
 
     <!-- Quick Links -->
     <div class="flex gap-4 text-sm">
       <a href={`/admin/brands/${id}/settings`} class="text-primary-600 hover:text-primary-700">
-        ← Brand Settings
+        ← 品牌设置
       </a>
     </div>
 
     <!-- Role Legend -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-      <h3 class="text-sm font-medium text-gray-700 mb-3">Role Permissions</h3>
+      <h3 class="text-sm font-medium text-gray-700 mb-3">角色权限</h3>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="flex items-start gap-3">
-          <span class="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-700">Brand Admin</span>
-          <p class="text-sm text-gray-600">Full access to all brand features, settings, and team management</p>
+          <span class="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-700">品牌管理员</span>
+          <p class="text-sm text-gray-600">完全访问所有品牌功能、设置和团队管理</p>
         </div>
         <div class="flex items-start gap-3">
-          <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">Editor</span>
-          <p class="text-sm text-gray-600">Can manage products, orders, and content. Cannot access settings</p>
+          <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">编辑</span>
+          <p class="text-sm text-gray-600">可管理产品、订单和内容，无权访问设置</p>
         </div>
         <div class="flex items-start gap-3">
-          <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">Read Only</span>
-          <p class="text-sm text-gray-600">View-only access to brand data and analytics</p>
+          <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">只读</span>
+          <p class="text-sm text-gray-600">仅查看品牌数据和分析</p>
         </div>
       </div>
     </div>
@@ -101,7 +103,7 @@ const roleBadgeColors: Record<string, string> = {
     <!-- Team Members List -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100">
       <div class="p-4 border-b border-gray-100">
-        <h3 class="text-sm font-medium text-gray-900">Team Members ({(assignments || []).length})</h3>
+        <h3 class="text-sm font-medium text-gray-900">团队成员 ({(assignments || []).length})</h3>
       </div>
       
       <div class="divide-y divide-gray-100">
@@ -136,14 +138,13 @@ const roleBadgeColors: Record<string, string> = {
                     data-role={assignment.role}
                     data-user-email={assignment.admin_user?.email}
                   >
-                    Edit
+                    编辑
                   </button>
                   <button 
                     class="remove-user-btn text-sm text-red-600 hover:text-red-700"
                     data-id={assignment.id}
                     data-user-email={assignment.admin_user?.email}
-                  >
-                    Remove
+                  >移除
                   </button>
                 </div>
               </div>
@@ -156,8 +157,8 @@ const roleBadgeColors: Record<string, string> = {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             </div>
-            <p class="font-medium">No team members yet</p>
-            <p class="text-sm">Add team members to give them access to this brand</p>
+            <p class="font-medium">暂无团队成员</p>
+            <p class="text-sm">添加团队成员以授予他们访问此品牌的权限</p>
           </div>
         )}
       </div>
@@ -170,10 +171,8 @@ const roleBadgeColors: Record<string, string> = {
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <div>
-          <p class="text-sm font-medium text-blue-900">Brand Owner</p>
-          <p class="text-sm text-blue-700">
-            The brand owner ({brand.owner_email}) always has full access regardless of team assignments.
-            Super admins also have access to all brands.
+          <p class="text-sm font-medium text-blue-900">品牌所有者</p>
+          <p class="text-sm text-blue-700">品牌所有者（{brand.owner_email}）始终拥有完全访问权限，不受团队分配影响。超级管理员也可以访问所有品牌。
           </p>
         </div>
       </div>
@@ -186,41 +185,39 @@ const roleBadgeColors: Record<string, string> = {
     <div class="fixed inset-0 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
         <div class="p-6 border-b border-gray-100">
-          <h3 class="text-lg font-semibold text-gray-900">Add Team Member</h3>
+          <h3 class="text-lg font-semibold text-gray-900">添加团队成员</h3>
         </div>
         <form id="add-user-form" class="p-6 space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Select User</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">选择用户</label>
             {availableUsers.length > 0 ? (
               <select id="user-select" required class="w-full border-gray-300 rounded-lg">
-                <option value="">Choose a user...</option>
+                <option value="">选择用户...</option>
                 {availableUsers.map(user => (
                   <option value={user.id}>{user.email} {user.name ? `(${user.name})` : ''}</option>
                 ))}
               </select>
             ) : (
               <div class="p-3 bg-yellow-50 rounded-lg text-sm text-yellow-700">
-                All admin users are already assigned to this brand.
-                <a href="/admin/users" class="underline ml-1">Create a new admin user</a>
+                所有管理员已分配到此品牌。
+                <a href="/admin/users" class="underline ml-1">创建新管理员</a>
               </div>
             )}
           </div>
           
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Role</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">角色</label>
             <select id="role-select" required class="w-full border-gray-300 rounded-lg">
-              <option value="read_only">Read Only - View only access</option>
-              <option value="editor" selected>Editor - Manage products, orders, content</option>
-              <option value="brand_admin">Brand Admin - Full access including settings</option>
+              <option value="read_only">只读 - 仅查看权限</option>
+              <option value="editor" selected>编辑 - 管理产品、订单、内容</option>
+              <option value="brand_admin">品牌管理员 - 包含设置的完全访问权限</option>
             </select>
           </div>
 
           <div class="flex gap-3 pt-4">
-            <button type="button" id="cancel-add-btn" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
-              Cancel
+            <button type="button" id="cancel-add-btn" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">取消
             </button>
-            <button type="submit" class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700" disabled={availableUsers.length === 0}>
-              Add Member
+            <button type="submit" class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700" disabled={availableUsers.length === 0}>添加成员
             </button>
           </div>
         </form>
@@ -234,27 +231,25 @@ const roleBadgeColors: Record<string, string> = {
     <div class="fixed inset-0 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
         <div class="p-6 border-b border-gray-100">
-          <h3 class="text-lg font-semibold text-gray-900">Edit Role</h3>
+          <h3 class="text-lg font-semibold text-gray-900">编辑角色</h3>
           <p class="text-sm text-gray-600 mt-1" id="edit-user-email"></p>
         </div>
         <form id="edit-role-form" class="p-6 space-y-4">
           <input type="hidden" id="edit-assignment-id" />
           
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Role</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">角色</label>
             <select id="edit-role-select" required class="w-full border-gray-300 rounded-lg">
-              <option value="read_only">Read Only - View only access</option>
-              <option value="editor">Editor - Manage products, orders, content</option>
-              <option value="brand_admin">Brand Admin - Full access including settings</option>
+              <option value="read_only">只读 - 仅查看权限</option>
+              <option value="editor">编辑 - 管理产品、订单、内容</option>
+              <option value="brand_admin">品牌管理员 - 包含设置的完全访问权限</option>
             </select>
           </div>
 
           <div class="flex gap-3 pt-4">
-            <button type="button" id="cancel-edit-btn" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
-              Cancel
+            <button type="button" id="cancel-edit-btn" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">取消
             </button>
-            <button type="submit" class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
-              Save Changes
+            <button type="submit" class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">保存更改
             </button>
           </div>
         </form>
@@ -318,10 +313,10 @@ const roleBadgeColors: Record<string, string> = {
           window.location.reload();
         } else {
           const err = await res.json();
-          alert(err.error || 'Failed to add team member');
+          alert(err.error || '添加团队成员失败');
         }
       } catch (err) {
-        alert('Failed to add team member');
+        alert('添加团队成员失败');
       }
     });
 
@@ -345,10 +340,10 @@ const roleBadgeColors: Record<string, string> = {
           window.location.reload();
         } else {
           const err = await res.json();
-          alert(err.error || 'Failed to update role');
+          alert(err.error || '更新角色失败');
         }
       } catch (err) {
-        alert('Failed to update role');
+        alert('更新角色失败');
       }
     });
 
@@ -358,7 +353,7 @@ const roleBadgeColors: Record<string, string> = {
         const assignmentId = btn.dataset.id;
         const userEmail = btn.dataset.userEmail;
         
-        if (!confirm(`Are you sure you want to remove ${userEmail} from this brand?`)) return;
+        if (!confirm(`确定要从此品牌移除 ${userEmail} 吗？`)) return;
         
         try {
           const res = await fetch(`${API_URL}/api/admin/brands/${brandId}/users/${assignmentId}`, {
@@ -369,10 +364,10 @@ const roleBadgeColors: Record<string, string> = {
             window.location.reload();
           } else {
             const err = await res.json();
-            alert(err.error || 'Failed to remove team member');
+            alert(err.error || '移除团队成员失败');
           }
         } catch (err) {
-          alert('Failed to remove team member');
+          alert('移除团队成员失败');
         }
       });
     });

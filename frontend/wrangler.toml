@@ -1,24 +1,14 @@
 # Cloudflare Pages Configuration
-# This file is used when deploying via wrangler pages deploy
-
-name = "dtc-ecommerce-frontend"
+name = "dtc-store-frontend"
 pages_build_output_dir = "dist"
 
 # Compatibility settings
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Build configuration (for direct Cloudflare Pages builds)
-[build]
-command = "npm run build"
-cwd = "."
-
 # Environment-specific settings
 [env.production]
 vars = { ENVIRONMENT = "production" }
-
-[env.staging]
-vars = { ENVIRONMENT = "staging" }
 
 [env.preview]
 vars = { ENVIRONMENT = "preview" }

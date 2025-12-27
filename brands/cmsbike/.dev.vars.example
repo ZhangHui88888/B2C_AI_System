@@ -1,0 +1,26 @@
+# ============================================
+# CMS BIKE 后端本地开发变量
+# 复制此文件为 worker/.dev.vars 并填入实际值
+# ⚠️ 切勿提交到 Git！
+# ============================================
+
+# Supabase 配置
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+# Stripe 配置（测试密钥）
+STRIPE_SECRET_KEY=sk_test_51xxx...
+STRIPE_WEBHOOK_SECRET=whsec_xxx...
+
+# DeepSeek AI（AI 客服）
+DEEPSEEK_API_KEY=sk-xxx...
+
+# Resend 邮件
+RESEND_API_KEY=re_xxx...
+
+# 通知邮箱
+NOTIFY_EMAIL=orders@cmsbike.com
+
+# 开发环境配置
+DEFAULT_BRAND_SLUG=cmsbike
+ENVIRONMENT=development

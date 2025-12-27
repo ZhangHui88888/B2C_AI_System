@@ -1,0 +1,142 @@
+---
+export const prerender = false;
+
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { supabase } from '@lib/supabase';
+
+// Get stats
+const { count: abandonedCount } = await supabase
+  .from('abandoned_carts')
+  .select('*', { count: 'exact', head: true })
+  .eq('status', 'abandoned');
+
+const { count: recoveredCount } = await supabase
+  .from('abandoned_carts')
+  .select('*', { count: 'exact', head: true })
+  .eq('status', 'recovered');
+
+const { data: pixelConfig } = await supabase
+  .from('tracking_pixels_config')
+  .select('facebook_pixel_id, google_ads_id, tiktok_pixel_id, pinterest_tag_id')
+  .limit(1);
+
+const config = pixelConfig?.[0] || {};
+const configuredPixels = [
+  config.facebook_pixel_id && 'Facebook',
+  config.google_ads_id && 'Google',
+  config.tiktok_pixel_id && 'TikTok',
+  config.pinterest_tag_id && 'Pinterest',
+].filter(Boolean);
+---
+
+<AdminLayout title="营销工具" activePage="marketing">
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">营销与跟踪</h1>
+    <p class="text-sm text-gray-500 mt-1">管理广告像素、弃购挡回和归因分析</p>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <!-- Abandoned Carts -->
+    <a href="/admin/marketing/abandoned-carts" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-4 mb-4">
+        <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold text-gray-900">弃购购物车</h2>
+          <p class="text-sm text-gray-500">挥回流失销售</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-4 text-sm">
+        <div>
+          <span class="text-2xl font-bold text-yellow-600">{abandonedCount || 0}</span>
+          <span class="text-gray-500 ml-1">待挥回</span>
+        </div>
+        <div>
+          <span class="text-2xl font-bold text-green-600">{recoveredCount || 0}</span>
+          <span class="text-gray-500 ml-1">已挥回</span>
+        </div>
+      </div>
+    </a>
+
+    <!-- Tracking Pixels -->
+    <a href="/admin/marketing/tracking-pixels" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-4 mb-4">
+        <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold text-gray-900">跟踪像素</h2>
+          <p class="text-sm text-gray-500">配置广告跟踪</p>
+        </div>
+      </div>
+      <div class="text-sm">
+        {configuredPixels.length > 0 ? (
+          <div class="flex flex-wrap gap-2">
+            {configuredPixels.map((name) => (
+              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                {name}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <span class="text-gray-500">未配置像素</span>
+        )}
+      </div>
+    </a>
+
+    <!-- Attribution -->
+    <a href="/admin/marketing/attribution" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-4 mb-4">
+        <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+          </svg>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold text-gray-900">归因分析</h2>
+          <p class="text-sm text-gray-500">流量来源分析</p>
+        </div>
+      </div>
+      <p class="text-sm text-gray-500">
+        按来源、媒介和活动查看转化数据
+      </p>
+    </a>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="mt-8">
+    <h2 class="text-lg font-semibold text-gray-900 mb-4">快速操作</h2>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <a href="/admin/marketing/abandoned-carts?status=abandoned" class="flex items-center gap-3 p-4 border rounded-lg hover:bg-gray-50">
+          <div class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <div>
+            <div class="font-medium text-gray-900">发送挥回邮件</div>
+            <div class="text-sm text-gray-500">{abandonedCount || 0} 个购物车待处理</div>
+          </div>
+        </a>
+        <a href="/admin/marketing/tracking-pixels" class="flex items-center gap-3 p-4 border rounded-lg hover:bg-gray-50">
+          <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </div>
+          <div>
+            <div class="font-medium text-gray-900">配置像素</div>
+            <div class="text-sm text-gray-500">设置转化跟踪</div>
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+</AdminLayout>

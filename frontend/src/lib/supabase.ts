@@ -1,19 +1,37 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from './database.types';
 
-const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+// Get environment variables - handle both client and server side
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY || '';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
+// Create a lazy-initialized client to avoid errors during build
+let _supabase: SupabaseClient<Database> | null = null;
+
+function getSupabaseClient(): SupabaseClient<Database> {
+  if (_supabase) return _supabase;
+  
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn('Supabase environment variables not set, using placeholder');
+    // Return a client that will fail gracefully
+    _supabase = createClient<Database>(
+      'https://placeholder.supabase.co',
+      'placeholder-key',
+      { auth: { persistSession: false } }
+    );
+  } else {
+    _supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: typeof window !== 'undefined',
+        autoRefreshToken: true,
+      },
+    });
+  }
+  
+  return _supabase;
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-});
+export const supabase = getSupabaseClient();
 
 // Helper function to handle Supabase errors
 export function handleSupabaseError(error: unknown): string {

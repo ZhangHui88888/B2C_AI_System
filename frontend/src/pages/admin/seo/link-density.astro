@@ -1,0 +1,307 @@
+---
+export const prerender = false;
+
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { supabase } from '@lib/supabase';
+
+const { data: densityData } = await supabase
+  .from('link_density_analysis')
+  .select('*')
+  .order('analyzed_at', { ascending: false });
+
+const allPages = densityData || [];
+
+const summary = {
+  total: allPages.length,
+  optimal: allPages.filter((d: any) => d.density_status === 'optimal').length,
+  tooLow: allPages.filter((d: any) => d.density_status === 'too_low').length,
+  tooHigh: allPages.filter((d: any) => d.density_status === 'too_high').length,
+  avgDensity: allPages.length 
+    ? Math.round(allPages.reduce((sum: number, d: any) => sum + (d.link_density || 0), 0) / allPages.length * 100) / 100 
+    : 0,
+};
+---
+
+<AdminLayout title="内链密度分析" activePage="seo">
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h2 class="text-2xl font-bold text-gray-900">内链密度分析</h2>
+      <p class="text-gray-600 mt-1">分析页面内部链接结构，优化链接分布</p>
+    </div>
+    <button
+      id="crawl-btn"
+      class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium flex items-center gap-2"
+    >
+      <span>🔄</span>
+      <span>爬取链接图谱</span>
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">总页面数</p>
+      <p class="text-2xl font-bold text-gray-900">{summary.total}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">平均密度</p>
+      <p class={`text-2xl font-bold ${summary.avgDensity >= 1 && summary.avgDensity <= 3 ? 'text-green-600' : 'text-yellow-600'}`}>
+        {summary.avgDensity}%
+      </p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">链接过少</p>
+      <p class="text-2xl font-bold text-red-600">{summary.tooLow}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">链接适中</p>
+      <p class="text-2xl font-bold text-green-600">{summary.optimal}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">链接过多</p>
+      <p class="text-2xl font-bold text-orange-600">{summary.tooHigh}</p>
+    </div>
+  </div>
+
+  <!-- Info Box -->
+  <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+    <div class="flex gap-3">
+      <span class="text-2xl">📊</span>
+      <div>
+        <p class="font-medium text-blue-800">什么是链接密度？</p>
+        <p class="text-sm text-blue-700 mt-1">
+          链接密度是指页面中链接数量与字数的比例（链接数/100字）。
+          <strong>推荐范围：1-3%</strong>（每100字1-3个链接）。
+          链接过少不利于SEO和用户导航，链接过多会稀释权重并影响阅读体验。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter Tabs -->
+  <div class="flex gap-2 mb-4">
+    <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-primary-600 text-white" data-filter="all">
+      全部 ({summary.total})
+    </button>
+    <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200" data-filter="too_low">
+      链接过少 ({summary.tooLow})
+    </button>
+    <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200" data-filter="optimal">
+      链接适中 ({summary.optimal})
+    </button>
+    <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200" data-filter="too_high">
+      链接过多 ({summary.tooHigh})
+    </button>
+  </div>
+
+  <!-- Density Table -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">页面</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">类型</th>
+            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">字数</th>
+            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">内链</th>
+            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">外链</th>
+            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">密度</th>
+            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">状态</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">分析时间</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100" id="density-table">
+          {allPages.map((page: any) => (
+            <tr class="density-row hover:bg-gray-50" data-status={page.density_status}>
+              <td class="px-6 py-4">
+                <a href={page.page_url} target="_blank" class="text-primary-600 hover:underline truncate block max-w-xs">
+                  {page.page_url}
+                </a>
+              </td>
+              <td class="px-6 py-4">
+                <span class={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                  page.page_type === 'product' ? 'bg-blue-100 text-blue-700' :
+                  page.page_type === 'category' ? 'bg-purple-100 text-purple-700' :
+                  'bg-indigo-100 text-indigo-700'
+                }`}>
+                  {page.page_type === 'product' ? '产品' : page.page_type === 'category' ? '分类' : '博客'}
+                </span>
+              </td>
+              <td class="px-6 py-4 text-center text-gray-600">
+                {page.word_count?.toLocaleString()}
+              </td>
+              <td class="px-6 py-4 text-center">
+                <span class="font-medium text-blue-600">{page.internal_links_count}</span>
+              </td>
+              <td class="px-6 py-4 text-center">
+                <span class="text-gray-600">{page.external_links_count}</span>
+              </td>
+              <td class="px-6 py-4 text-center">
+                <span class={`font-bold ${
+                  page.density_status === 'optimal' ? 'text-green-600' :
+                  page.density_status === 'too_low' ? 'text-red-600' :
+                  'text-orange-600'
+                }`}>
+                  {page.link_density}%
+                </span>
+              </td>
+              <td class="px-6 py-4 text-center">
+                {page.density_status === 'optimal' ? (
+                  <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
+                    ✓ 适中
+                  </span>
+                ) : page.density_status === 'too_low' ? (
+                  <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">
+                    ↓ 过少
+                  </span>
+                ) : (
+                  <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-700">
+                    ↑ 过多
+                  </span>
+                )}
+              </td>
+              <td class="px-6 py-4 text-sm text-gray-500">
+                {new Date(page.analyzed_at).toLocaleDateString('zh-CN')}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    {allPages.length === 0 && (
+      <div class="px-6 py-12 text-center">
+        <div class="text-4xl mb-4">📊</div>
+        <p class="text-gray-500">暂无分析数据</p>
+        <p class="text-sm text-gray-400 mt-1">点击"爬取链接图谱"按钮开始分析</p>
+      </div>
+    )}
+  </div>
+
+  <!-- Link Suggestions Section -->
+  <div class="mt-8 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold text-gray-900">内链建议</h3>
+      <button
+        id="get-suggestions-btn"
+        class="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+      >
+        获取建议
+      </button>
+    </div>
+    <div id="suggestions-container" class="text-center text-gray-500 py-4">
+      点击"获取建议"查看内链优化建议
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-4 right-4 hidden">
+    <div class="bg-gray-900 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3">
+      <span id="toast-icon">✓</span>
+      <span id="toast-message">操作成功</span>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  const API_URL = import.meta.env.PUBLIC_API_URL || '';
+
+  function showToast(message: string, isSuccess = true) {
+    const toast = document.getElementById('toast');
+    const icon = document.getElementById('toast-icon');
+    const msg = document.getElementById('toast-message');
+    if (toast && icon && msg) {
+      icon.textContent = isSuccess ? '✓' : '✗';
+      msg.textContent = message;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 3000);
+    }
+  }
+
+  // Crawl button
+  document.getElementById('crawl-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('crawl-btn') as HTMLButtonElement;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="animate-spin">⏳</span> 爬取中...';
+
+    try {
+      const res = await fetch(`${API_URL}/api/seo/links/graph/crawl`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        showToast(`爬取完成！发现 ${data.links_found} 个链接`);
+        setTimeout(() => location.reload(), 1500);
+      } else {
+        showToast(data.error || '爬取失败', false);
+      }
+    } catch (error) {
+      showToast('爬取失败', false);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<span>🔄</span><span>爬取链接图谱</span>';
+    }
+  });
+
+  // Get suggestions
+  document.getElementById('get-suggestions-btn')?.addEventListener('click', async () => {
+    const container = document.getElementById('suggestions-container');
+    if (!container) return;
+
+    container.innerHTML = '<p class="text-gray-400">加载中...</p>';
+
+    try {
+      const res = await fetch(`${API_URL}/api/seo/links/suggestions`);
+      const data = await res.json();
+
+      if (data.suggestions && data.suggestions.length > 0) {
+        container.innerHTML = data.suggestions.map((s: any) => `
+          <div class="text-left border-b border-gray-100 pb-4 mb-4 last:border-0 last:pb-0 last:mb-0">
+            <p class="font-medium text-gray-900">${s.page_url}</p>
+            <p class="text-sm text-gray-500 mb-2">建议添加以下链接：</p>
+            <div class="flex flex-wrap gap-2">
+              ${s.suggested_links.map((link: any) => `
+                <span class="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded">
+                  <span>→</span>
+                  <span>${link.target_title}</span>
+                </span>
+              `).join('')}
+            </div>
+          </div>
+        `).join('');
+      } else {
+        container.innerHTML = '<p class="text-green-600">🎉 所有页面的链接密度都很健康！</p>';
+      }
+    } catch (error) {
+      container.innerHTML = '<p class="text-red-500">获取建议失败</p>';
+    }
+  });
+
+  // Filter tabs
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const target = e.currentTarget as HTMLButtonElement;
+      const filter = target.dataset.filter;
+
+      document.querySelectorAll('.filter-btn').forEach(b => {
+        b.classList.remove('bg-primary-600', 'text-white');
+        b.classList.add('bg-gray-100', 'text-gray-700');
+      });
+      target.classList.remove('bg-gray-100', 'text-gray-700');
+      target.classList.add('bg-primary-600', 'text-white');
+
+      document.querySelectorAll('.density-row').forEach(row => {
+        const el = row as HTMLElement;
+        const status = el.dataset.status;
+
+        if (filter === 'all') {
+          el.style.display = '';
+        } else {
+          el.style.display = status === filter ? '' : 'none';
+        }
+      });
+    });
+  });
+</script>

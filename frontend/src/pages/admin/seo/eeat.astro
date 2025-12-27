@@ -1,0 +1,274 @@
+---
+export const prerender = false;
+
+import AdminLayout from '@layouts/AdminLayout.astro';
+import { supabase } from '@lib/supabase';
+
+const { data: eeatScores } = await supabase
+  .from('eeat_scores')
+  .select('*')
+  .order('overall_score', { ascending: true });
+
+const allScores = eeatScores || [];
+const avgScore = allScores.length 
+  ? Math.round(allScores.reduce((sum: number, s: any) => sum + s.overall_score, 0) / allScores.length)
+  : 0;
+
+const scoreDistribution = {
+  excellent: allScores.filter((s: any) => s.overall_score >= 80).length,
+  good: allScores.filter((s: any) => s.overall_score >= 60 && s.overall_score < 80).length,
+  needsWork: allScores.filter((s: any) => s.overall_score >= 40 && s.overall_score < 60).length,
+  poor: allScores.filter((s: any) => s.overall_score < 40).length,
+};
+---
+
+<AdminLayout title="E-E-A-T 评分" activePage="seo">
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h2 class="text-2xl font-bold text-gray-900">E-E-A-T 评分</h2>
+      <p class="text-gray-600 mt-1">经验、专业、权威、可信度分析</p>
+    </div>
+    <button
+      id="analyze-all-btn"
+      class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium"
+    >
+      分析所有内容
+    </button>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">平均分</p>
+      <p class={`text-2xl font-bold ${avgScore >= 60 ? 'text-green-600' : avgScore >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
+        {avgScore}/100
+      </p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">优秀 (80+)</p>
+      <p class="text-2xl font-bold text-green-600">{scoreDistribution.excellent}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">良好 (60-79)</p>
+      <p class="text-2xl font-bold text-blue-600">{scoreDistribution.good}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">需改进 (40-59)</p>
+      <p class="text-2xl font-bold text-yellow-600">{scoreDistribution.needsWork}</p>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+      <p class="text-sm text-gray-500">较差 (&lt;40)</p>
+      <p class="text-2xl font-bold text-red-600">{scoreDistribution.poor}</p>
+    </div>
+  </div>
+
+  <!-- E-E-A-T Explanation -->
+  <div class="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-6 mb-6">
+    <h3 class="font-semibold text-gray-900 mb-3">什么是 E-E-A-T？</h3>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+      <div>
+        <p class="font-medium text-purple-700">经验 (Experience)</p>
+        <p class="text-gray-600">对该主题的亲身经历</p>
+      </div>
+      <div>
+        <p class="font-medium text-indigo-700">专业 (Expertise)</p>
+        <p class="text-gray-600">该领域的知识和技能</p>
+      </div>
+      <div>
+        <p class="font-medium text-blue-700">权威 (Authoritativeness)</p>
+        <p class="text-gray-600">作为可信赖来源的认可度</p>
+      </div>
+      <div>
+        <p class="font-medium text-green-700">可信 (Trustworthiness)</p>
+        <p class="text-gray-600">准确性、透明度、合法性</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scores Table -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-100">
+      <h3 class="font-semibold text-gray-900">内容 E-E-A-T 评分</h3>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">内容</th>
+            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">经验</th>
+            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">专业</th>
+            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">权威</th>
+            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">可信</th>
+            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">总分</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {allScores.length > 0 ? (
+            allScores.map((score: any) => (
+              <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4">
+                  <p class="text-sm font-medium text-gray-900 capitalize">{score.content_type}</p>
+                  <p class="text-xs text-gray-500">{score.content_id?.substring(0, 8)}...</p>
+                </td>
+                <td class="px-6 py-4 text-center">
+                  <span class={`text-sm font-medium ${score.experience_score >= 60 ? 'text-green-600' : score.experience_score >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
+                    {score.experience_score}
+                  </span>
+                </td>
+                <td class="px-6 py-4 text-center">
+                  <span class={`text-sm font-medium ${score.expertise_score >= 60 ? 'text-green-600' : score.expertise_score >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
+                    {score.expertise_score}
+                  </span>
+                </td>
+                <td class="px-6 py-4 text-center">
+                  <span class={`text-sm font-medium ${score.authoritativeness_score >= 60 ? 'text-green-600' : score.authoritativeness_score >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
+                    {score.authoritativeness_score}
+                  </span>
+                </td>
+                <td class="px-6 py-4 text-center">
+                  <span class={`text-sm font-medium ${score.trustworthiness_score >= 60 ? 'text-green-600' : score.trustworthiness_score >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
+                    {score.trustworthiness_score}
+                  </span>
+                </td>
+                <td class="px-6 py-4 text-center">
+                  <div class="flex items-center justify-center gap-2">
+                    <div class="w-16 bg-gray-200 rounded-full h-2">
+                      <div
+                        class={`h-2 rounded-full ${
+                          score.overall_score >= 80 ? 'bg-green-500' :
+                          score.overall_score >= 60 ? 'bg-blue-500' :
+                          score.overall_score >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+                        }`}
+                        style={`width: ${score.overall_score}%`}
+                      />
+                    </div>
+                    <span class="text-sm font-bold">{score.overall_score}</span>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <button
+                    class="text-primary-600 hover:text-primary-700 text-sm"
+                    data-type={score.content_type}
+                    data-id={score.content_id}
+                    onclick="getRecommendations(this)"
+                  >
+                    获取建议
+                  </button>
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colspan="7" class="px-6 py-12 text-center text-gray-500">
+                暂无 E-E-A-T 评分。点击"分析所有内容"开始。
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Recommendations Modal -->
+  <div id="recommendations-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="font-semibold text-gray-900">改进建议</h3>
+        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div id="recommendations-content" class="p-6">
+        Loading...
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  document.getElementById('analyze-all-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('analyze-all-btn') as HTMLButtonElement;
+    btn.disabled = true;
+    btn.textContent = '分析中...';
+
+    try {
+      const response = await fetch('/api/eeat/analyze-all', { method: 'POST' });
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`已分析 ${data.analyzed} 项。正在刷新...`);
+        window.location.reload();
+      } else {
+        alert(data.error || '分析失败');
+      }
+    } catch (error) {
+      alert('分析内容失败');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '分析所有内容';
+    }
+  });
+
+  async function getRecommendations(btn: HTMLElement) {
+    const contentType = btn.dataset.type;
+    const contentId = btn.dataset.id;
+    const modal = document.getElementById('recommendations-modal');
+    const content = document.getElementById('recommendations-content');
+
+    if (!modal || !content) return;
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    content.innerHTML = '<div class="text-center py-8">加载建议中...</div>';
+
+    try {
+      const response = await fetch('/api/eeat/recommendations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content_type: contentType, content_id: contentId }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.recommendations) {
+        content.innerHTML = `
+          <div class="mb-4">
+            <p class="text-sm text-gray-500">当前分数</p>
+            <p class="text-2xl font-bold ${data.current_score >= 60 ? 'text-green-600' : 'text-yellow-600'}">${data.current_score}/100</p>
+          </div>
+          <div class="space-y-3">
+            ${data.recommendations.map((r: any) => `
+              <div class="p-3 bg-gray-50 rounded-lg">
+                <div class="flex items-start gap-2">
+                  <span class="text-xs px-2 py-0.5 rounded ${
+                    r.priority === 'high' ? 'bg-red-100 text-red-700' :
+                    r.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'
+                  }">${r.priority || 'tip'}</span>
+                  <p class="text-sm text-gray-700">${r.action}</p>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } else {
+        content.innerHTML = `<div class="text-center py-8 text-red-500">${data.error || '加载建议失败'}</div>`;
+      }
+    } catch (error) {
+      content.innerHTML = '<div class="text-center py-8 text-red-500">加载建议失败</div>';
+    }
+  }
+
+  function closeModal() {
+    const modal = document.getElementById('recommendations-modal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+  }
+
+  (window as any).getRecommendations = getRecommendations;
+  (window as any).closeModal = closeModal;
+</script>

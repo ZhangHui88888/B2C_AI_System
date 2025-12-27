@@ -1,5 +1,5 @@
 ---
-import MainLayout from '@layouts/MainLayout.astro';
+import Layout from '@layouts/Layout.astro';
 import { supabase } from '@lib/supabase';
 
 const orderId = Astro.url.searchParams.get('order');
@@ -35,7 +35,7 @@ if (!orderId || !email) {
 }
 ---
 
-<MainLayout title="Write a Review">
+<Layout title="Write a Review">
   <div class="min-h-screen bg-gray-50 py-12">
     <div class="max-w-2xl mx-auto px-4">
       {error ? (
@@ -273,4 +273,4 @@ if (!orderId || !email) {
       });
     });
   </script>
-</MainLayout>
+</Layout>

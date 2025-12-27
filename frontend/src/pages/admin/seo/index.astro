@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { supabase } from '@lib/supabase';
 
@@ -45,7 +47,7 @@ const imagesWithoutAlt = products?.filter(p => {
 
 const seoStats = [
   { 
-    label: 'Pages with Meta', 
+    label: '已有 Meta 的页面', 
     value: productsWithMeta, 
     total: totalProducts,
     percentage: totalProducts > 0 ? Math.round((productsWithMeta / totalProducts) * 100) : 0,
@@ -53,19 +55,19 @@ const seoStats = [
     icon: 'check'
   },
   { 
-    label: 'Missing Meta', 
+    label: '缺少 Meta', 
     value: productsWithoutMeta, 
     color: productsWithoutMeta > 0 ? 'red' : 'green',
     icon: 'alert'
   },
   { 
-    label: 'Active Redirects', 
+    label: '活跃重定向', 
     value: totalRedirects, 
     color: 'blue',
     icon: 'redirect'
   },
   { 
-    label: '404 Errors', 
+    label: '404 错误', 
     value: total404Errors, 
     color: total404Errors > 0 ? 'yellow' : 'green',
     icon: 'error'
@@ -73,19 +75,19 @@ const seoStats = [
 ];
 
 const issues = [
-  { type: 'warning', message: `${duplicateTitles} duplicate title tags found`, count: duplicateTitles, show: duplicateTitles > 0 },
-  { type: 'warning', message: `${duplicateDescriptions} duplicate meta descriptions found`, count: duplicateDescriptions, show: duplicateDescriptions > 0 },
-  { type: 'error', message: `${productsWithoutMeta} products missing meta tags`, count: productsWithoutMeta, show: productsWithoutMeta > 0 },
-  { type: 'warning', message: `${imagesWithoutAlt} products have images without alt text`, count: imagesWithoutAlt, show: imagesWithoutAlt > 0 },
-  { type: 'info', message: `${total404Errors} unresolved 404 errors`, count: total404Errors, show: total404Errors > 0 },
+  { type: 'warning', message: `发现 ${duplicateTitles} 个重复标题`, count: duplicateTitles, show: duplicateTitles > 0 },
+  { type: 'warning', message: `发现 ${duplicateDescriptions} 个重复 Meta 描述`, count: duplicateDescriptions, show: duplicateDescriptions > 0 },
+  { type: 'error', message: `${productsWithoutMeta} 个商品缺少 Meta 标签`, count: productsWithoutMeta, show: productsWithoutMeta > 0 },
+  { type: 'warning', message: `${imagesWithoutAlt} 个商品图片缺少 alt 文本`, count: imagesWithoutAlt, show: imagesWithoutAlt > 0 },
+  { type: 'info', message: `${total404Errors} 个未解决的 404 错误`, count: total404Errors, show: total404Errors > 0 },
 ].filter(i => i.show);
 ---
 
-<AdminLayout title="SEO Tools" activePage="seo">
+<AdminLayout title="SEO 工具" activePage="seo">
   <!-- Header -->
   <div class="mb-6">
-    <h2 class="text-2xl font-bold text-gray-900">SEO Dashboard</h2>
-    <p class="text-gray-600 mt-1">Monitor and optimize your site's search engine performance</p>
+    <h2 class="text-2xl font-bold text-gray-900">SEO 仪表盘</h2>
+    <p class="text-gray-600 mt-1">监控和优化网站的搜索引擎表现</p>
   </div>
 
   <!-- Stats Grid -->
@@ -150,8 +152,8 @@ const issues = [
           </svg>
         </div>
         <div>
-          <h3 class="font-semibold text-gray-900">Meta Tags Editor</h3>
-          <p class="text-sm text-gray-500">Edit title, description, and OG tags</p>
+          <h3 class="font-semibold text-gray-900">Meta 标签编辑器</h3>
+          <p class="text-sm text-gray-500">编辑标题、描述和 OG 标签</p>
         </div>
       </div>
     </a>
@@ -165,8 +167,8 @@ const issues = [
           </svg>
         </div>
         <div>
-          <h3 class="font-semibold text-gray-900">URL Redirects</h3>
-          <p class="text-sm text-gray-500">Manage 301/302 redirects</p>
+          <h3 class="font-semibold text-gray-900">URL 重定向</h3>
+          <p class="text-sm text-gray-500">管理 301/302 重定向</p>
         </div>
       </div>
     </a>
@@ -180,8 +182,8 @@ const issues = [
           </svg>
         </div>
         <div>
-          <h3 class="font-semibold text-gray-900">404 Errors</h3>
-          <p class="text-sm text-gray-500">Monitor and fix broken links</p>
+          <h3 class="font-semibold text-gray-900">404 错误</h3>
+          <p class="text-sm text-gray-500">监控和修复断开的链接</p>
         </div>
       </div>
     </a>
@@ -195,8 +197,8 @@ const issues = [
           </svg>
         </div>
         <div>
-          <h3 class="font-semibold text-gray-900">Sitemap</h3>
-          <p class="text-sm text-gray-500">Configure sitemap settings</p>
+          <h3 class="font-semibold text-gray-900">站点地图</h3>
+          <p class="text-sm text-gray-500">配置站点地图设置</p>
         </div>
       </div>
     </a>
@@ -211,7 +213,7 @@ const issues = [
         </div>
         <div>
           <h3 class="font-semibold text-gray-900">Robots.txt</h3>
-          <p class="text-sm text-gray-500">Edit robots.txt rules</p>
+          <p class="text-sm text-gray-500">编辑 robots.txt 规则</p>
         </div>
       </div>
     </a>
@@ -225,8 +227,53 @@ const issues = [
           </svg>
         </div>
         <div>
-          <h3 class="font-semibold text-gray-900">Content Analysis</h3>
-          <p class="text-sm text-gray-500">SEO scores and readability</p>
+          <h3 class="font-semibold text-gray-900">内容分析</h3>
+          <p class="text-sm text-gray-500">SEO 评分和可读性</p>
+        </div>
+      </div>
+    </a>
+
+    <!-- Advanced SEO Tools -->
+    <a href="/admin/seo/advanced" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <div>
+          <h3 class="font-semibold text-gray-900">高级 SEO</h3>
+          <p class="text-sm text-gray-500">E-E-A-T、关键词、索引状态</p>
+        </div>
+      </div>
+    </a>
+
+    <!-- Keyword Research -->
+    <a href="/admin/seo/keywords" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+        <div>
+          <h3 class="font-semibold text-gray-900">关键词</h3>
+          <p class="text-sm text-gray-500">研究和跟踪排名</p>
+        </div>
+      </div>
+    </a>
+
+    <!-- SEO Reports -->
+    <a href="/admin/seo/reports" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 bg-teal-50 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+        <div>
+          <h3 class="font-semibold text-gray-900">SEO 报告</h3>
+          <p class="text-sm text-gray-500">自动化报告调度</p>
         </div>
       </div>
     </a>
@@ -237,7 +284,7 @@ const issues = [
     <!-- SEO Issues -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100">
       <div class="px-6 py-4 border-b border-gray-100">
-        <h3 class="font-semibold text-gray-900">SEO Issues</h3>
+        <h3 class="font-semibold text-gray-900">SEO 问题</h3>
       </div>
       <div class="p-6">
         {issues.length > 0 ? (
@@ -274,7 +321,7 @@ const issues = [
             <svg class="w-12 h-12 text-green-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <p class="text-gray-500">No SEO issues found!</p>
+            <p class="text-gray-500">未发现 SEO 问题！</p>
           </div>
         )}
       </div>
@@ -283,8 +330,8 @@ const issues = [
     <!-- Recent 404 Errors -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100">
       <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-        <h3 class="font-semibold text-gray-900">Recent 404 Errors</h3>
-        <a href="/admin/seo/errors" class="text-sm text-primary-600 hover:text-primary-700">View all →</a>
+        <h3 class="font-semibold text-gray-900">最近 404 错误</h3>
+        <a href="/admin/seo/errors" class="text-sm text-primary-600 hover:text-primary-700">查看全部 →</a>
       </div>
       <div class="divide-y divide-gray-100">
         {errors404 && errors404.length > 0 ? (
@@ -292,20 +339,20 @@ const issues = [
             <div class="px-6 py-3 flex items-center justify-between">
               <div class="min-w-0 flex-1">
                 <p class="text-sm font-medium text-gray-900 truncate">{error.request_path}</p>
-                <p class="text-xs text-gray-500">{error.hit_count} hits</p>
+                <p class="text-xs text-gray-500">{error.hit_count} 次访问</p>
               </div>
               <button 
                 class="text-xs text-primary-600 hover:text-primary-700 whitespace-nowrap ml-4"
                 data-path={error.request_path}
                 onclick="createRedirect(this)"
               >
-                Create redirect
+                创建重定向
               </button>
             </div>
           ))
         ) : (
           <div class="px-6 py-8 text-center text-gray-500">
-            No 404 errors recorded
+            未记录 404 错误
           </div>
         )}
       </div>

@@ -1,4 +1,6 @@
 ---
+export const prerender = false;
+
 import AdminLayout from '@layouts/AdminLayout.astro';
 import { supabase } from '@lib/supabase';
 
@@ -49,56 +51,52 @@ const contactInfo = brand.contact_info || {};
           </svg>
         </a>
         <div>
-          <h2 class="text-lg font-semibold text-gray-900">{brand.name} Settings</h2>
-          <p class="text-sm text-gray-600">Configure brand theme, domains, and contact information</p>
+          <h2 class="text-lg font-semibold text-gray-900">{brand.name} 设置</h2>
+          <p class="text-sm text-gray-600">配置品牌主题、域名和联系信息</p>
         </div>
       </div>
       <span class={`px-3 py-1 text-sm font-medium rounded-full ${brand.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-        {brand.is_active ? 'Active' : 'Inactive'}
+        {brand.is_active ? '活跃' : '停用'}
       </span>
     </div>
 
     <!-- Tabs -->
     <div class="border-b border-gray-200">
       <nav class="flex space-x-8" id="settings-tabs">
-        <button class="tab-btn active py-4 px-1 border-b-2 font-medium text-sm border-primary-500 text-primary-600" data-tab="theme">
-          Theme
+        <button class="tab-btn active py-4 px-1 border-b-2 font-medium text-sm border-primary-500 text-primary-600" data-tab="theme">主题
         </button>
-        <button class="tab-btn py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="domains">
-          Domains
+        <button class="tab-btn py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="domains">域名
         </button>
-        <button class="tab-btn py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="contact">
-          Contact Info
+        <button class="tab-btn py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="contact">联系信息
         </button>
-        <button class="tab-btn py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="social">
-          Social Links
+        <button class="tab-btn py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" data-tab="social">社交链接
         </button>
       </nav>
     </div>
 
     <!-- Theme Settings Tab -->
     <div id="tab-theme" class="tab-content bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <h3 class="text-lg font-medium text-gray-900 mb-6">Theme Customization</h3>
+      <h3 class="text-lg font-medium text-gray-900 mb-6">主题定制</h3>
       
       <form id="theme-form" class="space-y-6">
         <!-- Colors -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Primary Color</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">主色</label>
             <div class="flex items-center gap-3">
               <input type="color" id="primaryColor" value={theme.primaryColor} class="h-10 w-16 rounded border border-gray-300 cursor-pointer" />
               <input type="text" id="primaryColorText" value={theme.primaryColor} class="flex-1 border-gray-300 rounded-lg text-sm font-mono" />
             </div>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Secondary Color</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">辅色</label>
             <div class="flex items-center gap-3">
               <input type="color" id="secondaryColor" value={theme.secondaryColor} class="h-10 w-16 rounded border border-gray-300 cursor-pointer" />
               <input type="text" id="secondaryColorText" value={theme.secondaryColor} class="flex-1 border-gray-300 rounded-lg text-sm font-mono" />
             </div>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Accent Color</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">强调色</label>
             <div class="flex items-center gap-3">
               <input type="color" id="accentColor" value={theme.accentColor} class="h-10 w-16 rounded border border-gray-300 cursor-pointer" />
               <input type="text" id="accentColorText" value={theme.accentColor} class="flex-1 border-gray-300 rounded-lg text-sm font-mono" />
@@ -109,7 +107,7 @@ const contactInfo = brand.contact_info || {};
         <!-- Typography & Style -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Font Family</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">字体</label>
             <select id="fontFamily" class="w-full border-gray-300 rounded-lg">
               <option value="Inter" selected={theme.fontFamily === 'Inter'}>Inter</option>
               <option value="Roboto" selected={theme.fontFamily === 'Roboto'}>Roboto</option>
@@ -120,11 +118,11 @@ const contactInfo = brand.contact_info || {};
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Button Style</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">按钮样式</label>
             <select id="buttonStyle" class="w-full border-gray-300 rounded-lg">
-              <option value="rounded" selected={theme.buttonStyle === 'rounded'}>Rounded</option>
-              <option value="square" selected={theme.buttonStyle === 'square'}>Square</option>
-              <option value="pill" selected={theme.buttonStyle === 'pill'}>Pill</option>
+              <option value="rounded" selected={theme.buttonStyle === 'rounded'}>圆角</option>
+              <option value="square" selected={theme.buttonStyle === 'square'}>直角</option>
+              <option value="pill" selected={theme.buttonStyle === 'pill'}>药丸</option>
             </select>
           </div>
         </div>
@@ -132,20 +130,20 @@ const contactInfo = brand.contact_info || {};
         <!-- Header & Footer Style -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Header Style</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">页头样式</label>
             <select id="headerStyle" class="w-full border-gray-300 rounded-lg">
-              <option value="default" selected={theme.headerStyle === 'default'}>Default</option>
-              <option value="centered" selected={theme.headerStyle === 'centered'}>Centered Logo</option>
-              <option value="minimal" selected={theme.headerStyle === 'minimal'}>Minimal</option>
-              <option value="transparent" selected={theme.headerStyle === 'transparent'}>Transparent</option>
+              <option value="default" selected={theme.headerStyle === 'default'}>默认</option>
+              <option value="centered" selected={theme.headerStyle === 'centered'}>居中 Logo</option>
+              <option value="minimal" selected={theme.headerStyle === 'minimal'}>简约</option>
+              <option value="transparent" selected={theme.headerStyle === 'transparent'}>透明</option>
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Footer Style</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">页脚样式</label>
             <select id="footerStyle" class="w-full border-gray-300 rounded-lg">
-              <option value="default" selected={theme.footerStyle === 'default'}>Default (4 columns)</option>
-              <option value="simple" selected={theme.footerStyle === 'simple'}>Simple</option>
-              <option value="centered" selected={theme.footerStyle === 'centered'}>Centered</option>
+              <option value="default" selected={theme.footerStyle === 'default'}>默认（4 列）</option>
+              <option value="simple" selected={theme.footerStyle === 'simple'}>简约</option>
+              <option value="centered" selected={theme.footerStyle === 'centered'}>居中</option>
             </select>
           </div>
         </div>
@@ -153,25 +151,25 @@ const contactInfo = brand.contact_info || {};
         <!-- Brand Assets -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Logo URL</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Logo 网址</label>
             <input type="url" id="logoUrl" value={brand.logo_url || ''} placeholder="https://..." class="w-full border-gray-300 rounded-lg" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Favicon URL</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Favicon 网址</label>
             <input type="url" id="faviconUrl" value={brand.favicon_url || ''} placeholder="https://..." class="w-full border-gray-300 rounded-lg" />
           </div>
         </div>
 
         <!-- Custom CSS -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Custom CSS</label>
-          <textarea id="customCss" rows="6" class="w-full border-gray-300 rounded-lg font-mono text-sm" placeholder="/* Add custom CSS here */">{brand.custom_css || ''}</textarea>
-          <p class="text-xs text-gray-500 mt-1">Advanced: Add custom CSS to override default styles</p>
+          <label class="block text-sm font-medium text-gray-700 mb-2">自定义 CSS</label>
+          <textarea id="customCss" rows="6" class="w-full border-gray-300 rounded-lg font-mono text-sm" placeholder="/* 在此添加自定义 CSS */">{brand.custom_css || ''}</textarea>
+          <p class="text-xs text-gray-500 mt-1">高级：添加自定义 CSS 以覆盖默认样式</p>
         </div>
 
         <!-- Preview -->
         <div class="border-t pt-6">
-          <h4 class="text-sm font-medium text-gray-700 mb-4">Preview</h4>
+          <h4 class="text-sm font-medium text-gray-700 mb-4">预览</h4>
           <div id="theme-preview" class="p-6 border rounded-lg bg-gray-50">
             <div class="flex items-center gap-4 mb-4">
               <div class="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold" id="preview-logo" style={`background-color: ${theme.primaryColor}`}>
@@ -181,13 +179,13 @@ const contactInfo = brand.contact_info || {};
             </div>
             <div class="flex gap-3">
               <button type="button" id="preview-btn-primary" class="px-4 py-2 text-white text-sm font-medium" style={`background-color: ${theme.primaryColor}; border-radius: ${theme.buttonStyle === 'pill' ? '9999px' : theme.buttonStyle === 'square' ? '0' : '0.5rem'}`}>
-                Primary Button
+                主按钮
               </button>
               <button type="button" id="preview-btn-secondary" class="px-4 py-2 text-white text-sm font-medium" style={`background-color: ${theme.secondaryColor}; border-radius: ${theme.buttonStyle === 'pill' ? '9999px' : theme.buttonStyle === 'square' ? '0' : '0.5rem'}`}>
-                Secondary Button
+                辅按钮
               </button>
               <button type="button" id="preview-btn-accent" class="px-4 py-2 text-white text-sm font-medium" style={`background-color: ${theme.accentColor}; border-radius: ${theme.buttonStyle === 'pill' ? '9999px' : theme.buttonStyle === 'square' ? '0' : '0.5rem'}`}>
-                Accent Button
+                强调按钮
               </button>
             </div>
           </div>
@@ -195,7 +193,7 @@ const contactInfo = brand.contact_info || {};
 
         <div class="flex justify-end">
           <button type="submit" class="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
-            Save Theme Settings
+            保存主题设置
           </button>
         </div>
       </form>
@@ -204,9 +202,8 @@ const contactInfo = brand.contact_info || {};
     <!-- Domains Tab -->
     <div id="tab-domains" class="tab-content hidden bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <div class="flex items-center justify-between mb-6">
-        <h3 class="text-lg font-medium text-gray-900">Domain Configuration</h3>
-        <button id="add-domain-btn" class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700">
-          Add Domain
+        <h3 class="text-lg font-medium text-gray-900">域名配置</h3>
+        <button id="add-domain-btn" class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700">添加域名
         </button>
       </div>
 
@@ -222,9 +219,9 @@ const contactInfo = brand.contact_info || {};
                     {domain.is_primary && <span class="text-primary-600 font-medium">Primary</span>}
                     <span>SSL: {domain.ssl_status}</span>
                     {domain.dns_verified ? (
-                      <span class="text-green-600">Verified</span>
+                      <span class="text-green-600">已验证</span>
                     ) : (
-                      <span class="text-yellow-600">Pending verification</span>
+                      <span class="text-yellow-600">等待验证</span>
                     )}
                   </div>
                 </div>
@@ -232,72 +229,71 @@ const contactInfo = brand.contact_info || {};
               <div class="flex items-center gap-2">
                 {!domain.is_primary && (
                   <button class="set-primary-btn text-sm text-primary-600 hover:text-primary-700" data-id={domain.id}>
-                    Set Primary
+                    设为主域名
                   </button>
                 )}
                 <button class="verify-domain-btn text-sm text-gray-600 hover:text-gray-700" data-id={domain.id}>
-                  Verify
+                  验证
                 </button>
-                <button class="delete-domain-btn text-sm text-red-600 hover:text-red-700" data-id={domain.id}>
-                  Remove
+                <button class="delete-domain-btn text-sm text-red-600 hover:text-red-700" data-id={domain.id}>移除
                 </button>
               </div>
             </div>
           ))
         ) : (
           <div class="text-center py-8 text-gray-500">
-            <p>No custom domains configured</p>
-            <p class="text-sm">Add a custom domain to use with this brand</p>
+            <p>未配置自定义域名</p>
+            <p class="text-sm">添加自定义域名以用于此品牌</p>
           </div>
         )}
       </div>
 
       <div class="mt-6 p-4 bg-blue-50 rounded-lg">
-        <h4 class="font-medium text-blue-900 mb-2">DNS Configuration</h4>
-        <p class="text-sm text-blue-700 mb-3">Point your domain to our servers using the following DNS records:</p>
+        <h4 class="font-medium text-blue-900 mb-2">DNS 配置</h4>
+        <p class="text-sm text-blue-700 mb-3">使用以下 DNS 记录将您的域名指向我们的服务器：</p>
         <div class="bg-white rounded p-3 font-mono text-sm">
-          <p><span class="text-gray-500">Type:</span> CNAME</p>
-          <p><span class="text-gray-500">Name:</span> @ or www</p>
-          <p><span class="text-gray-500">Value:</span> cname.yourplatform.com</p>
+          <p><span class="text-gray-500">类型：</span> CNAME</p>
+          <p><span class="text-gray-500">名称：</span> @ 或 www</p>
+          <p><span class="text-gray-500">值：</span> cname.yourplatform.com</p>
         </div>
       </div>
     </div>
 
     <!-- Contact Info Tab -->
     <div id="tab-contact" class="tab-content hidden bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <h3 class="text-lg font-medium text-gray-900 mb-6">Contact Information</h3>
+      <h3 class="text-lg font-medium text-gray-900 mb-6">联系信息</h3>
       
       <form id="contact-form" class="space-y-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Business Email</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">商务邮箱</label>
             <input type="email" id="contactEmail" value={contactInfo.email || ''} placeholder="hello@example.com" class="w-full border-gray-300 rounded-lg" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">电话号码</label>
             <input type="tel" id="contactPhone" value={contactInfo.phone || ''} placeholder="+1 (555) 123-4567" class="w-full border-gray-300 rounded-lg" />
           </div>
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2">Business Address</label>
+          <label class="block text-sm font-medium text-gray-700 mb-2">商务地址</label>
           <textarea id="contactAddress" rows="3" class="w-full border-gray-300 rounded-lg" placeholder="123 Main St, City, State, ZIP">{contactInfo.address || ''}</textarea>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Support Hours</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">客服时间</label>
             <input type="text" id="contactHours" value={contactInfo.hours || ''} placeholder="Mon-Fri 9am-5pm EST" class="w-full border-gray-300 rounded-lg" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Support Email</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">客服邮箱</label>
             <input type="email" id="contactSupport" value={contactInfo.support_email || ''} placeholder="support@example.com" class="w-full border-gray-300 rounded-lg" />
           </div>
         </div>
 
         <div class="flex justify-end">
           <button type="submit" class="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
-            Save Contact Info
+            保存联系信息
           </button>
         </div>
       </form>
@@ -305,7 +301,7 @@ const contactInfo = brand.contact_info || {};
 
     <!-- Social Links Tab -->
     <div id="tab-social" class="tab-content hidden bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <h3 class="text-lg font-medium text-gray-900 mb-6">Social Media Links</h3>
+      <h3 class="text-lg font-medium text-gray-900 mb-6">社交媒体链接</h3>
       
       <form id="social-form" class="space-y-4">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -349,7 +345,7 @@ const contactInfo = brand.contact_info || {};
 
         <div class="flex justify-end pt-4">
           <button type="submit" class="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
-            Save Social Links
+            保存社交链接
           </button>
         </div>
       </form>
@@ -362,24 +358,22 @@ const contactInfo = brand.contact_info || {};
     <div class="fixed inset-0 flex items-center justify-center p-4">
       <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
         <div class="p-6 border-b border-gray-100">
-          <h3 class="text-lg font-semibold text-gray-900">Add Custom Domain</h3>
+          <h3 class="text-lg font-semibold text-gray-900">添加自定义域名</h3>
         </div>
         <form id="domain-form" class="p-6 space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Domain Name</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">域名</label>
             <input type="text" id="new-domain" required class="w-full border-gray-300 rounded-lg" placeholder="www.example.com" />
-            <p class="text-xs text-gray-500 mt-1">Enter without https://</p>
+            <p class="text-xs text-gray-500 mt-1">不带 https:// 输入</p>
           </div>
           <div class="flex items-center">
             <input type="checkbox" id="new-domain-primary" class="h-4 w-4 text-primary-600 rounded border-gray-300" />
-            <label for="new-domain-primary" class="ml-2 text-sm text-gray-700">Set as primary domain</label>
+            <label for="new-domain-primary" class="ml-2 text-sm text-gray-700">设为主域名</label>
           </div>
           <div class="flex gap-3 pt-4">
-            <button type="button" id="cancel-domain-btn" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
-              Cancel
+            <button type="button" id="cancel-domain-btn" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">取消
             </button>
-            <button type="submit" class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
-              Add Domain
+            <button type="submit" class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">添加域名
             </button>
           </div>
         </form>
@@ -487,13 +481,13 @@ const contactInfo = brand.contact_info || {};
         });
         
         if (res.ok) {
-          alert('Theme settings saved successfully!');
+          alert('主题设置已保存！');
         } else {
           const err = await res.json();
-          alert(err.error || 'Failed to save theme settings');
+          alert(err.error || '保存主题设置失败');
         }
       } catch (err) {
-        alert('Failed to save theme settings');
+        alert('保存主题设置失败');
       }
     });
 
@@ -517,13 +511,13 @@ const contactInfo = brand.contact_info || {};
         });
         
         if (res.ok) {
-          alert('Contact information saved successfully!');
+          alert('联系信息已保存！');
         } else {
           const err = await res.json();
-          alert(err.error || 'Failed to save contact information');
+          alert(err.error || '保存联系信息失败');
         }
       } catch (err) {
-        alert('Failed to save contact information');
+        alert('保存联系信息失败');
       }
     });
 
@@ -548,13 +542,13 @@ const contactInfo = brand.contact_info || {};
         });
         
         if (res.ok) {
-          alert('Social links saved successfully!');
+          alert('社交链接已保存！');
         } else {
           const err = await res.json();
-          alert(err.error || 'Failed to save social links');
+          alert(err.error || '保存社交链接失败');
         }
       } catch (err) {
-        alert('Failed to save social links');
+        alert('保存社交链接失败');
       }
     });
 
@@ -588,10 +582,10 @@ const contactInfo = brand.contact_info || {};
           window.location.reload();
         } else {
           const err = await res.json();
-          alert(err.error || 'Failed to add domain');
+          alert(err.error || '添加域名失败');
         }
       } catch (err) {
-        alert('Failed to add domain');
+        alert('添加域名失败');
       }
     });
 
@@ -599,7 +593,7 @@ const contactInfo = brand.contact_info || {};
     document.querySelectorAll('.delete-domain-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
         const domainId = btn.dataset.id;
-        if (!confirm('Are you sure you want to remove this domain?')) return;
+        if (!confirm('确定要移除此域名吗？')) return;
         
         try {
           const res = await fetch(`${API_URL}/api/admin/brands/${brandId}/domains/${domainId}`, {
@@ -610,10 +604,10 @@ const contactInfo = brand.contact_info || {};
             window.location.reload();
           } else {
             const err = await res.json();
-            alert(err.error || 'Failed to remove domain');
+            alert(err.error || '移除域名失败');
           }
         } catch (err) {
-          alert('Failed to remove domain');
+          alert('移除域名失败');
         }
       });
     });
@@ -633,10 +627,10 @@ const contactInfo = brand.contact_info || {};
             window.location.reload();
           } else {
             const err = await res.json();
-            alert(err.error || 'Failed to set primary domain');
+            alert(err.error || '设置主域名失败');
           }
         } catch (err) {
-          alert('Failed to set primary domain');
+          alert('设置主域名失败');
         }
       });
     });
