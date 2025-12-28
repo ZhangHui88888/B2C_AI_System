@@ -8,8 +8,8 @@ INSERT INTO brands (name, slug, domain, owner_email, is_active, settings)
 VALUES (
   'CMS BIKE',
   'cmsbike',
-  'cmsbike.com',  -- ⬅️ 替换为实际域名
-  'admin@cmsbike.com',  -- ⬅️ 替换为管理员邮箱
+  'cmsbike.uk',  -- 正式域名
+  'harry.zhang592802@gmail.com',  -- 管理员邮箱
   true,
   jsonb_build_object(
     -- 默认货币（结算货币）

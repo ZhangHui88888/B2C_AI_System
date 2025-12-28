@@ -66,10 +66,17 @@ async function setCachedBrandId(env: Env, host: string, brandId: string): Promis
 
 async function findBrandIdByDomain(env: Env, host: string): Promise<string | null> {
   const supabase = getSupabase(env);
+  
+  // 支持 api.xxx 子域名：如果 host 是 api.cmsbike.uk，也尝试匹配 cmsbike.uk
+  const domainsToTry = [host];
+  if (host.startsWith('api.')) {
+    domainsToTry.push(host.slice(4)); // 去掉 "api." 前缀
+  }
+  
   const { data, error } = await supabase
     .from(Tables.BRANDS)
     .select('id')
-    .eq('domain', host)
+    .in('domain', domainsToTry)
     .eq('is_active', true)
     .limit(1);
 
