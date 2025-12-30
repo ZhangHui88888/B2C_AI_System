@@ -3,12 +3,16 @@ import Layout from '@layouts/Layout.astro';
 import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
 
 const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
-const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+let siteUrl = 'https://example.com';
+try {
+  siteUrl = new URL(Astro.request.url).origin;
+} catch {}
 
 const breadcrumbItems = [
   { name: 'Home', url: siteUrl },
   { name: 'Privacy', url: new URL('/privacy', siteUrl).toString() },
 ];
+
 ---
 
 <Layout title="Privacy Policy" description={`Privacy policy for ${siteName}.`}>

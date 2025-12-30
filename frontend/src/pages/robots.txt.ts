@@ -1,7 +1,10 @@
 import type { APIRoute } from 'astro';
 
-export const GET: APIRoute = async ({ site }) => {
-  const siteUrl = (site?.toString() || import.meta.env.PUBLIC_SITE_URL || 'https://example.com').replace(/\/$/, '');
+export const GET: APIRoute = async ({ site, request }) => {
+  let siteUrl = (site?.toString() || 'https://example.com').replace(/\/$/, '');
+  try {
+    siteUrl = new URL(request.url).origin.replace(/\/$/, '');
+  } catch {}
 
   const allowAiBots = [
     'GPTBot',

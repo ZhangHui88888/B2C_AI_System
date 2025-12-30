@@ -352,6 +352,7 @@ async function handleCompleteReferral(request: Request, supabase: any, brandId: 
       await supabase
         .from('referrals')
         .update({ status: 'expired' })
+        .eq('brand_id', brandId)
         .eq('id', referral.id);
       return jsonResponse({ error: 'Referral has expired' }, 400);
     }
@@ -379,6 +380,7 @@ async function handleCompleteReferral(request: Request, supabase: any, brandId: 
         order_amount,
         completed_at: new Date().toISOString(),
       })
+      .eq('brand_id', brandId)
       .eq('id', referral.id);
 
     const rewards: any = { referrer: null, referee: null };
@@ -411,6 +413,7 @@ async function handleCompleteReferral(request: Request, supabase: any, brandId: 
         await supabase
           .from('customer_memberships')
           .update({ referral_count: supabase.raw('referral_count + 1') })
+          .eq('brand_id', brandId)
           .eq('id', referrerMembership.id);
 
         rewards.referrer = { type: 'points', amount: referral.referrer_reward_amount };
@@ -422,6 +425,7 @@ async function handleCompleteReferral(request: Request, supabase: any, brandId: 
           referrer_reward_given: true,
           referrer_reward_given_at: new Date().toISOString(),
         })
+        .eq('brand_id', brandId)
         .eq('id', referral.id);
     }
 
@@ -458,6 +462,7 @@ async function handleCompleteReferral(request: Request, supabase: any, brandId: 
           referee_reward_given: true,
           referee_reward_given_at: new Date().toISOString(),
         })
+        .eq('brand_id', brandId)
         .eq('id', referral.id);
     }
 

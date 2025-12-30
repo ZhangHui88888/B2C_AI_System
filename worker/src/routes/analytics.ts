@@ -22,7 +22,7 @@ export async function handleAnalytics(
   const brandId = getBrandId(request);
 
   if (!brandId) {
-    return errorResponse('Brand context missing', 500);
+    return errorResponse('Brand context missing', 400);
   }
 
   // GET /api/analytics/overview - Dashboard overview stats

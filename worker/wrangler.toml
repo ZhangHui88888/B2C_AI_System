@@ -27,6 +27,7 @@ ENVIRONMENT = "development"
 DEFAULT_BRAND_SLUG = "techgear"
 LOG_LEVEL = "debug"
 CORS_ORIGINS = "http://localhost:4321,http://localhost:3000"
+OWNER_EMAIL = ""
 
 # ============================================
 # Required Secrets

@@ -20,6 +20,14 @@ const isAllBrandsView = currentBrandIdCookie === 'all' || !currentBrandIdCookie;
 const currentBrandId = isAllBrandsView ? null : currentBrandIdCookie;
 const currentBrand = currentBrandId ? brands?.find(b => b.id === currentBrandId) : null;
 
+if (!currentBrandIdCookie && brands && brands.length > 0) {
+  Astro.cookies.set('brand_id', brands[0].id, {
+    path: '/',
+    maxAge: 31536000,
+    sameSite: 'lax',
+  });
+}
+
 // Check if user is super admin
 const isSuperAdmin = true; // For now, assume super admin
 

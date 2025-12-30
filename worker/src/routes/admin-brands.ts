@@ -1,6 +1,7 @@
 import { Env } from '../index';
 import { getSupabase } from '../utils/supabase';
 import { errorResponse, jsonResponse } from '../utils/response';
+import { requireAdminAuth } from '../middleware/admin-auth';
 
 export async function handleAdminBrands(
   request: Request,
@@ -9,6 +10,13 @@ export async function handleAdminBrands(
 ): Promise<Response> {
   const supabase = getSupabase(env);
   const method = request.method;
+
+  const { context: admin, response: authResponse } = await requireAdminAuth(request, env);
+  if (authResponse || !admin) return authResponse as Response;
+
+  if (!admin.isOwner) {
+    return errorResponse('Forbidden', 403);
+  }
 
   // GET /api/admin/brands - List all brands
   if (path === '/api/admin/brands' && method === 'GET') {

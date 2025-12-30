@@ -28,7 +28,7 @@ export async function handleProducts(
   const brandId = getBrandId(request);
 
   if (!brandId) {
-    return errorResponse('Brand context missing', 500);
+    return errorResponse('Brand context missing', 400);
   }
 
   // POST /api/products/list - Get product list with filters

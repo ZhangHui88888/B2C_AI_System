@@ -16,6 +16,10 @@ export async function handleKeywords(request: Request, env: Env, path: string): 
   const supabase = getSupabase(env);
   const brandId = getBrandId(request);
 
+  if (!brandId) {
+    return jsonResponse({ error: 'Brand context missing' }, 400);
+  }
+
   // Keyword Research
   if (path === '/api/keywords/research' && method === 'POST') {
     return handleResearchKeyword(request, env, supabase, brandId);
@@ -31,17 +35,17 @@ export async function handleKeywords(request: Request, env: Env, path: string): 
 
   if (path.match(/^\/api\/keywords\/[\w-]+$/) && method === 'GET') {
     const id = path.split('/').pop()!;
-    return handleGetKeyword(id, supabase);
+    return handleGetKeyword(id, supabase, brandId);
   }
 
   if (path.match(/^\/api\/keywords\/[\w-]+$/) && method === 'PUT') {
     const id = path.split('/').pop()!;
-    return handleUpdateKeyword(request, id, supabase);
+    return handleUpdateKeyword(request, id, supabase, brandId);
   }
 
   if (path.match(/^\/api\/keywords\/[\w-]+$/) && method === 'DELETE') {
     const id = path.split('/').pop()!;
-    return handleDeleteKeyword(id, supabase);
+    return handleDeleteKeyword(id, supabase, brandId);
   }
 
   // Search Intent Classification
@@ -309,11 +313,12 @@ async function handleGetKeywords(request: Request, supabase: any, brandId: strin
   }
 }
 
-async function handleGetKeyword(id: string, supabase: any): Promise<Response> {
+async function handleGetKeyword(id: string, supabase: any, brandId: string): Promise<Response> {
   try {
     const { data, error } = await supabase
       .from('keyword_research')
       .select('*')
+      .eq('brand_id', brandId)
       .eq('id', id)
       .single();
 
@@ -326,7 +331,7 @@ async function handleGetKeyword(id: string, supabase: any): Promise<Response> {
   }
 }
 
-async function handleUpdateKeyword(request: Request, id: string, supabase: any): Promise<Response> {
+async function handleUpdateKeyword(request: Request, id: string, supabase: any, brandId: string): Promise<Response> {
   try {
     const body = await request.json() as any;
     const { is_tracked, priority, target_page_type, target_page_id } = body;
@@ -341,6 +346,7 @@ async function handleUpdateKeyword(request: Request, id: string, supabase: any):
     const { data, error } = await supabase
       .from('keyword_research')
       .update(updateData)
+      .eq('brand_id', brandId)
       .eq('id', id)
       .select()
       .single();
@@ -354,11 +360,12 @@ async function handleUpdateKeyword(request: Request, id: string, supabase: any):
   }
 }
 
-async function handleDeleteKeyword(id: string, supabase: any): Promise<Response> {
+async function handleDeleteKeyword(id: string, supabase: any, brandId: string): Promise<Response> {
   try {
     const { error } = await supabase
       .from('keyword_research')
       .delete()
+      .eq('brand_id', brandId)
       .eq('id', id);
 
     if (error) throw error;
@@ -480,6 +487,7 @@ async function handleCheckRankings(request: Request, env: Env, supabase: any, br
           previous_position: previousPosition,
           updated_at: new Date().toISOString(),
         })
+        .eq('brand_id', brandId)
         .eq('id', kw.id);
 
       results.push({

@@ -34,6 +34,7 @@ export function resetSupabaseClient(): void {
  */
 export const Tables = {
   BRANDS: 'brands',
+  BRAND_DOMAINS: 'brand_domains',
   PRODUCTS: 'products',
   CATEGORIES: 'categories',
   ORDERS: 'orders',

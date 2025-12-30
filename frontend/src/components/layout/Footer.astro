@@ -5,9 +5,10 @@ import SocialLinks from '@components/trust/SocialLinks.astro';
 
 export interface Props {
   siteName: string;
+  socialLinks?: Record<string, any>;
 }
 
-const { siteName } = Astro.props;
+const { siteName, socialLinks = {} } = Astro.props;
 ---
 
 <footer class="bg-gray-900 text-gray-400 py-12">
@@ -52,7 +53,7 @@ const { siteName } = Astro.props;
 
         <div class="mt-6">
           <h4 class="text-white font-semibold mb-3">Follow</h4>
-          <SocialLinks />
+          <SocialLinks links={socialLinks} />
         </div>
       </div>
     </div>

@@ -16,6 +16,10 @@ export async function handleEeat(request: Request, env: Env, path: string): Prom
   const supabase = getSupabase(env);
   const brandId = getBrandId(request);
 
+  if (!brandId) {
+    return jsonResponse({ error: 'Brand context missing' }, 400);
+  }
+
   // Analyze single content
   if (path === '/api/eeat/analyze' && method === 'POST') {
     return handleAnalyzeEeat(request, env, supabase, brandId);
@@ -70,6 +74,7 @@ async function handleAnalyzeEeat(request: Request, env: Env, supabase: any, bran
         const { data } = await supabase
           .from('products')
           .select('name, description, short_description, images, reviews_count, average_rating')
+          .eq('brand_id', brandId)
           .eq('id', content_id)
           .single();
         contentData = data;
@@ -77,6 +82,7 @@ async function handleAnalyzeEeat(request: Request, env: Env, supabase: any, bran
         const { data } = await supabase
           .from('blog_posts')
           .select('title, content, author_id, featured_image')
+          .eq('brand_id', brandId)
           .eq('id', content_id)
           .single();
         contentData = data;
@@ -85,6 +91,7 @@ async function handleAnalyzeEeat(request: Request, env: Env, supabase: any, bran
           const { data: author } = await supabase
             .from('authors')
             .select('name, bio, credentials, social_links, avatar_url')
+            .eq('brand_id', brandId)
             .eq('id', data.author_id)
             .single();
           authorInfo = author;

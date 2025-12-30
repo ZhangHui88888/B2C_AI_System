@@ -147,6 +147,47 @@ export async function deleteFromCloudflareImages(
   }
 }
 
+export async function getCloudflareImageMetadata(
+  env: Env,
+  imageId: string
+): Promise<{ success: boolean; metadata?: Record<string, string>; error?: string }> {
+  const accountId = (env as any).CF_ACCOUNT_ID;
+  const apiToken = (env as any).CF_IMAGES_TOKEN;
+
+  if (!accountId || !apiToken) {
+    return { success: false, error: 'Cloudflare Images not configured' };
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${accountId}/images/v1/${imageId}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+        },
+      }
+    );
+
+    const result = (await response.json()) as any;
+    if (!result?.success) {
+      return { success: false, error: result?.errors?.[0]?.message || 'Failed to load image' };
+    }
+
+    const raw = (result?.result?.meta || result?.result?.metadata || {}) as Record<string, unknown>;
+    const metadata: Record<string, string> = {};
+    for (const [key, value] of Object.entries(raw)) {
+      if (!key) continue;
+      if (value === null || value === undefined) continue;
+      metadata[key] = String(value);
+    }
+
+    return { success: true, metadata };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
 // ============================================
 // Image URL Transformation (Cloudflare Image Resizing)
 // ============================================

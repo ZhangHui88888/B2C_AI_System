@@ -1,9 +1,16 @@
 ---
 import Layout from '@layouts/Layout.astro';
 import { supabase } from '@lib/supabase';
+import { fetchSiteConfig } from '@lib/site-config';
 
 const orderId = Astro.url.searchParams.get('order');
 const email = Astro.url.searchParams.get('email');
+
+const siteConfig = await fetchSiteConfig(Astro.request);
+const brand = siteConfig?.brand;
+if (!brand) {
+  return new Response('Site not found', { status: 404 });
+}
 
 let order = null;
 let error = '';
@@ -16,6 +23,7 @@ if (!orderId || !email) {
   const { data, error: fetchError } = await supabase
     .from('orders')
     .select('id, customer_email, customer_name, items, status, brand_id')
+    .eq('brand_id', brand.id)
     .eq('id', orderId)
     .eq('customer_email', email)
     .single();

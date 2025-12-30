@@ -16,7 +16,7 @@ export async function handleCategories(
   const brandId = getBrandId(request);
 
   if (!brandId) {
-    return errorResponse('Brand context missing', 500);
+    return errorResponse('Brand context missing', 400);
   }
 
   // GET /api/categories - Get all categories

@@ -1,6 +1,14 @@
 ---
 export const prerender = false;
 
+import { fetchSiteConfig } from '@lib/site-config';
+
+const siteConfig = await fetchSiteConfig(Astro.request);
+const brand = siteConfig?.brand;
+if (!brand) {
+  return new Response('Site not found', { status: 404 });
+}
+
 const envVars = {
   PUBLIC_SUPABASE_URL: import.meta.env.PUBLIC_SUPABASE_URL || 'NOT SET',
   PUBLIC_SUPABASE_ANON_KEY: import.meta.env.PUBLIC_SUPABASE_ANON_KEY ? 'SET (hidden)' : 'NOT SET',
@@ -18,7 +26,7 @@ try {
   
   if (url && key) {
     const client = createClient(url, key);
-    const { data, error } = await client.from('products').select('id').limit(1);
+    const { data, error } = await client.from('products').select('id').eq('brand_id', brand.id).limit(1);
     if (error) {
       supabaseStatus = 'Error';
       supabaseError = error.message;

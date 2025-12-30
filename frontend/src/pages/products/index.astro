@@ -4,20 +4,29 @@ import { supabase } from '@lib/supabase';
 import ProductCard from '@components/catalog/ProductCard.astro';
 import CategoryCard from '@components/catalog/CategoryCard.astro';
 import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
+import { fetchSiteConfig } from '@lib/site-config';
 
 const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
+
+const siteConfig = await fetchSiteConfig(Astro.request);
+const brand = siteConfig?.brand;
+if (!brand) {
+  return new Response('Site not found', { status: 404 });
+}
 
 const pageSize = 12;
 
 const { data: categories } = await supabase
   .from('categories')
   .select('*')
+  .eq('brand_id', brand.id)
   .eq('is_active', true)
   .order('sort_order', { ascending: true });
 
 const { data: initialProducts, count: totalCount } = await supabase
   .from('products')
   .select('*', { count: 'exact' })
+  .eq('brand_id', brand.id)
   .eq('is_active', true)
   .order('created_at', { ascending: false })
   .range(0, pageSize - 1);
@@ -25,6 +34,7 @@ const { data: initialProducts, count: totalCount } = await supabase
 const { data: minPriceRows } = await supabase
   .from('products')
   .select('price')
+  .eq('brand_id', brand.id)
   .eq('is_active', true)
   .order('price', { ascending: true })
   .limit(1);
@@ -32,6 +42,7 @@ const { data: minPriceRows } = await supabase
 const { data: maxPriceRows } = await supabase
   .from('products')
   .select('price')
+  .eq('brand_id', brand.id)
   .eq('is_active', true)
   .order('price', { ascending: false })
   .limit(1);
@@ -41,14 +52,19 @@ const initialTotalPages = Math.max(1, Math.ceil((totalCount || 0) / pageSize));
 const initialMinPrice = minPriceRows?.[0]?.price !== undefined ? Number(minPriceRows?.[0]?.price) : undefined;
 const initialMaxPrice = maxPriceRows?.[0]?.price !== undefined ? Number(maxPriceRows?.[0]?.price) : undefined;
 
-const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+let siteUrl = 'https://example.com';
+try {
+  siteUrl = new URL(Astro.request.url).origin;
+} catch {}
+
 const breadcrumbItems = [
   { name: 'Home', url: siteUrl },
   { name: 'Products', url: new URL('/products', siteUrl).toString() },
 ];
+
 ---
 
-<Layout title="Products" description={`Browse products at ${siteName}.`}>
+<Layout title="Products" description={`Browse products at ${brand.name || siteName}.`}>
   <Fragment slot="head">
     <BreadcrumbSchema items={breadcrumbItems} />
   </Fragment>

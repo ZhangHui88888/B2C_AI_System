@@ -6,6 +6,8 @@
 import type { Env } from '../index';
 import { getSupabase, Tables } from '../utils/supabase';
 import { jsonResponse, errorResponse } from '../utils/response';
+import { getBrandId } from '../middleware/brand';
+import { requireAdminAuth, requireBrandManageAccess } from '../middleware/admin-auth';
 
 interface ProductInput {
   brand_id: string;
@@ -37,21 +39,71 @@ export async function handleAdminProducts(
 ): Promise<Response> {
   const supabase = getSupabase(env);
 
+  const { context: admin, response: authResponse } = await requireAdminAuth(request, env);
+  if (authResponse || !admin) return authResponse as Response;
+
+  const brandId = getBrandId(request);
+  if (!brandId || brandId === 'all') {
+    return errorResponse('Brand context missing', 400);
+  }
+
+  const access = await requireBrandManageAccess(env, admin, brandId);
+  if (!access.ok) return access.response;
+
+  // GET /api/admin/products - List products (admin view, includes inactive)
+  if (path === '/api/admin/products' && request.method === 'GET') {
+    try {
+      const url = new URL(request.url);
+      const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'));
+      const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '20')));
+      const offset = (page - 1) * limit;
+
+      const { data: products, error, count } = await supabase
+        .from(Tables.PRODUCTS)
+        .select('id, brand_id, name, slug, price, compare_price, is_active, is_featured, stock_quantity, created_at, images', {
+          count: 'exact',
+        })
+        .eq('brand_id', brandId)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (error) {
+        console.error('Error listing products:', error);
+        return errorResponse('Failed to fetch products', 500);
+      }
+
+      const total = count || 0;
+      return jsonResponse({
+        success: true,
+        products: products || [],
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
+    } catch (err) {
+      console.error('Error in list products:', err);
+      return errorResponse('Failed to fetch products', 500);
+    }
+  }
+
   // POST /api/admin/products - Create product
   if (path === '/api/admin/products' && request.method === 'POST') {
     try {
       const input = (await request.json()) as ProductInput;
 
       // Validate required fields
-      if (!input.brand_id || !input.name || !input.slug || typeof input.price !== 'number') {
-        return errorResponse('Missing required fields: brand_id, name, slug, price', 400);
+      if (!input.name || !input.slug || typeof input.price !== 'number') {
+        return errorResponse('Missing required fields: name, slug, price', 400);
       }
 
       // Check for duplicate slug
       const { data: existing } = await supabase
         .from(Tables.PRODUCTS)
         .select('id')
-        .eq('brand_id', input.brand_id)
+        .eq('brand_id', brandId)
         .eq('slug', input.slug)
         .limit(1);
 
@@ -61,7 +113,7 @@ export async function handleAdminProducts(
 
       // Prepare product data
       const productData = {
-        brand_id: input.brand_id,
+        brand_id: brandId,
         name: input.name,
         slug: input.slug.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
         description: input.description || null,
@@ -126,12 +178,16 @@ export async function handleAdminProducts(
         return errorResponse('Product not found', 404);
       }
 
+      if (existing.brand_id !== brandId) {
+        return errorResponse('Product not found', 404);
+      }
+
       // Check for duplicate slug if slug is being changed
       if (input.slug && input.slug !== existing.slug) {
         const { data: slugExists } = await supabase
           .from(Tables.PRODUCTS)
           .select('id')
-          .eq('brand_id', existing.brand_id)
+          .eq('brand_id', brandId)
           .eq('slug', input.slug)
           .neq('id', id)
           .limit(1);
@@ -168,6 +224,7 @@ export async function handleAdminProducts(
         .from(Tables.PRODUCTS)
         .update(updateData)
         .eq('id', id)
+        .eq('brand_id', brandId)
         .select()
         .single();
 
@@ -198,7 +255,7 @@ export async function handleAdminProducts(
       // Check product exists
       const { data: existing, error: fetchError } = await supabase
         .from(Tables.PRODUCTS)
-        .select('id')
+        .select('id, brand_id')
         .eq('id', id)
         .single();
 
@@ -209,7 +266,8 @@ export async function handleAdminProducts(
       const { error } = await supabase
         .from(Tables.PRODUCTS)
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('brand_id', brandId);
 
       if (error) {
         console.error('Error deleting product:', error);
@@ -239,6 +297,7 @@ export async function handleAdminProducts(
         .from(Tables.PRODUCTS)
         .select('*, categories(id, name, slug)')
         .eq('id', id)
+        .eq('brand_id', brandId)
         .single();
 
       if (error || !product) {
@@ -276,7 +335,8 @@ export async function handleAdminProducts(
           const activateResult = await supabase
             .from(Tables.PRODUCTS)
             .update({ is_active: true })
-            .in('id', ids);
+            .in('id', ids)
+            .eq('brand_id', brandId);
           error = activateResult.error;
           affected = ids.length;
           break;
@@ -285,7 +345,8 @@ export async function handleAdminProducts(
           const deactivateResult = await supabase
             .from(Tables.PRODUCTS)
             .update({ is_active: false })
-            .in('id', ids);
+            .in('id', ids)
+            .eq('brand_id', brandId);
           error = deactivateResult.error;
           affected = ids.length;
           break;
@@ -294,7 +355,8 @@ export async function handleAdminProducts(
           const deleteResult = await supabase
             .from(Tables.PRODUCTS)
             .delete()
-            .in('id', ids);
+            .in('id', ids)
+            .eq('brand_id', brandId);
           error = deleteResult.error;
           affected = ids.length;
           break;
@@ -303,7 +365,8 @@ export async function handleAdminProducts(
           const featureResult = await supabase
             .from(Tables.PRODUCTS)
             .update({ is_featured: true })
-            .in('id', ids);
+            .in('id', ids)
+            .eq('brand_id', brandId);
           error = featureResult.error;
           affected = ids.length;
           break;
@@ -312,7 +375,8 @@ export async function handleAdminProducts(
           const unfeatureResult = await supabase
             .from(Tables.PRODUCTS)
             .update({ is_featured: false })
-            .in('id', ids);
+            .in('id', ids)
+            .eq('brand_id', brandId);
           error = unfeatureResult.error;
           affected = ids.length;
           break;

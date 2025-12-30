@@ -6,6 +6,7 @@ import Footer from '@components/layout/Footer.astro';
 import ChatWidget from '@components/chat/ChatWidget.astro';
 import { supabase } from '@lib/supabase';
 import { canonicalFor, shouldNoIndex } from '@lib/seo';
+import { fetchSiteConfig } from '@lib/site-config';
 
 export interface Props {
   title: string;
@@ -16,15 +17,71 @@ export interface Props {
 
 const { title, description = 'DTC E-commerce Store', image, lang = 'en' } = Astro.props;
 const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
-const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+let siteUrl = 'https://example.com';
+try {
+  siteUrl = new URL(Astro.request.url).origin;
+} catch {}
 const fullTitle = `${title} | ${siteName}`;
 
 const canonicalUrl = canonicalFor(Astro.url, siteUrl);
 const noindex = shouldNoIndex(Astro.url);
 
+const siteConfig = await fetchSiteConfig(Astro.request);
+if (!siteConfig?.brand) {
+  return new Response('Site not found', { status: 404 });
+}
+
+const brand = siteConfig.brand;
+
+const resolvedSiteName = brand.name || siteName;
+const resolvedFullTitle = `${title} | ${resolvedSiteName}`;
+
+const defaultTheme = {
+  primaryColor: '#4F46E5',
+  secondaryColor: '#10B981',
+  accentColor: '#F59E0B',
+  fontFamily: 'Inter',
+  headerStyle: 'default',
+  footerStyle: 'default',
+  buttonStyle: 'rounded',
+};
+
+const theme = { ...defaultTheme, ...(brand.theme || {}) };
+
+const brandCssVars = `:root{--brand-primary:${theme.primaryColor};--brand-secondary:${theme.secondaryColor};--brand-accent:${theme.accentColor};--brand-font:${theme.fontFamily};}`;
+const brandThemeOverrides = `
+  body{font-family:var(--brand-font),ui-sans-serif,system-ui,sans-serif;}
+
+  .text-primary-600{color:var(--brand-primary)!important;}
+  .text-primary-700{color:var(--brand-primary)!important;}
+  .bg-primary-600{background-color:var(--brand-primary)!important;}
+  .bg-primary-700{background-color:var(--brand-primary)!important;}
+  .border-primary-500{border-color:var(--brand-primary)!important;}
+
+  .text-secondary-600{color:var(--brand-secondary)!important;}
+  .text-secondary-700{color:var(--brand-secondary)!important;}
+  .bg-secondary-600{background-color:var(--brand-secondary)!important;}
+  .bg-secondary-700{background-color:var(--brand-secondary)!important;}
+  .border-secondary-500{border-color:var(--brand-secondary)!important;}
+
+  .hover\\:bg-primary-700:hover{background-color:var(--brand-primary)!important;}
+  .hover\\:bg-primary-600:hover{background-color:var(--brand-primary)!important;}
+  .hover\\:text-primary-600:hover{color:var(--brand-primary)!important;}
+  .hover\\:text-primary-700:hover{color:var(--brand-primary)!important;}
+  .hover\\:border-primary-500:hover{border-color:var(--brand-primary)!important;}
+
+  .focus\\:ring-primary-500:focus{--tw-ring-color:var(--brand-primary)!important;}
+  .focus\\:ring-secondary-500:focus{--tw-ring-color:var(--brand-secondary)!important;}
+
+  .from-primary-600{--tw-gradient-from:var(--brand-primary)!important;--tw-gradient-to:rgb(0 0 0 / 0)!important;--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)!important;}
+  .to-secondary-600{--tw-gradient-to:var(--brand-secondary)!important;}
+`;
+const brandCustomCss = typeof brand.custom_css === 'string' ? brand.custom_css : '';
+
 const { data: categories } = await supabase
   .from('categories')
   .select('id, name, slug, parent_id, sort_order, is_active')
+  .eq('brand_id', brand.id)
   .eq('is_active', true)
   .order('sort_order', { ascending: true });
 ---
@@ -39,7 +96,7 @@ const { data: categories } = await supabase
     {noindex && <meta name="robots" content="noindex,follow" />}
     
     <!-- Open Graph -->
-    <meta property="og:title" content={fullTitle} />
+    <meta property="og:title" content={resolvedFullTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <meta property="og:url" content={canonicalUrl} />
@@ -47,24 +104,28 @@ const { data: categories } = await supabase
     
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:title" content={resolvedFullTitle} />
     <meta name="twitter:description" content={description} />
     {image && <meta name="twitter:image" content={image} />}
     
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href={brand.favicon_url || '/favicon.svg'} />
+
+    <style>{brandCssVars}</style>
+    <style>{brandThemeOverrides}</style>
+    {brandCustomCss && <style>{brandCustomCss}</style>}
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet" />
     
-    <title>{fullTitle}</title>
+    <title>{resolvedFullTitle}</title>
     <slot name="head" />
   </head>
   <body class="min-h-screen flex flex-col">
     <!-- Header placeholder - to be implemented in Step 2.1 -->
-    <Header siteName={siteName} categories={categories || []} />
+    <Header siteName={brand.name || siteName} categories={categories || []} />
     
     <!-- Main content -->
     <main class="flex-1">
@@ -72,7 +133,7 @@ const { data: categories } = await supabase
     </main>
     
     <!-- Footer placeholder - to be implemented in Step 2.1 -->
-    <Footer siteName={siteName} />
+    <Footer siteName={brand.name || siteName} socialLinks={brand.social_links || {}} />
     
     <!-- AI Chat Widget -->
     <ChatWidget />

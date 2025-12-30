@@ -151,12 +151,20 @@ ALTER TABLE content_differentiation_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE originality_check_logs ENABLE ROW LEVEL SECURITY;
 
 -- Policies for content_differentiation_logs
+CREATE POLICY "Service role can do everything on content_differentiation_logs"
+    ON content_differentiation_logs FOR ALL
+    USING (auth.role() = 'service_role');
+
 CREATE POLICY "Differentiation logs visible to brand admins" ON content_differentiation_logs
     FOR SELECT USING (
         EXISTS (
             SELECT 1 FROM admin_users au 
-            WHERE au.id = auth.uid() 
-            AND (au.role = 'super_admin' OR au.brand_id = content_differentiation_logs.brand_id)
+            WHERE au.auth_user_id = auth.uid()
+            AND au.is_active = true
+            AND (
+                au.role = 'super_admin'
+                OR content_differentiation_logs.brand_id = ANY(au.brand_ids)
+            )
         )
     );
 
@@ -164,18 +172,30 @@ CREATE POLICY "Differentiation logs insertable by brand admins" ON content_diffe
     FOR INSERT WITH CHECK (
         EXISTS (
             SELECT 1 FROM admin_users au 
-            WHERE au.id = auth.uid() 
-            AND (au.role = 'super_admin' OR au.brand_id = content_differentiation_logs.brand_id)
+            WHERE au.auth_user_id = auth.uid()
+            AND au.is_active = true
+            AND (
+                au.role = 'super_admin'
+                OR content_differentiation_logs.brand_id = ANY(au.brand_ids)
+            )
         )
     );
 
 -- Policies for originality_check_logs
+CREATE POLICY "Service role can do everything on originality_check_logs"
+    ON originality_check_logs FOR ALL
+    USING (auth.role() = 'service_role');
+
 CREATE POLICY "Originality logs visible to brand admins" ON originality_check_logs
     FOR SELECT USING (
         EXISTS (
             SELECT 1 FROM admin_users au 
-            WHERE au.id = auth.uid() 
-            AND (au.role = 'super_admin' OR au.brand_id = originality_check_logs.brand_id)
+            WHERE au.auth_user_id = auth.uid()
+            AND au.is_active = true
+            AND (
+                au.role = 'super_admin'
+                OR originality_check_logs.brand_id = ANY(au.brand_ids)
+            )
         )
     );
 
@@ -183,8 +203,12 @@ CREATE POLICY "Originality logs insertable by brand admins" ON originality_check
     FOR INSERT WITH CHECK (
         EXISTS (
             SELECT 1 FROM admin_users au 
-            WHERE au.id = auth.uid() 
-            AND (au.role = 'super_admin' OR au.brand_id = originality_check_logs.brand_id)
+            WHERE au.auth_user_id = auth.uid()
+            AND au.is_active = true
+            AND (
+                au.role = 'super_admin'
+                OR originality_check_logs.brand_id = ANY(au.brand_ids)
+            )
         )
     );
 

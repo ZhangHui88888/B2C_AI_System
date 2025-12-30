@@ -46,7 +46,7 @@ export async function handleTracking(
   const brandId = getBrandId(request);
 
   if (!brandId) {
-    return errorResponse('Brand context missing', 500);
+    return errorResponse('Brand context missing', 400);
   }
 
   // ============================================
@@ -126,12 +126,12 @@ export async function handleTracking(
   // GET /api/tracking/unsubscribe/:token - Unsubscribe page data
   if (request.method === 'GET' && path.startsWith('/api/tracking/unsubscribe/')) {
     const token = path.replace('/api/tracking/unsubscribe/', '');
-    return await getUnsubscribeInfo(supabase, token);
+    return await getUnsubscribeInfo(supabase, brandId, token);
   }
 
   // POST /api/tracking/unsubscribe - Process unsubscribe
   if (request.method === 'POST' && path === '/api/tracking/unsubscribe') {
-    return await processUnsubscribe(supabase, request);
+    return await processUnsubscribe(supabase, brandId, request);
   }
 
   // ============================================
@@ -196,6 +196,7 @@ async function recordUTM(
           ...(utm_term && { utm_term }),
           ...(utm_content && { utm_content }),
         })
+        .eq('brand_id', brandId)
         .eq('id', existing[0].id)
         .select()
         .single();
@@ -341,6 +342,7 @@ async function updateCart(
       const { data, error } = await supabase
         .from(Tables.ABANDONED_CARTS)
         .update(updateData)
+        .eq('brand_id', brandId)
         .eq('id', existing[0].id)
         .select()
         .single();
@@ -599,6 +601,7 @@ async function sendRecoveryEmails(
             recovery_email_count: (cart.recovery_email_count || 0) + 1,
             last_email_sent_at: new Date().toISOString(),
           })
+          .eq('brand_id', brandId)
           .eq('id', cart.id);
 
         results.push({ cart_id: cart.id, status: 'sent' });
@@ -745,10 +748,39 @@ async function updatePixelsConfig(
       .eq('brand_id', brandId)
       .limit(1);
 
-    const configData = {
-      ...body,
-      brand_id: brandId,
-    };
+    const allowedFields = [
+      'facebook_pixel_id',
+      'facebook_access_token',
+      'facebook_test_event_code',
+      'google_ads_id',
+      'google_conversion_label',
+      'google_remarketing_id',
+      'google_customer_id',
+      'google_conversion_action_id',
+      'google_access_token',
+      'tiktok_pixel_id',
+      'tiktok_access_token',
+      'pinterest_tag_id',
+      'pinterest_access_token',
+      'pinterest_ad_account_id',
+      'server_side_enabled',
+      'hash_user_data',
+    ];
+
+    const configData: any = {};
+    for (const field of allowedFields) {
+      if (body?.[field] !== undefined) {
+        configData[field] = body[field];
+      }
+    }
+
+    if (configData.server_side_enabled !== undefined && typeof configData.server_side_enabled !== 'boolean') {
+      delete configData.server_side_enabled;
+    }
+
+    if (configData.hash_user_data !== undefined && typeof configData.hash_user_data !== 'boolean') {
+      delete configData.hash_user_data;
+    }
 
     // Don't overwrite tokens with masked values
     if (configData.facebook_access_token === '***configured***') {
@@ -761,11 +793,18 @@ async function updatePixelsConfig(
       delete configData.pinterest_access_token;
     }
 
+    if (Object.keys(configData).length === 0) {
+      return errorResponse('No valid fields to update', 400);
+    }
+
+    configData.brand_id = brandId;
+
     let data, error;
     if (existing && existing.length > 0) {
       ({ data, error } = await supabase
         .from(Tables.TRACKING_PIXELS_CONFIG)
         .update(configData)
+        .eq('brand_id', brandId)
         .eq('id', existing[0].id)
         .select()
         .single());
@@ -791,12 +830,14 @@ async function updatePixelsConfig(
 
 async function getUnsubscribeInfo(
   supabase: any,
+  brandId: string,
   token: string
 ): Promise<Response> {
   try {
     const { data, error } = await supabase
       .from(Tables.EMAIL_SUBSCRIPTIONS)
       .select('email, marketing_emails, abandoned_cart_emails, order_updates, unsubscribed_at')
+      .eq('brand_id', brandId)
       .eq('unsubscribe_token', token)
       .limit(1);
 
@@ -814,6 +855,7 @@ async function getUnsubscribeInfo(
 
 async function processUnsubscribe(
   supabase: any,
+  brandId: string,
   request: Request
 ): Promise<Response> {
   try {
@@ -849,6 +891,7 @@ async function processUnsubscribe(
     const { data, error } = await supabase
       .from(Tables.EMAIL_SUBSCRIPTIONS)
       .update(updateData)
+      .eq('brand_id', brandId)
       .eq('unsubscribe_token', token)
       .select()
       .single();
@@ -902,6 +945,7 @@ async function getAttributionReport(
       const { data: orders } = await supabase
         .from(Tables.ORDERS)
         .select('id, total')
+        .eq('brand_id', brandId)
         .in('id', orderIds);
 
       orderTotals = (orders || []).reduce((acc: Record<string, number>, o: any) => {

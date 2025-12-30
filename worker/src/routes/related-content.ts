@@ -16,6 +16,10 @@ export async function handleRelatedContent(request: Request, env: Env, path: str
   const supabase = getSupabase(env);
   const brandId = getBrandId(request);
 
+  if (!brandId) {
+    return jsonResponse({ error: 'Brand context missing' }, 400);
+  }
+
   // Generate related content for a single item
   if (path === '/api/related-content/generate' && method === 'POST') {
     return handleGenerateRelated(request, env, supabase, brandId);
@@ -34,13 +38,13 @@ export async function handleRelatedContent(request: Request, env: Env, path: str
   // Update related content (manual override)
   if (path.match(/^\/api\/related-content\/[\w-]+$/) && method === 'PUT') {
     const id = path.split('/').pop()!;
-    return handleUpdateRelated(request, id, supabase);
+    return handleUpdateRelated(request, brandId, id, supabase);
   }
 
   // Delete related content
   if (path.match(/^\/api\/related-content\/[\w-]+$/) && method === 'DELETE') {
     const id = path.split('/').pop()!;
-    return handleDeleteRelated(id, supabase);
+    return handleDeleteRelated(brandId, id, supabase);
   }
 
   // Get recommendations for display (public API)
@@ -70,6 +74,7 @@ async function handleGenerateRelated(request: Request, env: Env, supabase: any, 
       const { data: product } = await supabase
         .from('products')
         .select('id, name, description, category_id, tags, price')
+        .eq('brand_id', brandId)
         .eq('id', source_id)
         .single();
       
@@ -89,6 +94,7 @@ async function handleGenerateRelated(request: Request, env: Env, supabase: any, 
       const { data: blog } = await supabase
         .from('blog_posts')
         .select('id, title, content, category_id, tags')
+        .eq('brand_id', brandId)
         .eq('id', source_id)
         .single();
       
@@ -379,6 +385,7 @@ async function handleGetForDisplay(request: Request, supabase: any, brandId: str
         const { data: product } = await supabase
           .from('products')
           .select('id, name, slug, price, compare_at_price, images')
+          .eq('brand_id', brandId)
           .eq('id', rel.related_id)
           .eq('is_active', true)
           .single();
@@ -400,6 +407,7 @@ async function handleGetForDisplay(request: Request, supabase: any, brandId: str
         const { data: blog } = await supabase
           .from('blog_posts')
           .select('id, title, slug, excerpt, featured_image')
+          .eq('brand_id', brandId)
           .eq('id', rel.related_id)
           .eq('status', 'published')
           .single();
@@ -428,7 +436,7 @@ async function handleGetForDisplay(request: Request, supabase: any, brandId: str
 
 // ==================== Update/Delete ====================
 
-async function handleUpdateRelated(request: Request, id: string, supabase: any): Promise<Response> {
+async function handleUpdateRelated(request: Request, brandId: string, id: string, supabase: any): Promise<Response> {
   try {
     const body = await request.json() as any;
     const { is_active, display_order, relationship_type } = body;
@@ -443,6 +451,7 @@ async function handleUpdateRelated(request: Request, id: string, supabase: any):
       .from('related_content')
       .update(updateData)
       .eq('id', id)
+      .eq('brand_id', brandId)
       .select()
       .single();
 
@@ -455,12 +464,13 @@ async function handleUpdateRelated(request: Request, id: string, supabase: any):
   }
 }
 
-async function handleDeleteRelated(id: string, supabase: any): Promise<Response> {
+async function handleDeleteRelated(brandId: string, id: string, supabase: any): Promise<Response> {
   try {
     const { error } = await supabase
       .from('related_content')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('brand_id', brandId);
 
     if (error) throw error;
 

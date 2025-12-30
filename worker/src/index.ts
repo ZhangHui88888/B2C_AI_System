@@ -37,6 +37,7 @@ import { handleRelatedContent } from './routes/related-content';
 import { handlePoints } from './routes/points';
 import { handleMembership } from './routes/membership';
 import { handleReferrals } from './routes/referrals';
+import { handleSiteConfig } from './routes/site-config';
 import { cors, errorHandler, jsonResponse } from './utils/response';
 import { resolveBrandContext, withBrandRequest } from './middleware/brand';
 import { createRequestLogger } from './utils/logger';
@@ -158,6 +159,8 @@ export interface Env {
   SUPABASE_SERVICE_KEY: string;
 
   DEFAULT_BRAND_SLUG?: string;
+
+  OWNER_EMAIL?: string;
   
   // Stripe
   STRIPE_SECRET_KEY: string;
@@ -190,12 +193,17 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
+    if (path === '/api/site-config') {
+      return await handleSiteConfig(request, env);
+    }
+
     try {
       let routedRequest = request;
       if (
         path.startsWith('/api/') &&
         path !== '/api/health' &&
-        !path.startsWith('/api/stripe/webhook')
+        !path.startsWith('/api/stripe/webhook') &&
+        !path.startsWith('/api/admin/')
       ) {
         const { context, response } = await resolveBrandContext(request, env);
         if (response) return response;

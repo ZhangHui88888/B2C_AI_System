@@ -3,9 +3,18 @@ import Layout from '@layouts/Layout.astro';
 import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
 import SSLBadge from '@components/trust/SSLBadge.astro';
 import SocialLinks from '@components/trust/SocialLinks.astro';
+import { fetchSiteConfig } from '@lib/site-config';
 
 const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
-const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+let siteUrl = 'https://example.com';
+try {
+  siteUrl = new URL(Astro.request.url).origin;
+} catch {}
+
+const siteConfig = await fetchSiteConfig(Astro.request);
+const brand = siteConfig?.brand;
+const contactInfo = (brand?.contact_info as any) || {};
+const socialLinks = (brand?.social_links as any) || {};
 
 const breadcrumbItems = [
   { name: 'Home', url: siteUrl },
@@ -60,16 +69,18 @@ const breadcrumbItems = [
           <div class="card p-5 sticky top-24">
             <div class="font-semibold text-gray-900">Support details</div>
             <div class="mt-4 space-y-2 text-sm text-gray-700">
-              <div><span class="text-gray-500">Email:</span> support@example.com</div>
-              <div><span class="text-gray-500">Phone:</span> +1 (555) 010-1234</div>
-              <div><span class="text-gray-500">Address:</span> 123 Market Street, Suite 5, San Francisco, CA</div>
-              <div class="pt-3 text-xs text-gray-500">Replace these placeholders with real business contact details before production.</div>
+              <div><span class="text-gray-500">Email:</span> {contactInfo.support_email || contactInfo.email || 'support@example.com'}</div>
+              <div><span class="text-gray-500">Phone:</span> {contactInfo.phone || '+1 (555) 010-1234'}</div>
+              <div><span class="text-gray-500">Address:</span> {contactInfo.address || '123 Market Street, Suite 5, San Francisco, CA'}</div>
+              {contactInfo.hours && (
+                <div><span class="text-gray-500">Hours:</span> {contactInfo.hours}</div>
+              )}
             </div>
 
             <div class="mt-6">
               <div class="text-sm font-semibold text-gray-900">Follow us</div>
               <div class="mt-2">
-                <SocialLinks />
+                <SocialLinks links={socialLinks} />
               </div>
             </div>
 

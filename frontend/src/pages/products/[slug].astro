@@ -11,15 +11,26 @@ import ThirdPartyReviews from '@components/trust/ThirdPartyReviews.astro';
 import PaymentBadges from '@components/trust/PaymentBadges.astro';
 import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
 import ProductSchema from '@components/seo/ProductSchema.astro';
+import { fetchSiteConfig } from '@lib/site-config';
 
 const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
-const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+let siteUrl = 'https://example.com';
+try {
+  siteUrl = new URL(Astro.request.url).origin;
+} catch {}
 
 const { slug } = Astro.params;
+
+const siteConfig = await fetchSiteConfig(Astro.request);
+const brand = siteConfig?.brand;
+if (!brand) {
+  return new Response('Site not found', { status: 404 });
+}
 
 const { data: product } = await supabase
   .from('products')
   .select('*, categories(id, name, slug)')
+  .eq('brand_id', brand.id)
   .eq('slug', slug)
   .eq('is_active', true)
   .single();
@@ -32,6 +43,7 @@ if (!product) {
 const { data: reviews } = await supabase
   .from('reviews')
   .select('*')
+  .eq('brand_id', brand.id)
   .eq('product_id', product.id)
   .eq('status', 'approved')
   .order('created_at', { ascending: false })
@@ -51,6 +63,7 @@ if (product.category_id) {
   const { data: related } = await supabase
     .from('products')
     .select('*')
+    .eq('brand_id', brand.id)
     .eq('is_active', true)
     .eq('category_id', product.category_id)
     .neq('id', product.id)

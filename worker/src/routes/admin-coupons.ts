@@ -7,6 +7,7 @@ import type { Env } from '../index';
 import { getSupabase } from '../utils/supabase';
 import { jsonResponse, errorResponse } from '../utils/response';
 import { getBrandId } from '../middleware/brand';
+import { requireAdminAuth, requireBrandManageAccess } from '../middleware/admin-auth';
 
 interface CouponInput {
   code: string;
@@ -34,9 +35,15 @@ export async function handleAdminCoupons(
   const supabase = getSupabase(env);
   const brandId = getBrandId(request);
 
-  if (!brandId) {
-    return errorResponse('Brand context missing', 500);
+  const { context: admin, response: authResponse } = await requireAdminAuth(request, env);
+  if (authResponse || !admin) return authResponse as Response;
+
+  if (!brandId || brandId === 'all') {
+    return errorResponse('Brand context missing', 400);
   }
+
+  const access = await requireBrandManageAccess(env, admin, brandId);
+  if (!access.ok) return access.response;
 
   // GET /api/admin/coupons - List all coupons
   if (path === '/api/admin/coupons' && request.method === 'GET') {

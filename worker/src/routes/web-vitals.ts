@@ -40,7 +40,7 @@ export async function handleWebVitals(
   const brandId = getBrandId(request);
 
   if (!brandId) {
-    return errorResponse('Brand context missing', 500);
+    return errorResponse('Brand context missing', 400);
   }
 
   // POST /api/vitals - Record vitals measurement
@@ -76,13 +76,13 @@ export async function handleWebVitals(
   // PUT /api/vitals/alerts/:id/acknowledge - Acknowledge alert
   if (request.method === 'PUT' && path.match(/^\/api\/vitals\/alerts\/[^/]+\/acknowledge$/)) {
     const id = path.replace('/api/vitals/alerts/', '').replace('/acknowledge', '');
-    return await acknowledgeAlert(supabase, id);
+    return await acknowledgeAlert(supabase, brandId, id);
   }
 
   // PUT /api/vitals/alerts/:id/resolve - Resolve alert
   if (request.method === 'PUT' && path.match(/^\/api\/vitals\/alerts\/[^/]+\/resolve$/)) {
     const id = path.replace('/api/vitals/alerts/', '').replace('/resolve', '');
-    return await resolveAlert(supabase, id);
+    return await resolveAlert(supabase, brandId, id);
   }
 
   // POST /api/vitals/aggregate - Trigger aggregation (cron)
@@ -449,11 +449,12 @@ async function getAlerts(
   }
 }
 
-async function acknowledgeAlert(supabase: any, id: string): Promise<Response> {
+async function acknowledgeAlert(supabase: any, brandId: string, id: string): Promise<Response> {
   try {
     const { data, error } = await supabase
       .from(Tables.WEB_VITALS_ALERTS)
       .update({ status: 'acknowledged', acknowledged_at: new Date().toISOString() })
+      .eq('brand_id', brandId)
       .eq('id', id)
       .select()
       .single();
@@ -466,11 +467,12 @@ async function acknowledgeAlert(supabase: any, id: string): Promise<Response> {
   }
 }
 
-async function resolveAlert(supabase: any, id: string): Promise<Response> {
+async function resolveAlert(supabase: any, brandId: string, id: string): Promise<Response> {
   try {
     const { data, error } = await supabase
       .from(Tables.WEB_VITALS_ALERTS)
       .update({ status: 'resolved', resolved_at: new Date().toISOString() })
+      .eq('brand_id', brandId)
       .eq('id', id)
       .select()
       .single();

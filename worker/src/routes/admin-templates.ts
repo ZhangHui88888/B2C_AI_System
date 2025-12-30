@@ -1,6 +1,8 @@
 import { Env } from '../index';
 import { getSupabase } from '../utils/supabase';
 import { errorResponse, jsonResponse } from '../utils/response';
+import { getBrandId } from '../middleware/brand';
+import { requireAdminAuth, requireBrandManageAccess } from '../middleware/admin-auth';
 
 export async function handleAdminTemplates(
   request: Request,
@@ -10,18 +12,34 @@ export async function handleAdminTemplates(
   const supabase = getSupabase(env);
   const method = request.method;
 
+  const { context: admin, response: authResponse } = await requireAdminAuth(request, env);
+  if (authResponse || !admin) return authResponse as Response;
+
   // GET /api/admin/templates - List templates
   if (path === '/api/admin/templates' && method === 'GET') {
     const url = new URL(request.url);
-    const brandId = url.searchParams.get('brand_id');
+    const brandId = url.searchParams.get('brand_id') || getBrandId(request);
     const type = url.searchParams.get('type');
+
+    if (!brandId) {
+      return errorResponse('Brand ID is required', 400);
+    }
+
+    if (brandId === 'all') {
+      if (!admin.isOwner) {
+        return errorResponse('Forbidden', 403);
+      }
+    } else {
+      const access = await requireBrandManageAccess(env, admin, brandId);
+      if (!access.ok) return access.response;
+    }
 
     let query = supabase
       .from('shared_templates')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (brandId && brandId !== 'all') {
+    if (brandId !== 'all') {
       // Show templates owned by this brand OR public OR shared with this brand
       query = query.or(`owner_brand_id.eq.${brandId},is_public.eq.true,allowed_brand_ids.cs.{${brandId}}`);
     }
@@ -57,10 +75,22 @@ export async function handleAdminTemplates(
       }
 
       // Get brand_id from header if not provided
-      const brandId = body.owner_brand_id || request.headers.get('x-brand-id');
+      const brandId = body.owner_brand_id || getBrandId(request);
 
       if (!brandId) {
         return errorResponse('Brand ID is required', 400);
+      }
+
+      const access = await requireBrandManageAccess(env, admin, brandId);
+      if (!access.ok) return access.response;
+
+      if (!admin.isOwner) {
+        if (body.is_public) {
+          return errorResponse('Forbidden', 403);
+        }
+        if (Array.isArray(body.allowed_brand_ids) && body.allowed_brand_ids.length > 0) {
+          return errorResponse('Forbidden', 403);
+        }
       }
 
       const { data, error } = await supabase
@@ -103,6 +133,14 @@ export async function handleAdminTemplates(
       return errorResponse('Template not found', 404);
     }
 
+    const ownerBrandId = (data as any)?.owner_brand_id;
+    if (typeof ownerBrandId === 'string' && ownerBrandId) {
+      const access = await requireBrandManageAccess(env, admin, ownerBrandId);
+      if (!access.ok) return access.response;
+    } else if (!admin.isOwner) {
+      return errorResponse('Forbidden', 403);
+    }
+
     return jsonResponse(data);
   }
 
@@ -120,6 +158,33 @@ export async function handleAdminTemplates(
         is_public?: boolean;
         allowed_brand_ids?: string[];
       };
+
+      const { data: current, error: currentError } = await supabase
+        .from('shared_templates')
+        .select('id, owner_brand_id')
+        .eq('id', templateId)
+        .single();
+
+      if (currentError || !current) {
+        return errorResponse('Template not found', 404);
+      }
+
+      const ownerBrandId = (current as any)?.owner_brand_id;
+      if (typeof ownerBrandId === 'string' && ownerBrandId) {
+        const access = await requireBrandManageAccess(env, admin, ownerBrandId);
+        if (!access.ok) return access.response;
+      } else if (!admin.isOwner) {
+        return errorResponse('Forbidden', 403);
+      }
+
+      if (!admin.isOwner) {
+        if (body.is_public !== undefined) {
+          return errorResponse('Forbidden', 403);
+        }
+        if (body.allowed_brand_ids !== undefined) {
+          return errorResponse('Forbidden', 403);
+        }
+      }
 
       const updateData: Record<string, any> = {
         updated_at: new Date().toISOString(),
@@ -157,6 +222,24 @@ export async function handleAdminTemplates(
   if (updateTemplateMatch && method === 'DELETE') {
     const templateId = updateTemplateMatch[1];
 
+    const { data: current, error: currentError } = await supabase
+      .from('shared_templates')
+      .select('id, owner_brand_id')
+      .eq('id', templateId)
+      .single();
+
+    if (currentError || !current) {
+      return errorResponse('Template not found', 404);
+    }
+
+    const ownerBrandId = (current as any)?.owner_brand_id;
+    if (typeof ownerBrandId === 'string' && ownerBrandId) {
+      const access = await requireBrandManageAccess(env, admin, ownerBrandId);
+      if (!access.ok) return access.response;
+    } else if (!admin.isOwner) {
+      return errorResponse('Forbidden', 403);
+    }
+
     const { error } = await supabase
       .from('shared_templates')
       .delete()
@@ -184,6 +267,20 @@ export async function handleAdminTemplates(
       return errorResponse('Template not found', 404);
     }
 
+    const { data: currentOwner } = await supabase
+      .from('shared_templates')
+      .select('owner_brand_id')
+      .eq('id', templateId)
+      .single();
+
+    const ownerBrandId = (currentOwner as any)?.owner_brand_id;
+    if (typeof ownerBrandId === 'string' && ownerBrandId) {
+      const access = await requireBrandManageAccess(env, admin, ownerBrandId);
+      if (!access.ok) return access.response;
+    } else if (!admin.isOwner) {
+      return errorResponse('Forbidden', 403);
+    }
+
     const { error } = await supabase
       .from('shared_templates')
       .update({ use_count: (current.use_count || 0) + 1 })
@@ -200,6 +297,10 @@ export async function handleAdminTemplates(
   const shareTemplateMatch = path.match(/^\/api\/admin\/templates\/([^\/]+)\/share$/);
   if (shareTemplateMatch && method === 'POST') {
     const templateId = shareTemplateMatch[1];
+
+    if (!admin.isOwner) {
+      return errorResponse('Forbidden', 403);
+    }
 
     try {
       const body = await request.json() as {

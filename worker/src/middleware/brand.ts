@@ -72,6 +72,29 @@ async function findBrandIdByDomain(env: Env, host: string): Promise<string | nul
   if (host.startsWith('api.')) {
     domainsToTry.push(host.slice(4)); // 去掉 "api." 前缀
   }
+
+  const { data: domainRows, error: domainError } = await supabase
+    .from(Tables.BRAND_DOMAINS)
+    .select('brand_id')
+    .in('domain', domainsToTry)
+    .limit(1);
+
+  if (!domainError) {
+    const brandId = (domainRows as any[])?.[0]?.brand_id;
+    if (typeof brandId === 'string' && brandId) {
+      const { data: brandRows, error: brandError } = await supabase
+        .from(Tables.BRANDS)
+        .select('id')
+        .eq('id', brandId)
+        .eq('is_active', true)
+        .limit(1);
+
+      if (!brandError) {
+        const activeId = (brandRows as any[])?.[0]?.id;
+        if (typeof activeId === 'string' && activeId) return activeId;
+      }
+    }
+  }
   
   const { data, error } = await supabase
     .from(Tables.BRANDS)

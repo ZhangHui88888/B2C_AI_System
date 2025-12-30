@@ -9,6 +9,7 @@ import { jsonResponse, errorResponse } from '../utils/response';
 import { getBrandId } from '../middleware/brand';
 import {
   uploadToCloudflareImages,
+  getCloudflareImageMetadata,
   deleteFromCloudflareImages,
   getOptimizedImageUrl,
   getPresetImageUrl,
@@ -28,7 +29,7 @@ export async function handleImages(
   const brandId = getBrandId(request);
 
   if (!brandId) {
-    return errorResponse('Brand context missing', 500);
+    return errorResponse('Brand context missing', 400);
   }
 
   // POST /api/images/upload - Upload and optimize image
@@ -39,7 +40,7 @@ export async function handleImages(
   // DELETE /api/images/:id - Delete image
   if (request.method === 'DELETE' && path.match(/^\/api\/images\/[^/]+$/)) {
     const imageId = path.replace('/api/images/', '');
-    return await deleteImage(env, imageId);
+    return await deleteImage(env, brandId, imageId);
   }
 
   // GET /api/images/optimize - Get optimized URL
@@ -106,7 +107,13 @@ async function uploadImage(
       const customMetadata = formData.get('metadata');
       if (customMetadata && typeof customMetadata === 'string') {
         try {
-          metadata = { ...metadata, ...JSON.parse(customMetadata) };
+          const parsed = JSON.parse(customMetadata) as Record<string, any>;
+          if (parsed && typeof parsed === 'object') {
+            if ('brand_id' in parsed) {
+              delete (parsed as any).brand_id;
+            }
+            metadata = { ...metadata, ...parsed, brand_id: brandId };
+          }
         } catch {}
       }
     } else if (contentType.includes('application/json')) {
@@ -128,7 +135,13 @@ async function uploadImage(
       filename = url.split('/').pop()?.split('?')[0];
       
       if (customMetadata) {
-        metadata = { ...metadata, ...customMetadata };
+        const parsed = customMetadata as Record<string, any>;
+        if (parsed && typeof parsed === 'object') {
+          if ('brand_id' in parsed) {
+            delete (parsed as any).brand_id;
+          }
+          metadata = { ...metadata, ...parsed, brand_id: brandId };
+        }
       }
     } else {
       // Raw binary upload
@@ -181,8 +194,21 @@ async function uploadImage(
 // Delete Image
 // ============================================
 
-async function deleteImage(env: Env, imageId: string): Promise<Response> {
+async function deleteImage(env: Env, brandId: string, imageId: string): Promise<Response> {
   try {
+    const metaResult = await getCloudflareImageMetadata(env, imageId);
+    if (!metaResult.success) {
+      if (metaResult.error === 'Cloudflare Images not configured') {
+        return errorResponse(metaResult.error, 500);
+      }
+      return errorResponse('Not found', 404);
+    }
+
+    const ownerBrandId = metaResult.metadata?.brand_id;
+    if (!ownerBrandId || ownerBrandId !== brandId) {
+      return errorResponse('Not found', 404);
+    }
+
     const result = await deleteFromCloudflareImages(env, imageId);
 
     if (!result.success) {

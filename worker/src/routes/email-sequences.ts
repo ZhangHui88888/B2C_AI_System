@@ -29,7 +29,7 @@ export async function handleEmailSequences(
   const brandId = getBrandId(request);
 
   if (!brandId) {
-    return errorResponse('Brand context missing', 500);
+    return errorResponse('Brand context missing', 400);
   }
 
   // ============================================
@@ -71,21 +71,23 @@ export async function handleEmailSequences(
   // POST /api/email-sequences/:id/steps - Add step
   if (request.method === 'POST' && path.match(/^\/api\/email-sequences\/[^/]+\/steps$/)) {
     const sequenceId = path.replace('/api/email-sequences/', '').replace('/steps', '');
-    return await addStep(supabase, sequenceId, request);
+    return await addStep(supabase, brandId, sequenceId, request);
   }
 
   // PUT /api/email-sequences/:id/steps/:stepId - Update step
   if (request.method === 'PUT' && path.match(/^\/api\/email-sequences\/[^/]+\/steps\/[^/]+$/)) {
     const parts = path.split('/');
+    const sequenceId = parts[parts.length - 3];
     const stepId = parts[parts.length - 1];
-    return await updateStep(supabase, stepId, request);
+    return await updateStep(supabase, brandId, sequenceId, stepId, request);
   }
 
   // DELETE /api/email-sequences/:id/steps/:stepId - Delete step
   if (request.method === 'DELETE' && path.match(/^\/api\/email-sequences\/[^/]+\/steps\/[^/]+$/)) {
     const parts = path.split('/');
+    const sequenceId = parts[parts.length - 3];
     const stepId = parts[parts.length - 1];
-    return await deleteStep(supabase, stepId);
+    return await deleteStep(supabase, brandId, sequenceId, stepId);
   }
 
   // ============================================
@@ -105,19 +107,19 @@ export async function handleEmailSequences(
   // PUT /api/email-sequences/enrollments/:id/pause - Pause enrollment
   if (request.method === 'PUT' && path.match(/^\/api\/email-sequences\/enrollments\/[^/]+\/pause$/)) {
     const id = path.replace('/api/email-sequences/enrollments/', '').replace('/pause', '');
-    return await updateEnrollmentStatus(supabase, id, 'paused');
+    return await updateEnrollmentStatus(supabase, brandId, id, 'paused');
   }
 
   // PUT /api/email-sequences/enrollments/:id/resume - Resume enrollment
   if (request.method === 'PUT' && path.match(/^\/api\/email-sequences\/enrollments\/[^/]+\/resume$/)) {
     const id = path.replace('/api/email-sequences/enrollments/', '').replace('/resume', '');
-    return await updateEnrollmentStatus(supabase, id, 'active');
+    return await updateEnrollmentStatus(supabase, brandId, id, 'active');
   }
 
   // PUT /api/email-sequences/enrollments/:id/cancel - Cancel enrollment
   if (request.method === 'PUT' && path.match(/^\/api\/email-sequences\/enrollments\/[^/]+\/cancel$/)) {
     const id = path.replace('/api/email-sequences/enrollments/', '').replace('/cancel', '');
-    return await updateEnrollmentStatus(supabase, id, 'cancelled');
+    return await updateEnrollmentStatus(supabase, brandId, id, 'cancelled');
   }
 
   // ============================================
@@ -137,13 +139,13 @@ export async function handleEmailSequences(
   // PUT /api/email-sequences/repurchase/:id - Update repurchase reminder
   if (request.method === 'PUT' && path.match(/^\/api\/email-sequences\/repurchase\/[^/]+$/)) {
     const id = path.replace('/api/email-sequences/repurchase/', '');
-    return await updateRepurchaseReminder(supabase, id, request);
+    return await updateRepurchaseReminder(supabase, brandId, id, request);
   }
 
   // DELETE /api/email-sequences/repurchase/:id - Delete repurchase reminder
   if (request.method === 'DELETE' && path.match(/^\/api\/email-sequences\/repurchase\/[^/]+$/)) {
     const id = path.replace('/api/email-sequences/repurchase/', '');
-    return await deleteRepurchaseReminder(supabase, id);
+    return await deleteRepurchaseReminder(supabase, brandId, id);
   }
 
   // ============================================
@@ -298,9 +300,30 @@ async function updateSequence(
   try {
     const body = await request.json() as any;
 
+    const allowedFields = [
+      'name',
+      'slug',
+      'description',
+      'sequence_type',
+      'trigger_event',
+      'trigger_delay_hours',
+      'is_active',
+    ];
+
+    const updateData: any = {};
+    for (const field of allowedFields) {
+      if (body?.[field] !== undefined) {
+        updateData[field] = body[field];
+      }
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return errorResponse('No valid fields to update', 400);
+    }
+
     const { data, error } = await supabase
       .from(Tables.EMAIL_SEQUENCES)
-      .update(body)
+      .update(updateData)
       .eq('brand_id', brandId)
       .eq('id', id)
       .select()
@@ -340,10 +363,22 @@ async function deleteSequence(
 
 async function addStep(
   supabase: any,
+  brandId: string,
   sequenceId: string,
   request: Request
 ): Promise<Response> {
   try {
+    const { data: sequenceRows, error: sequenceError } = await supabase
+      .from(Tables.EMAIL_SEQUENCES)
+      .select('id')
+      .eq('brand_id', brandId)
+      .eq('id', sequenceId)
+      .limit(1);
+
+    if (sequenceError) throw sequenceError;
+    const sequenceExists = Array.isArray(sequenceRows) && sequenceRows.length > 0;
+    if (!sequenceExists) return errorResponse('Sequence not found', 404);
+
     const body = await request.json() as any;
     const {
       step_number,
@@ -399,20 +434,59 @@ async function addStep(
 
 async function updateStep(
   supabase: any,
+  brandId: string,
+  sequenceId: string,
   stepId: string,
   request: Request
 ): Promise<Response> {
   try {
+    const { data: sequenceRows, error: sequenceError } = await supabase
+      .from(Tables.EMAIL_SEQUENCES)
+      .select('id')
+      .eq('brand_id', brandId)
+      .eq('id', sequenceId)
+      .limit(1);
+
+    if (sequenceError) throw sequenceError;
+    const sequenceExists = Array.isArray(sequenceRows) && sequenceRows.length > 0;
+    if (!sequenceExists) return errorResponse('Sequence not found', 404);
+
     const body = await request.json() as any;
+
+    const allowedFields = [
+      'step_number',
+      'name',
+      'subject',
+      'preview_text',
+      'html_content',
+      'plain_text_content',
+      'delay_hours',
+      'send_conditions',
+    ];
+
+    const updateData: any = {};
+    for (const field of allowedFields) {
+      if (body?.[field] !== undefined) {
+        updateData[field] = body[field];
+      }
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return errorResponse('No valid fields to update', 400);
+    }
 
     const { data, error } = await supabase
       .from(Tables.EMAIL_SEQUENCE_STEPS)
-      .update(body)
+      .update(updateData)
       .eq('id', stepId)
+      .eq('sequence_id', sequenceId)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if ((error as any).code === 'PGRST116') return errorResponse('Step not found', 404);
+      throw error;
+    }
     return jsonResponse({ success: true, data });
   } catch (error: any) {
     console.error('Update step error:', error);
@@ -420,14 +494,33 @@ async function updateStep(
   }
 }
 
-async function deleteStep(supabase: any, stepId: string): Promise<Response> {
+async function deleteStep(supabase: any, brandId: string, sequenceId: string, stepId: string): Promise<Response> {
   try {
-    const { error } = await supabase
+    const { data: sequenceRows, error: sequenceError } = await supabase
+      .from(Tables.EMAIL_SEQUENCES)
+      .select('id')
+      .eq('brand_id', brandId)
+      .eq('id', sequenceId)
+      .limit(1);
+
+    if (sequenceError) throw sequenceError;
+    const sequenceExists = Array.isArray(sequenceRows) && sequenceRows.length > 0;
+    if (!sequenceExists) return errorResponse('Sequence not found', 404);
+
+    const { data, error } = await supabase
       .from(Tables.EMAIL_SEQUENCE_STEPS)
       .delete()
-      .eq('id', stepId);
+      .eq('id', stepId)
+      .eq('sequence_id', sequenceId)
+      .select('id')
+      .single();
 
-    if (error) throw error;
+    if (error) {
+      if ((error as any).code === 'PGRST116') return errorResponse('Step not found', 404);
+      throw error;
+    }
+
+    if (!data?.id) return errorResponse('Step not found', 404);
     return jsonResponse({ success: true });
   } catch (error: any) {
     console.error('Delete step error:', error);
@@ -487,11 +580,16 @@ async function enrollSubscriber(
     }
 
     // Get sequence
-    const { data: sequence } = await supabase
+    const { data: sequence, error: sequenceError } = await supabase
       .from(Tables.EMAIL_SEQUENCES)
       .select('trigger_delay_hours')
+      .eq('brand_id', brandId)
       .eq('id', sequence_id)
       .single();
+
+    if (sequenceError || !sequence) {
+      return errorResponse('Sequence not found', 404);
+    }
 
     const delayHours = sequence?.trigger_delay_hours || 0;
 
@@ -526,6 +624,7 @@ async function enrollSubscriber(
 
 async function updateEnrollmentStatus(
   supabase: any,
+  brandId: string,
   id: string,
   status: string
 ): Promise<Response> {
@@ -540,6 +639,7 @@ async function updateEnrollmentStatus(
     const { data, error } = await supabase
       .from(Tables.EMAIL_SEQUENCE_ENROLLMENTS)
       .update(updateData)
+      .eq('brand_id', brandId)
       .eq('id', id)
       .select()
       .single();
@@ -623,15 +723,40 @@ async function createRepurchaseReminder(
 
 async function updateRepurchaseReminder(
   supabase: any,
+  brandId: string,
   id: string,
   request: Request
 ): Promise<Response> {
   try {
     const body = await request.json() as any;
 
+    const allowedFields = [
+      'name',
+      'product_id',
+      'category_id',
+      'reminder_days',
+      'subject',
+      'html_content',
+      'discount_code',
+      'discount_percent',
+      'is_active',
+    ];
+
+    const updateData: any = {};
+    for (const field of allowedFields) {
+      if (body?.[field] !== undefined) {
+        updateData[field] = body[field];
+      }
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return errorResponse('No valid fields to update', 400);
+    }
+
     const { data, error } = await supabase
       .from(Tables.REPURCHASE_REMINDERS)
-      .update(body)
+      .update(updateData)
+      .eq('brand_id', brandId)
       .eq('id', id)
       .select()
       .single();
@@ -646,12 +771,14 @@ async function updateRepurchaseReminder(
 
 async function deleteRepurchaseReminder(
   supabase: any,
+  brandId: string,
   id: string
 ): Promise<Response> {
   try {
     const { error } = await supabase
       .from(Tables.REPURCHASE_REMINDERS)
       .delete()
+      .eq('brand_id', brandId)
       .eq('id', id);
 
     if (error) throw error;
@@ -701,6 +828,7 @@ async function processSequenceEmails(
             await supabase
               .from(Tables.EMAIL_SEQUENCE_ENROLLMENTS)
               .update({ status: 'converted', completed_at: new Date().toISOString() })
+              .eq('brand_id', item.brand_id)
               .eq('id', item.enrollment_id);
           }
         }
@@ -746,6 +874,7 @@ async function processSequenceEmails(
             status: nextStep ? 'active' : 'completed',
             completed_at: nextStep ? null : new Date().toISOString(),
           })
+          .eq('brand_id', item.brand_id)
           .eq('id', item.enrollment_id);
 
         results.push({ enrollment_id: item.enrollment_id, status: 'sent' });
@@ -796,6 +925,7 @@ async function processRepurchaseReminders(
         await supabase
           .from(Tables.REPURCHASE_REMINDER_QUEUE)
           .update({ status: 'sent', sent_at: new Date().toISOString() })
+          .eq('brand_id', item.brand_id)
           .eq('id', item.queue_id);
 
         results.push({ queue_id: item.queue_id, status: 'sent' });
@@ -803,6 +933,7 @@ async function processRepurchaseReminders(
         await supabase
           .from(Tables.REPURCHASE_REMINDER_QUEUE)
           .update({ status: 'failed', send_error: sendError.message })
+          .eq('brand_id', item.brand_id)
           .eq('id', item.queue_id);
 
         results.push({ queue_id: item.queue_id, status: 'failed', error: sendError.message });

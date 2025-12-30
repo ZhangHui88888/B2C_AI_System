@@ -17,6 +17,10 @@ export async function handleSeoReports(request: Request, env: Env, path: string)
   const supabase = getSupabase(env);
   const brandId = getBrandId(request);
 
+  if (!brandId && !(path === '/api/seo-reports/run-scheduled' && method === 'POST')) {
+    return jsonResponse({ error: 'Brand context missing' }, 400);
+  }
+
   // Report configuration
   if (path === '/api/seo-reports/config' && method === 'GET') {
     return handleGetReportConfigs(supabase, brandId);
@@ -28,12 +32,12 @@ export async function handleSeoReports(request: Request, env: Env, path: string)
 
   if (path.match(/^\/api\/seo-reports\/config\/[\w-]+$/) && method === 'PUT') {
     const id = path.split('/').pop()!;
-    return handleUpdateReportConfig(request, id, supabase);
+    return handleUpdateReportConfig(request, id, supabase, brandId);
   }
 
   if (path.match(/^\/api\/seo-reports\/config\/[\w-]+$/) && method === 'DELETE') {
     const id = path.split('/').pop()!;
-    return handleDeleteReportConfig(id, supabase);
+    return handleDeleteReportConfig(id, supabase, brandId);
   }
 
   // Generate report manually
@@ -49,7 +53,7 @@ export async function handleSeoReports(request: Request, env: Env, path: string)
   // Get single report
   if (path.match(/^\/api\/seo-reports\/[\w-]+$/) && method === 'GET') {
     const id = path.split('/').pop()!;
-    return handleGetReport(id, supabase);
+    return handleGetReport(id, supabase, brandId);
   }
 
   // Run scheduled reports (called by cron)
@@ -127,7 +131,7 @@ async function handleCreateReportConfig(request: Request, supabase: any, brandId
   }
 }
 
-async function handleUpdateReportConfig(request: Request, id: string, supabase: any): Promise<Response> {
+async function handleUpdateReportConfig(request: Request, id: string, supabase: any, brandId: string | null): Promise<Response> {
   try {
     const body = await request.json() as any;
     const updateData: any = { updated_at: new Date().toISOString() };
@@ -155,6 +159,7 @@ async function handleUpdateReportConfig(request: Request, id: string, supabase: 
     const { data, error } = await supabase
       .from('automated_reports')
       .update(updateData)
+      .eq('brand_id', brandId)
       .eq('id', id)
       .select()
       .single();
@@ -168,11 +173,12 @@ async function handleUpdateReportConfig(request: Request, id: string, supabase: 
   }
 }
 
-async function handleDeleteReportConfig(id: string, supabase: any): Promise<Response> {
+async function handleDeleteReportConfig(id: string, supabase: any, brandId: string | null): Promise<Response> {
   try {
     const { error } = await supabase
       .from('automated_reports')
       .delete()
+      .eq('brand_id', brandId)
       .eq('id', id);
 
     if (error) throw error;
@@ -260,6 +266,7 @@ async function handleGenerateReport(request: Request, env: Env, supabase: any, b
           delivered_to: recipients,
           delivery_status: 'sent',
         })
+        .eq('brand_id', brandId)
         .eq('id', report.id);
     }
 
@@ -567,11 +574,12 @@ async function handleGetReportHistory(request: Request, supabase: any, brandId: 
   }
 }
 
-async function handleGetReport(id: string, supabase: any): Promise<Response> {
+async function handleGetReport(id: string, supabase: any, brandId: string | null): Promise<Response> {
   try {
     const { data, error } = await supabase
       .from('report_history')
       .select('*')
+      .eq('brand_id', brandId)
       .eq('id', id)
       .single();
 
@@ -635,6 +643,7 @@ async function handleRunScheduledReports(env: Env, supabase: any): Promise<Respo
               delivered_to: config.recipients,
               delivery_status: 'sent',
             })
+            .eq('brand_id', config.brand_id)
             .eq('id', report.id);
 
           sent++;
@@ -653,6 +662,7 @@ async function handleRunScheduledReports(env: Env, supabase: any): Promise<Respo
             last_run_at: new Date().toISOString(),
             next_run_at: nextRunAt,
           })
+          .eq('brand_id', config.brand_id)
           .eq('id', config.id);
 
       } catch (err) {

@@ -20,6 +20,11 @@ export interface Database {
           domain: string | null;
           logo_url: string | null;
           settings: Json;
+          theme: Json;
+          custom_css: string | null;
+          favicon_url: string | null;
+          social_links: Json;
+          contact_info: Json;
           owner_email: string;
           is_active: boolean;
           created_at: string;
@@ -31,6 +36,25 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database['public']['Tables']['brands']['Insert']>;
+      };
+      brand_domains: {
+        Row: {
+          id: string;
+          brand_id: string;
+          domain: string;
+          is_primary: boolean;
+          ssl_status: string;
+          dns_verified: boolean;
+          verified_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['brand_domains']['Row'], 'id' | 'created_at' | 'updated_at'> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['brand_domains']['Insert']>;
       };
       products: {
         Row: {
@@ -269,6 +293,7 @@ export interface Database {
 
 // Helper types for easier access
 export type Brand = Database['public']['Tables']['brands']['Row'];
+export type BrandDomain = Database['public']['Tables']['brand_domains']['Row'];
 export type Product = Database['public']['Tables']['products']['Row'];
 export type Category = Database['public']['Tables']['categories']['Row'];
 export type Order = Database['public']['Tables']['orders']['Row'];

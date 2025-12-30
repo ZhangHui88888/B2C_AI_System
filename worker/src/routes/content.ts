@@ -52,7 +52,7 @@ export async function handleContent(
   const brandId = getBrandId(request);
 
   if (!brandId) {
-    return errorResponse('Brand context missing', 500);
+    return errorResponse('Brand context missing', 400);
   }
 
   // GET /api/content - List content entries

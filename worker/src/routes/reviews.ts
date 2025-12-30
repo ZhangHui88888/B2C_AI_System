@@ -35,7 +35,7 @@ export async function handleReviews(
   const brandId = getBrandId(request);
 
   if (!brandId) {
-    return errorResponse('Brand context missing', 500);
+    return errorResponse('Brand context missing', 400);
   }
 
   // GET /api/reviews - List reviews (admin)
@@ -52,7 +52,7 @@ export async function handleReviews(
   // GET /api/reviews/stats/:productId - Get review stats
   if (request.method === 'GET' && path.startsWith('/api/reviews/stats/')) {
     const productId = path.replace('/api/reviews/stats/', '');
-    return await getReviewStats(supabase, productId);
+    return await getReviewStats(supabase, brandId, productId);
   }
 
   // POST /api/reviews - Create review (public)
@@ -81,7 +81,7 @@ export async function handleReviews(
   // POST /api/reviews/:id/vote - Vote on review
   if (request.method === 'POST' && path.match(/\/api\/reviews\/[^/]+\/vote$/)) {
     const id = path.replace('/api/reviews/', '').replace('/vote', '');
-    return await voteReview(supabase, id, request);
+    return await voteReview(supabase, brandId, id, request);
   }
 
   return errorResponse('Not found', 404);
@@ -195,29 +195,77 @@ async function getProductReviews(
 // Get review stats for a product
 async function getReviewStats(
   supabase: any,
+  brandId: string,
   productId: string
 ): Promise<Response> {
-  const { data, error } = await supabase
-    .rpc('get_product_review_stats', { p_product_id: productId });
+  try {
+    const { data: productRow } = await supabase
+      .from(ReviewTables.PRODUCTS)
+      .select('id')
+      .eq('brand_id', brandId)
+      .eq('id', productId)
+      .limit(1);
 
-  if (error) {
-    console.error('Get review stats error:', error);
+    const productExists = Array.isArray(productRow) && productRow.length > 0;
+    if (!productExists) {
+      return jsonResponse({
+        success: true,
+        data: {
+          total_reviews: 0,
+          average_rating: 0,
+          rating_1: 0,
+          rating_2: 0,
+          rating_3: 0,
+          rating_4: 0,
+          rating_5: 0,
+          verified_count: 0,
+        },
+      });
+    }
+
+    const { data: reviewRows, error } = await supabase
+      .from(ReviewTables.REVIEWS)
+      .select('rating, is_verified_purchase')
+      .eq('brand_id', brandId)
+      .eq('product_id', productId)
+      .eq('status', 'approved');
+
+    if (error) {
+      console.error('Get review stats error:', error);
+      return errorResponse('Failed to fetch review stats', 500);
+    }
+
+    const rows = Array.isArray(reviewRows) ? reviewRows : [];
+    const total = rows.length;
+    const sum = rows.reduce((acc: number, r: any) => acc + (typeof r?.rating === 'number' ? r.rating : 0), 0);
+    const average = total > 0 ? Math.round((sum / total) * 100) / 100 : 0;
+
+    const counts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } as Record<number, number>;
+    let verifiedCount = 0;
+
+    rows.forEach((r: any) => {
+      const rating = typeof r?.rating === 'number' ? r.rating : 0;
+      if (rating >= 1 && rating <= 5) counts[rating] = (counts[rating] || 0) + 1;
+      if (r?.is_verified_purchase === true) verifiedCount++;
+    });
+
+    return jsonResponse({
+      success: true,
+      data: {
+        total_reviews: total,
+        average_rating: average,
+        rating_1: counts[1],
+        rating_2: counts[2],
+        rating_3: counts[3],
+        rating_4: counts[4],
+        rating_5: counts[5],
+        verified_count: verifiedCount,
+      },
+    });
+  } catch (e) {
+    console.error('Get review stats error:', e);
     return errorResponse('Failed to fetch review stats', 500);
   }
-
-  return jsonResponse({
-    success: true,
-    data: data?.[0] || {
-      total_reviews: 0,
-      average_rating: 0,
-      rating_1: 0,
-      rating_2: 0,
-      rating_3: 0,
-      rating_4: 0,
-      rating_5: 0,
-      verified_count: 0,
-    },
-  });
 }
 
 // Create a new review
@@ -234,6 +282,23 @@ async function createReview(
 
   if (body.rating < 1 || body.rating > 5) {
     return errorResponse('Rating must be between 1 and 5', 400);
+  }
+
+  const { data: productRows, error: productError } = await supabase
+    .from(ReviewTables.PRODUCTS)
+    .select('id')
+    .eq('brand_id', brandId)
+    .eq('id', body.product_id)
+    .limit(1);
+
+  if (productError) {
+    console.error('Create review product lookup error:', productError);
+    return errorResponse('Failed to create review', 500);
+  }
+
+  const productExists = Array.isArray(productRows) && productRows.length > 0;
+  if (!productExists) {
+    return errorResponse('Product not found', 404);
   }
 
   // Check for verified purchase
@@ -371,6 +436,7 @@ async function addMerchantReply(
 // Vote on review (helpful/not helpful)
 async function voteReview(
   supabase: any,
+  brandId: string,
   reviewId: string,
   request: Request
 ): Promise<Response> {
@@ -379,6 +445,23 @@ async function voteReview(
 
   if (typeof body.is_helpful !== 'boolean') {
     return errorResponse('is_helpful is required', 400);
+  }
+
+  const { data: reviewRow, error: reviewError } = await supabase
+    .from(ReviewTables.REVIEWS)
+    .select('id')
+    .eq('brand_id', brandId)
+    .eq('id', reviewId)
+    .limit(1);
+
+  if (reviewError) {
+    console.error('Vote review lookup error:', reviewError);
+    return errorResponse('Failed to submit vote', 500);
+  }
+
+  const reviewExists = Array.isArray(reviewRow) && reviewRow.length > 0;
+  if (!reviewExists) {
+    return errorResponse('Review not found', 404);
   }
 
   // Check for existing vote

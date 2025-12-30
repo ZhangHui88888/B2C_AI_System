@@ -17,6 +17,10 @@ export async function handleSeo(request: Request, env: Env, path: string): Promi
   const supabase = getSupabase(env);
   const brandId = getBrandId(request);
 
+  if (!brandId) {
+    return jsonResponse({ error: 'Brand context missing' }, 400);
+  }
+
   // SEO Meta endpoints
   if (path === '/api/seo/meta' && method === 'POST') {
     return handleSaveMeta(request, supabase, brandId);
@@ -37,23 +41,23 @@ export async function handleSeo(request: Request, env: Env, path: string): Promi
 
   if (path.match(/^\/api\/seo\/redirects\/[\w-]+$/) && method === 'DELETE') {
     const id = path.split('/').pop()!;
-    return handleDeleteRedirect(id, supabase);
+    return handleDeleteRedirect(id, supabase, brandId);
   }
 
   if (path.match(/^\/api\/seo\/redirects\/[\w-]+$/) && method === 'PATCH') {
     const id = path.split('/').pop()!;
-    return handleUpdateRedirectStatus(request, id, supabase);
+    return handleUpdateRedirectStatus(request, id, supabase, brandId);
   }
 
   // 404 Errors endpoints
   if (path.match(/^\/api\/seo\/errors\/[\w-]+\/resolve$/) && method === 'POST') {
     const id = path.split('/')[4];
-    return handleResolveError(id, supabase, true);
+    return handleResolveError(id, supabase, brandId, true);
   }
 
   if (path.match(/^\/api\/seo\/errors\/[\w-]+\/reopen$/) && method === 'POST') {
     const id = path.split('/')[4];
-    return handleResolveError(id, supabase, false);
+    return handleResolveError(id, supabase, brandId, false);
   }
 
   if (path === '/api/seo/errors/clear-resolved' && method === 'DELETE') {
@@ -150,6 +154,7 @@ async function handleGenerateMeta(request: Request, env: Env, supabase: any, bra
       const { data: product } = await supabase
         .from('products')
         .select('name, short_description, description, category_id')
+        .eq('brand_id', brandId)
         .eq('id', page_id)
         .single();
 
@@ -160,6 +165,7 @@ async function handleGenerateMeta(request: Request, env: Env, supabase: any, bra
       const { data: category } = await supabase
         .from('categories')
         .select('name, description')
+        .eq('brand_id', brandId)
         .eq('id', page_id)
         .single();
 
@@ -235,6 +241,7 @@ async function handleBulkGenerateMeta(request: Request, env: Env, supabase: any,
     const { data: products } = await supabase
       .from('products')
       .select('id, name, short_description')
+      .eq('brand_id', brandId)
       .eq('is_active', true)
       .or('meta_title.is.null,meta_description.is.null');
 
@@ -276,6 +283,7 @@ Return JSON: {"meta_title": "50-60 chars", "meta_description": "140-160 chars"}`
                   meta_title: parsed.meta_title,
                   meta_description: parsed.meta_description,
                 })
+                .eq('brand_id', brandId)
                 .eq('id', product.id);
               count++;
             }
@@ -323,6 +331,7 @@ async function handleSaveRedirect(request: Request, supabase: any, brandId: stri
       const { data: result, error } = await supabase
         .from('url_redirects')
         .update(data)
+        .eq('brand_id', brandId)
         .eq('id', id)
         .select()
         .single();
@@ -346,11 +355,12 @@ async function handleSaveRedirect(request: Request, supabase: any, brandId: stri
   }
 }
 
-async function handleDeleteRedirect(id: string, supabase: any): Promise<Response> {
+async function handleDeleteRedirect(id: string, supabase: any, brandId: string | null): Promise<Response> {
   try {
     const { error } = await supabase
       .from('url_redirects')
       .delete()
+      .eq('brand_id', brandId)
       .eq('id', id);
 
     if (error) throw error;
@@ -361,7 +371,7 @@ async function handleDeleteRedirect(id: string, supabase: any): Promise<Response
   }
 }
 
-async function handleUpdateRedirectStatus(request: Request, id: string, supabase: any): Promise<Response> {
+async function handleUpdateRedirectStatus(request: Request, id: string, supabase: any, brandId: string | null): Promise<Response> {
   try {
     const body = await request.json() as any;
     const { is_active } = body;
@@ -369,6 +379,7 @@ async function handleUpdateRedirectStatus(request: Request, id: string, supabase
     const { data: result, error } = await supabase
       .from('url_redirects')
       .update({ is_active, updated_at: new Date().toISOString() })
+      .eq('brand_id', brandId)
       .eq('id', id)
       .select()
       .single();
@@ -383,11 +394,12 @@ async function handleUpdateRedirectStatus(request: Request, id: string, supabase
 
 // ==================== 404 Errors ====================
 
-async function handleResolveError(id: string, supabase: any, resolved: boolean): Promise<Response> {
+async function handleResolveError(id: string, supabase: any, brandId: string | null, resolved: boolean): Promise<Response> {
   try {
     const { data: result, error } = await supabase
       .from('error_404_logs')
       .update({ is_resolved: resolved })
+      .eq('brand_id', brandId)
       .eq('id', id)
       .select()
       .single();
@@ -402,16 +414,16 @@ async function handleResolveError(id: string, supabase: any, resolved: boolean):
 
 async function handleClearResolvedErrors(supabase: any, brandId: string | null): Promise<Response> {
   try {
-    let query = supabase
-      .from('error_404_logs')
-      .delete()
-      .eq('is_resolved', true);
-
-    if (brandId) {
-      query = query.eq('brand_id', brandId);
+    if (!brandId) {
+      return jsonResponse({ error: 'Brand context missing' }, 400);
     }
 
-    const { error } = await query;
+    const { error } = await supabase
+      .from('error_404_logs')
+      .delete()
+      .eq('is_resolved', true)
+      .eq('brand_id', brandId);
+
     if (error) throw error;
     return jsonResponse({ success: true });
   } catch (error) {
@@ -520,6 +532,7 @@ async function handleAnalyzeContent(request: Request, env: Env, supabase: any, b
       const { data } = await supabase
         .from('products')
         .select('id, name, description, short_description, meta_title, meta_description, images')
+        .eq('brand_id', brandId)
         .eq('id', content_id)
         .single();
       content = data;
@@ -649,6 +662,7 @@ async function handleAnalyzeAllContent(env: Env, supabase: any, brandId: string 
     const { data: products } = await supabase
       .from('products')
       .select('id')
+      .eq('brand_id', brandId)
       .eq('is_active', true);
 
     let count = 0;
@@ -658,6 +672,7 @@ async function handleAnalyzeAllContent(env: Env, supabase: any, brandId: string 
         const { data: p } = await supabase
           .from('products')
           .select('description, meta_title, meta_description, images')
+          .eq('brand_id', brandId)
           .eq('id', product.id)
           .single();
 

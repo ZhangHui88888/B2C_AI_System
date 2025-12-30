@@ -180,7 +180,7 @@ const icons: Record<string, string> = {
       const closeBtn = document.getElementById('close-sidebar');
       const logoutBtn = document.getElementById('logout-btn');
 
-      function toggleSidebar(show: boolean) {
+      function toggleSidebar(show) {
         sidebar?.classList.toggle('-translate-x-full', !show);
         overlay?.classList.toggle('hidden', !show);
       }
@@ -198,6 +198,53 @@ const icons: Record<string, string> = {
         await supabase.auth.signOut();
         window.location.href = '/admin/login';
       });
+
+      async function getAccessToken() {
+        try {
+          const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+          const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+          const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+          const supabase = createClient(supabaseUrl, supabaseAnonKey);
+          const { data } = await supabase.auth.getSession();
+          return data?.session?.access_token || null;
+        } catch {
+          return null;
+        }
+      }
+
+      function getCookie(name) {
+        const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()\[\]\\\/\+^])/g, '\\$1') + '=([^;]*)'));
+        return m ? decodeURIComponent(m[1]) : null;
+      }
+
+      // Client-side auth guard
+      (async () => {
+        const token = await getAccessToken();
+        const currentPath = window.location.pathname;
+        if (!token && currentPath !== '/admin/login') {
+          window.location.href = '/admin/login';
+        }
+      })();
+
+      // Auto-inject admin headers for worker admin APIs
+      const _fetch = window.fetch.bind(window);
+      window.fetch = async (input, init) => {
+        const url = typeof input === 'string' ? input : (input instanceof URL ? input.toString() : input.url);
+        const isAdminApi = url.includes('/api/admin/');
+        if (!isAdminApi) return _fetch(input, init);
+
+        const token = await getAccessToken();
+        const brandId = getCookie('brand_id');
+
+        const headers = new Headers(init?.headers || (typeof input !== 'string' && !(input instanceof URL) ? input.headers : undefined));
+        if (token) headers.set('Authorization', `Bearer ${token}`);
+        if (brandId) headers.set('x-brand-id', brandId);
+
+        return _fetch(url, {
+          ...init,
+          headers,
+        });
+      };
     </script>
   </body>
 </html>

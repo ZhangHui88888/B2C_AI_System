@@ -17,7 +17,7 @@ export async function handleSettings(
   const brandId = getBrandId(request);
 
   if (!brandId) {
-    return errorResponse('Brand context missing', 500);
+    return errorResponse('Brand context missing', 400);
   }
 
   // GET /api/settings - Get all settings

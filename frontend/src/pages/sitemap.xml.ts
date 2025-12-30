@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { createClient } from '@supabase/supabase-js';
 import { blogPosts, authors } from '@lib/content';
+import { fetchSiteConfig } from '@lib/site-config';
 
 function xmlEscape(s: string): string {
   return s
@@ -11,8 +12,17 @@ function xmlEscape(s: string): string {
     .replaceAll("'", '&apos;');
 }
 
-export const GET: APIRoute = async ({ site }) => {
-  const siteUrl = (site?.toString() || import.meta.env.PUBLIC_SITE_URL || 'https://example.com').replace(/\/$/, '');
+export const GET: APIRoute = async ({ site, request }) => {
+  let siteUrl = (site?.toString() || 'https://example.com').replace(/\/$/, '');
+  try {
+    siteUrl = new URL(request.url).origin.replace(/\/$/, '');
+  } catch {}
+
+  const siteConfig = await fetchSiteConfig(request);
+  const brand = siteConfig?.brand;
+  if (!brand) {
+    return new Response('Site not found', { status: 404 });
+  }
 
   const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
@@ -61,8 +71,8 @@ export const GET: APIRoute = async ({ site }) => {
     const supabase = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false } });
 
     const [{ data: products }, { data: categories }] = await Promise.all([
-      supabase.from('products').select('slug, updated_at').eq('is_active', true),
-      supabase.from('categories').select('slug, updated_at').eq('is_active', true),
+      supabase.from('products').select('slug, updated_at').eq('brand_id', brand.id).eq('is_active', true),
+      supabase.from('categories').select('slug, updated_at').eq('brand_id', brand.id).eq('is_active', true),
     ]);
 
     for (const p of products || []) {

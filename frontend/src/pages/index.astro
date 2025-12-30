@@ -6,13 +6,21 @@ import ProductCard from '@components/catalog/ProductCard.astro';
 import CategoryCard from '@components/catalog/CategoryCard.astro';
 import MediaMentions from '@components/trust/MediaMentions.astro';
 import ThirdPartyReviews from '@components/trust/ThirdPartyReviews.astro';
+import { fetchSiteConfig } from '@lib/site-config';
 
 const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
+
+const siteConfig = await fetchSiteConfig(Astro.request);
+const brand = siteConfig?.brand;
+if (!brand) {
+  return new Response('Site not found', { status: 404 });
+}
 
 const [{ data: featuredProducts }, { data: categories }] = await Promise.all([
   supabase
     .from('products')
     .select('*')
+    .eq('brand_id', brand.id)
     .eq('is_active', true)
     .eq('is_featured', true)
     .order('created_at', { ascending: false })
@@ -20,13 +28,14 @@ const [{ data: featuredProducts }, { data: categories }] = await Promise.all([
   supabase
     .from('categories')
     .select('*')
+    .eq('brand_id', brand.id)
     .eq('is_active', true)
     .order('sort_order', { ascending: true })
     .limit(12),
 ]);
 ---
 
-<Layout title="Home" description={`Shop curated products at ${siteName}.`}> 
+<Layout title="Home" description={`Shop curated products at ${brand.name || siteName}.`}> 
   <main>
     <section class="section">
       <div class="container-custom">

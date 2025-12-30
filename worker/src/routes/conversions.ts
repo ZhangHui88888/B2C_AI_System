@@ -10,16 +10,12 @@ import { getBrandId } from '../middleware/brand';
 import {
   sendServerConversions,
   buildPurchaseEvent,
-  sendFacebookConversion,
-  sendTikTokConversion,
-  sendPinterestConversion,
 } from '../utils/conversions-api';
 
 const Tables = {
-  PIXEL_EVENTS: 'pixel_events',
+  CONVERSION_EVENTS: 'conversion_events',
   TRACKING_PIXELS_CONFIG: 'tracking_pixels_config',
   ORDERS: 'orders',
-  ORDER_ITEMS: 'order_items',
 };
 
 export async function handleConversions(
@@ -31,7 +27,7 @@ export async function handleConversions(
   const brandId = getBrandId(request);
 
   if (!brandId) {
-    return errorResponse('Brand context missing', 500);
+    return errorResponse('Brand context missing', 400);
   }
 
   // POST /api/conversions/send - Send server-side conversion event
@@ -195,7 +191,7 @@ async function sendConversionEvent(
     const results = await sendServerConversions(activeConfig, event);
 
     // Log event
-    await supabase.from(Tables.PIXEL_EVENTS).insert({
+    await supabase.from(Tables.CONVERSION_EVENTS).insert({
       brand_id: brandId,
       event_name: event_name,
       event_id: event.eventId,
@@ -277,7 +273,7 @@ async function sendPurchaseConversion(
     const results = await sendServerConversions(pixelConfig, event);
 
     // Log event
-    await supabase.from(Tables.PIXEL_EVENTS).insert({
+    await supabase.from(Tables.CONVERSION_EVENTS).insert({
       brand_id: brandId,
       event_name: 'Purchase',
       event_id: order_id,
@@ -322,11 +318,15 @@ async function syncOrderConversion(
       return errorResponse('Order not found', 404);
     }
 
-    // Get order items
-    const { data: items } = await supabase
-      .from(Tables.ORDER_ITEMS)
-      .select('product_id, quantity, price, name')
-      .eq('order_id', orderId);
+    const rawItems = Array.isArray(order.items) ? order.items : [];
+    const items = rawItems
+      .map((item: any) => ({
+        product_id: item?.product_id || item?.productId || item?.id,
+        quantity: item?.quantity ?? item?.qty ?? 1,
+        price: item?.price ?? item?.item_price ?? item?.unit_price ?? 0,
+        name: item?.name || item?.title,
+      }))
+      .filter((i: any) => typeof i.product_id === 'string' && i.product_id.length > 0);
 
     // Get pixel configuration
     const pixelConfig = await getPixelConfig(supabase, brandId);
@@ -352,7 +352,7 @@ async function syncOrderConversion(
     const results = await sendServerConversions(pixelConfig, event);
 
     // Log event
-    await supabase.from(Tables.PIXEL_EVENTS).insert({
+    await supabase.from(Tables.CONVERSION_EVENTS).insert({
       brand_id: brandId,
       event_name: 'Purchase',
       event_id: orderId,
@@ -390,7 +390,7 @@ async function listEvents(
     const eventName = url.searchParams.get('event_name');
 
     let query = supabase
-      .from(Tables.PIXEL_EVENTS)
+      .from(Tables.CONVERSION_EVENTS)
       .select('*', { count: 'exact' })
       .eq('brand_id', brandId)
       .order('created_at', { ascending: false });
@@ -425,7 +425,7 @@ async function retryEvent(
   try {
     // Get original event
     const { data: event, error } = await supabase
-      .from(Tables.PIXEL_EVENTS)
+      .from(Tables.CONVERSION_EVENTS)
       .select('*')
       .eq('id', eventId)
       .eq('brand_id', brandId)
@@ -488,12 +488,13 @@ async function retryEvent(
     // Update event record
     const updatedResults = { ...event.results, ...results };
     await supabase
-      .from(Tables.PIXEL_EVENTS)
+      .from(Tables.CONVERSION_EVENTS)
       .update({
         results: updatedResults,
         retry_count: (event.retry_count || 0) + 1,
         last_retry_at: new Date().toISOString(),
       })
+      .eq('brand_id', brandId)
       .eq('id', eventId);
 
     return jsonResponse({

@@ -3,6 +3,23 @@
 -- Phase 7 P3: Advanced SEO/GEO Tools
 -- =============================================
 
+-- This migration introduces advanced SEO analysis data structures:
+-- - Internal link graph, orphan page detection, and link density analysis
+-- - Related content recommendations, sitemap sharding
+-- - Keyword research, keyword rankings, and index status tracking
+-- - Automated report configuration and report history
+--
+-- Dependencies:
+-- - Requires 001_initial_schema.sql (brands/products/categories/content_library, uuid extensions)
+-- - Recommended after 010_seo_tools.sql (SEO baseline tables)
+--
+-- Caution:
+-- - The application/page source model must be aligned before running analysis jobs.
+--   In this project, blog/content typically lives in content_library (e.g. type='blog'),
+--   not a dedicated blog_posts table. If you adapt analysis functions/views, ensure they
+--   read from the actual content source used by the app.
+-- - If running in an existing database, execute with care and validate dependent objects.
+
 -- 1. Page Link Graph (for orphan detection & internal linking)
 CREATE TABLE IF NOT EXISTS page_link_graph (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

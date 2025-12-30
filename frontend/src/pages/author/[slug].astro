@@ -7,7 +7,10 @@ import PersonSchema from '@components/seo/PersonSchema.astro';
 import { api } from '@lib/api';
 
 const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
-const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+let siteUrl = 'https://example.com';
+try {
+  siteUrl = new URL(Astro.request.url).origin;
+} catch {}
 
 const { slug } = Astro.params;
 

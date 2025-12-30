@@ -16,6 +16,10 @@ export async function handlePoints(request: Request, env: Env, path: string): Pr
   const supabase = getSupabase(env);
   const brandId = getBrandId(request);
 
+  if (!brandId) {
+    return jsonResponse({ error: 'Brand context missing' }, 400);
+  }
+
   // Points Rules
   if (path === '/api/points/rules' && method === 'GET') {
     return handleGetRules(supabase, brandId);
@@ -27,12 +31,12 @@ export async function handlePoints(request: Request, env: Env, path: string): Pr
 
   if (path.match(/^\/api\/points\/rules\/[\w-]+$/) && method === 'PUT') {
     const id = path.split('/').pop()!;
-    return handleUpdateRule(request, id, supabase);
+    return handleUpdateRule(request, id, supabase, brandId);
   }
 
   if (path.match(/^\/api\/points\/rules\/[\w-]+$/) && method === 'DELETE') {
     const id = path.split('/').pop()!;
-    return handleDeleteRule(id, supabase);
+    return handleDeleteRule(id, supabase, brandId);
   }
 
   // Points Redemption Options
@@ -46,7 +50,7 @@ export async function handlePoints(request: Request, env: Env, path: string): Pr
 
   if (path.match(/^\/api\/points\/redemptions\/[\w-]+$/) && method === 'PUT') {
     const id = path.split('/').pop()!;
-    return handleUpdateRedemptionOption(request, id, supabase);
+    return handleUpdateRedemptionOption(request, id, supabase, brandId);
   }
 
   // Customer Points
@@ -150,7 +154,7 @@ async function handleCreateRule(request: Request, supabase: any, brandId: string
   }
 }
 
-async function handleUpdateRule(request: Request, id: string, supabase: any): Promise<Response> {
+async function handleUpdateRule(request: Request, id: string, supabase: any, brandId: string): Promise<Response> {
   try {
     const body = await request.json() as any;
     const updateData: any = { updated_at: new Date().toISOString() };
@@ -170,6 +174,7 @@ async function handleUpdateRule(request: Request, id: string, supabase: any): Pr
     const { data, error } = await supabase
       .from('points_rules')
       .update(updateData)
+      .eq('brand_id', brandId)
       .eq('id', id)
       .select()
       .single();
@@ -183,11 +188,12 @@ async function handleUpdateRule(request: Request, id: string, supabase: any): Pr
   }
 }
 
-async function handleDeleteRule(id: string, supabase: any): Promise<Response> {
+async function handleDeleteRule(id: string, supabase: any, brandId: string): Promise<Response> {
   try {
     const { error } = await supabase
       .from('points_rules')
       .delete()
+      .eq('brand_id', brandId)
       .eq('id', id);
 
     if (error) throw error;
@@ -273,7 +279,7 @@ async function handleCreateRedemptionOption(request: Request, supabase: any, bra
   }
 }
 
-async function handleUpdateRedemptionOption(request: Request, id: string, supabase: any): Promise<Response> {
+async function handleUpdateRedemptionOption(request: Request, id: string, supabase: any, brandId: string): Promise<Response> {
   try {
     const body = await request.json() as any;
     const updateData: any = { updated_at: new Date().toISOString() };
@@ -294,6 +300,7 @@ async function handleUpdateRedemptionOption(request: Request, id: string, supaba
     const { data, error } = await supabase
       .from('points_redemptions')
       .update(updateData)
+      .eq('brand_id', brandId)
       .eq('id', id)
       .select()
       .single();
@@ -521,6 +528,7 @@ async function handleRedeemPoints(request: Request, supabase: any, brandId: stri
     const { data: redemption } = await supabase
       .from('points_redemptions')
       .select('*')
+      .eq('brand_id', brandId)
       .eq('id', redemption_id)
       .eq('is_active', true)
       .single();
@@ -568,6 +576,7 @@ async function handleRedeemPoints(request: Request, supabase: any, brandId: stri
     await supabase
       .from('points_redemptions')
       .update({ current_uses: redemption.current_uses + 1 })
+      .eq('brand_id', brandId)
       .eq('id', redemption_id);
 
     // Generate reward
@@ -740,12 +749,14 @@ async function handleExpirePoints(supabase: any, brandId: string | null): Promis
       await supabase
         .from('points_ledger')
         .update({ expired_at: new Date().toISOString() })
+        .eq('brand_id', brandId)
         .eq('id', entry.id);
 
       // Get current balance
       const { data: membership } = await supabase
         .from('customer_memberships')
         .select('points_balance')
+        .eq('brand_id', brandId)
         .eq('id', entry.membership_id)
         .single();
 

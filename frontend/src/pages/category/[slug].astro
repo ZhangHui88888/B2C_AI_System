@@ -5,17 +5,28 @@ import Layout from '@layouts/Layout.astro';
 import { supabase } from '@lib/supabase';
 import ProductCard from '@components/catalog/ProductCard.astro';
 import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
+import { fetchSiteConfig } from '@lib/site-config';
 
 const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
-const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+let siteUrl = 'https://example.com';
+try {
+  siteUrl = new URL(Astro.request.url).origin;
+} catch {}
 
 const pageSize = 12;
 
 const { slug } = Astro.params;
 
+const siteConfig = await fetchSiteConfig(Astro.request);
+const brand = siteConfig?.brand;
+if (!brand) {
+  return new Response('Site not found', { status: 404 });
+}
+
 const { data: category } = await supabase
   .from('categories')
   .select('*')
+  .eq('brand_id', brand.id)
   .eq('slug', slug)
   .eq('is_active', true)
   .single();
@@ -27,6 +38,7 @@ if (!category) {
 const { data: subcategories } = await supabase
   .from('categories')
   .select('*')
+  .eq('brand_id', brand.id)
   .eq('is_active', true)
   .eq('parent_id', category.id)
   .order('sort_order', { ascending: true });
@@ -34,6 +46,7 @@ const { data: subcategories } = await supabase
 const { data: products } = await supabase
   .from('products')
   .select('*')
+  .eq('brand_id', brand.id)
   .eq('is_active', true)
   .eq('category_id', category.id)
   .order('created_at', { ascending: false })
@@ -42,6 +55,7 @@ const { data: products } = await supabase
 const { data: minPriceRows } = await supabase
   .from('products')
   .select('price')
+  .eq('brand_id', brand.id)
   .eq('is_active', true)
   .eq('category_id', category.id)
   .order('price', { ascending: true })
@@ -50,6 +64,7 @@ const { data: minPriceRows } = await supabase
 const { data: maxPriceRows } = await supabase
   .from('products')
   .select('price')
+  .eq('brand_id', brand.id)
   .eq('is_active', true)
   .eq('category_id', category.id)
   .order('price', { ascending: false })
@@ -61,6 +76,7 @@ const initialMaxPrice = maxPriceRows?.[0]?.price !== undefined ? Number(maxPrice
 const { count: totalCount } = await supabase
   .from('products')
   .select('id', { count: 'exact', head: true })
+  .eq('brand_id', brand.id)
   .eq('is_active', true)
   .eq('category_id', category.id);
 

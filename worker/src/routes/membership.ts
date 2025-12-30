@@ -5,7 +5,7 @@
 
 import { Env } from '../index';
 import { getSupabase } from '../utils/supabase';
-import { jsonResponse } from '../utils/response';
+import { jsonResponse, errorResponse } from '../utils/response';
 
 function getBrandId(request: Request): string | null {
   return request.headers.get('x-brand-id');
@@ -15,6 +15,10 @@ export async function handleMembership(request: Request, env: Env, path: string)
   const method = request.method;
   const supabase = getSupabase(env);
   const brandId = getBrandId(request);
+
+  if (!brandId) {
+    return errorResponse('Brand context missing', 400);
+  }
 
   // Member Levels
   if (path === '/api/membership/levels' && method === 'GET') {
@@ -27,12 +31,12 @@ export async function handleMembership(request: Request, env: Env, path: string)
 
   if (path.match(/^\/api\/membership\/levels\/[\w-]+$/) && method === 'PUT') {
     const id = path.split('/').pop()!;
-    return handleUpdateLevel(request, id, supabase);
+    return handleUpdateLevel(request, id, supabase, brandId);
   }
 
   if (path.match(/^\/api\/membership\/levels\/[\w-]+$/) && method === 'DELETE') {
     const id = path.split('/').pop()!;
-    return handleDeleteLevel(id, supabase);
+    return handleDeleteLevel(id, supabase, brandId);
   }
 
   // Initialize default levels
@@ -150,7 +154,7 @@ async function handleCreateLevel(request: Request, supabase: any, brandId: strin
   }
 }
 
-async function handleUpdateLevel(request: Request, id: string, supabase: any): Promise<Response> {
+async function handleUpdateLevel(request: Request, id: string, supabase: any, brandId: string): Promise<Response> {
   try {
     const body = await request.json() as any;
     const updateData: any = { updated_at: new Date().toISOString() };
@@ -172,6 +176,7 @@ async function handleUpdateLevel(request: Request, id: string, supabase: any): P
     const { data, error } = await supabase
       .from('member_levels')
       .update(updateData)
+      .eq('brand_id', brandId)
       .eq('id', id)
       .select()
       .single();
@@ -185,12 +190,13 @@ async function handleUpdateLevel(request: Request, id: string, supabase: any): P
   }
 }
 
-async function handleDeleteLevel(id: string, supabase: any): Promise<Response> {
+async function handleDeleteLevel(id: string, supabase: any, brandId: string): Promise<Response> {
   try {
     // Check if any customers are on this level
     const { data: members } = await supabase
       .from('customer_memberships')
       .select('id')
+      .eq('brand_id', brandId)
       .eq('current_level_id', id)
       .limit(1);
 
@@ -201,6 +207,7 @@ async function handleDeleteLevel(id: string, supabase: any): Promise<Response> {
     const { error } = await supabase
       .from('member_levels')
       .delete()
+      .eq('brand_id', brandId)
       .eq('id', id);
 
     if (error) throw error;
@@ -364,6 +371,7 @@ async function handleGetCustomerMembership(customerId: string, supabase: any, br
     const { data: history } = await supabase
       .from('points_ledger')
       .select('*')
+      .eq('brand_id', brandId)
       .eq('membership_id', data.id)
       .order('created_at', { ascending: false })
       .limit(10);
@@ -460,6 +468,7 @@ async function handleRecalculateLevels(supabase: any, brandId: string | null): P
             current_level_id: newLevelId,
             level_updated_at: new Date().toISOString(),
           })
+          .eq('brand_id', brandId)
           .eq('id', membership.id);
 
         // Record level change

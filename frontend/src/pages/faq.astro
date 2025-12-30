@@ -6,7 +6,10 @@ import QABlock from '@components/geo/QABlock.astro';
 import { faqs } from '@lib/content';
 
 const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Store';
-const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+let siteUrl = 'https://example.com';
+try {
+  siteUrl = new URL(Astro.request.url).origin;
+} catch {}
 
 const breadcrumbItems = [
   { name: 'Home', url: siteUrl },

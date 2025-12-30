@@ -16,6 +16,10 @@ export async function handleSeoLinks(request: Request, env: Env, path: string): 
   const supabase = getSupabase(env);
   const brandId = getBrandId(request);
 
+  if (!brandId) {
+    return jsonResponse({ error: 'Brand context missing' }, 400);
+  }
+
   // Orphan page detection
   if (path === '/api/seo/links/orphans/scan' && method === 'POST') {
     return handleScanOrphanPages(supabase, brandId);
@@ -27,7 +31,7 @@ export async function handleSeoLinks(request: Request, env: Env, path: string): 
 
   if (path.match(/^\/api\/seo\/links\/orphans\/[\w-]+\/resolve$/) && method === 'POST') {
     const id = path.split('/')[5];
-    return handleResolveOrphan(request, id, supabase);
+    return handleResolveOrphan(request, id, supabase, brandId);
   }
 
   // Internal link density
@@ -169,7 +173,8 @@ async function handleScanOrphanPages(supabase: any, brandId: string | null): Pro
             resolved_at: new Date().toISOString(),
             resolution_action: 'links_added_externally',
           })
-          .eq('id', existing.id);
+          .eq('id', existing.id)
+          .eq('brand_id', brandId);
       }
     }
 
@@ -218,7 +223,7 @@ async function handleGetOrphanPages(request: Request, supabase: any, brandId: st
   }
 }
 
-async function handleResolveOrphan(request: Request, id: string, supabase: any): Promise<Response> {
+async function handleResolveOrphan(request: Request, id: string, supabase: any, brandId: string | null): Promise<Response> {
   try {
     const body = await request.json() as any;
     const { resolution_action } = body;
@@ -231,6 +236,7 @@ async function handleResolveOrphan(request: Request, id: string, supabase: any):
         resolution_action: resolution_action || 'manual',
       })
       .eq('id', id)
+      .eq('brand_id', brandId)
       .select()
       .single();
 

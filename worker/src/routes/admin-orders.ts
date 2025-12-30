@@ -8,6 +8,8 @@ import { getSupabase, Tables } from '../utils/supabase';
 import { jsonResponse, errorResponse } from '../utils/response';
 import { sendResendEmail } from '../utils/email';
 import Stripe from 'stripe';
+import { getBrandId } from '../middleware/brand';
+import { requireAdminAuth, requireBrandManageAccess } from '../middleware/admin-auth';
 
 const VALID_STATUSES = ['pending', 'paid', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded', 'failed'];
 
@@ -34,6 +36,17 @@ export async function handleAdminOrders(
 ): Promise<Response> {
   const supabase = getSupabase(env);
 
+  const { context: admin, response: authResponse } = await requireAdminAuth(request, env);
+  if (authResponse || !admin) return authResponse as Response;
+
+  const brandId = getBrandId(request);
+  if (!brandId || brandId === 'all') {
+    return errorResponse('Brand context missing', 400);
+  }
+
+  const access = await requireBrandManageAccess(env, admin, brandId);
+  if (!access.ok) return access.response;
+
   // GET /api/admin/orders/:id - Get order details (admin view)
   if (path.match(/^\/api\/admin\/orders\/[^\/]+$/) && request.method === 'GET') {
     const id = path.replace('/api/admin/orders/', '');
@@ -43,6 +56,7 @@ export async function handleAdminOrders(
         .from(Tables.ORDERS)
         .select('*')
         .eq('id', id)
+        .eq('brand_id', brandId)
         .single();
 
       if (error || !order) {
@@ -72,6 +86,7 @@ export async function handleAdminOrders(
         .from(Tables.ORDERS)
         .select('id, status')
         .eq('id', id)
+        .eq('brand_id', brandId)
         .single();
 
       if (fetchError || !order) {
@@ -87,7 +102,8 @@ export async function handleAdminOrders(
       const { error } = await supabase
         .from(Tables.ORDERS)
         .update({ status })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('brand_id', brandId);
 
       if (error) {
         console.error('Error updating order status:', error);
@@ -122,6 +138,7 @@ export async function handleAdminOrders(
         .from(Tables.ORDERS)
         .select('*')
         .eq('id', id)
+        .eq('brand_id', brandId)
         .single();
 
       if (fetchError || !order) {
@@ -141,7 +158,8 @@ export async function handleAdminOrders(
       const { error } = await supabase
         .from(Tables.ORDERS)
         .update(updateData)
-        .eq('id', id);
+        .eq('id', id)
+        .eq('brand_id', brandId);
 
       if (error) {
         console.error('Error updating shipping info:', error);
@@ -192,7 +210,8 @@ export async function handleAdminOrders(
       const { error } = await supabase
         .from(Tables.ORDERS)
         .update({ notes: notes || null })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('brand_id', brandId);
 
       if (error) {
         console.error('Error updating order notes:', error);
@@ -250,7 +269,8 @@ export async function handleAdminOrders(
       await supabase
         .from(Tables.ORDERS)
         .update({ status: 'refunded' })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('brand_id', brandId);
 
       // Send refund notification email
       if (order.customer_email) {
@@ -432,7 +452,8 @@ export async function handleAdminOrders(
       await supabase
         .from(Tables.ORDERS)
         .update({ review_invited_at: new Date().toISOString() })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('brand_id', brandId);
 
       return jsonResponse({ success: true, message: 'Review invitation sent successfully' });
     } catch (err) {

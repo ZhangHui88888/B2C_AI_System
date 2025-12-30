@@ -6,6 +6,8 @@
 import type { Env } from '../index';
 import { getSupabase, Tables } from '../utils/supabase';
 import { jsonResponse, errorResponse } from '../utils/response';
+import { getBrandId } from '../middleware/brand';
+import { requireAdminAuth, requireBrandManageAccess } from '../middleware/admin-auth';
 
 interface CategoryInput {
   brand_id: string;
@@ -25,12 +27,24 @@ export async function handleAdminCategories(
 ): Promise<Response> {
   const supabase = getSupabase(env);
 
+  const { context: admin, response: authResponse } = await requireAdminAuth(request, env);
+  if (authResponse || !admin) return authResponse as Response;
+
+  const brandId = getBrandId(request);
+  if (!brandId || brandId === 'all') {
+    return errorResponse('Brand context missing', 400);
+  }
+
+  const access = await requireBrandManageAccess(env, admin, brandId);
+  if (!access.ok) return access.response;
+
   // GET /api/admin/categories - Get all categories (admin view, includes inactive)
   if (path === '/api/admin/categories' && request.method === 'GET') {
     try {
       const { data: categories, error } = await supabase
         .from(Tables.CATEGORIES)
         .select('*')
+        .eq('brand_id', brandId)
         .order('sort_order', { ascending: true })
         .order('name', { ascending: true });
 
@@ -55,15 +69,15 @@ export async function handleAdminCategories(
       const input = (await request.json()) as CategoryInput;
 
       // Validate required fields
-      if (!input.brand_id || !input.name || !input.slug) {
-        return errorResponse('Missing required fields: brand_id, name, slug', 400);
+      if (!input.name || !input.slug) {
+        return errorResponse('Missing required fields: name, slug', 400);
       }
 
       // Check for duplicate slug
       const { data: existing } = await supabase
         .from(Tables.CATEGORIES)
         .select('id')
-        .eq('brand_id', input.brand_id)
+        .eq('brand_id', brandId)
         .eq('slug', input.slug)
         .limit(1);
 
@@ -73,7 +87,7 @@ export async function handleAdminCategories(
 
       // Prepare category data
       const categoryData = {
-        brand_id: input.brand_id,
+        brand_id: brandId,
         name: input.name,
         slug: input.slug.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
         description: input.description || null,
@@ -123,6 +137,10 @@ export async function handleAdminCategories(
         .single();
 
       if (fetchError || !existing) {
+        return errorResponse('Category not found', 404);
+      }
+
+      if (existing.brand_id !== brandId) {
         return errorResponse('Category not found', 404);
       }
 
@@ -186,7 +204,7 @@ export async function handleAdminCategories(
       // Check category exists
       const { data: existing, error: fetchError } = await supabase
         .from(Tables.CATEGORIES)
-        .select('id')
+        .select('id, brand_id')
         .eq('id', id)
         .single();
 
@@ -217,7 +235,8 @@ export async function handleAdminCategories(
       const { error } = await supabase
         .from(Tables.CATEGORIES)
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('brand_id', brandId);
 
       if (error) {
         console.error('Error deleting category:', error);
@@ -247,6 +266,7 @@ export async function handleAdminCategories(
         .from(Tables.CATEGORIES)
         .select('*')
         .eq('id', id)
+        .eq('brand_id', brandId)
         .single();
 
       if (error || !category) {

@@ -4,7 +4,10 @@ import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
 import PaymentBadges from '@components/trust/PaymentBadges.astro';
 import SSLBadge from '@components/trust/SSLBadge.astro';
 
-const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+let siteUrl = 'https://example.com';
+try {
+  siteUrl = new URL(Astro.request.url).origin;
+} catch {}
 const breadcrumbItems = [
   { name: 'Home', url: siteUrl },
   { name: 'Checkout', url: new URL('/checkout', siteUrl).toString() },
@@ -199,7 +202,7 @@ const breadcrumbItems = [
     let appliedCoupon: { code: string; coupon_id: string; discount_amount: number; discount_type: string } | null = null;
 
     const stripePk = import.meta.env.PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
-    const stripeReturnBase = import.meta.env.PUBLIC_SITE_URL || window.location.origin;
+    const stripeReturnBase = window.location.origin || '';
 
     let stripe = null;
     let elements = null;

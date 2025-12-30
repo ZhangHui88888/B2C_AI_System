@@ -32,7 +32,7 @@ export async function handleAuthors(
   const brandId = getBrandId(request);
 
   if (!brandId) {
-    return errorResponse('Brand context missing', 500);
+    return errorResponse('Brand context missing', 400);
   }
 
   // GET /api/authors - List authors
@@ -94,6 +94,7 @@ async function listAuthors(
     const { data: contentStats } = await supabase
       .from(Tables.CONTENT_LIBRARY)
       .select('type, status')
+      .eq('brand_id', brandId)
       .eq('author_id', data.id);
 
     const stats = {
@@ -168,6 +169,7 @@ async function getAuthor(
   const { data: contentStats } = await supabase
     .from(Tables.CONTENT_LIBRARY)
     .select('type, status')
+    .eq('brand_id', brandId)
     .eq('author_id', id);
 
   const stats = {
@@ -303,6 +305,7 @@ async function deleteAuthor(
   await supabase
     .from(Tables.CONTENT_LIBRARY)
     .update({ author_id: null })
+    .eq('brand_id', brandId)
     .eq('author_id', id);
 
   const { error } = await supabase

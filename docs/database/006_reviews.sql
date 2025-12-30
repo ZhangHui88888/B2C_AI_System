@@ -4,7 +4,12 @@
 -- ============================================
 -- 1. REVIEW STATUS ENUM
 -- ============================================
-CREATE TYPE review_status_enum AS ENUM ('pending', 'approved', 'rejected', 'spam');
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'review_status_enum') THEN
+    CREATE TYPE review_status_enum AS ENUM ('pending', 'approved', 'rejected', 'spam');
+  END IF;
+END$$;
 
 -- ============================================
 -- 2. REVIEWS TABLE
@@ -76,7 +81,7 @@ CREATE TABLE IF NOT EXISTS review_votes (
 );
 
 CREATE INDEX idx_review_votes_review ON review_votes(review_id);
-CREATE UNIQUE INDEX idx_review_votes_unique ON review_votes(review_id, COALESCE(customer_id, voter_ip::uuid));
+CREATE UNIQUE INDEX idx_review_votes_unique ON review_votes(review_id, COALESCE(customer_id::text, voter_ip));
 
 -- ============================================
 -- 4. REVIEW INVITATION TABLE
@@ -171,7 +176,7 @@ BEGIN
     FROM orders o
     WHERE o.brand_id = p_brand_id
       AND o.customer_email = p_customer_email
-      AND o.status IN ('processing', 'shipped', 'delivered')
+      AND o.status IN ('paid', 'shipped', 'delivered')
       AND EXISTS (
           SELECT 1 FROM jsonb_array_elements(o.items) item
           WHERE (item->>'product_id')::uuid = p_product_id

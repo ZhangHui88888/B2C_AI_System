@@ -16,6 +16,10 @@ export async function handleIndexStatus(request: Request, env: Env, path: string
   const supabase = getSupabase(env);
   const brandId = getBrandId(request);
 
+  if (!brandId) {
+    return jsonResponse({ error: 'Brand context missing' }, 400);
+  }
+
   // Check single URL
   if (path === '/api/index-status/check' && method === 'POST') {
     return handleCheckUrl(request, env, supabase, brandId);

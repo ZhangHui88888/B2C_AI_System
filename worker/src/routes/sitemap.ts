@@ -18,6 +18,10 @@ export async function handleSitemap(request: Request, env: Env, path: string): P
   const supabase = getSupabase(env);
   const brandId = getBrandId(request);
 
+  if (!brandId) {
+    return jsonResponse({ error: 'Brand context missing' }, 400);
+  }
+
   // Generate sitemap index
   if (path === '/api/sitemap/index' && method === 'GET') {
     return handleGetSitemapIndex(request, supabase, brandId);

@@ -26,7 +26,7 @@ export async function handleKnowledge(
   const brandId = getBrandId(request);
 
   if (!brandId) {
-    return errorResponse('Brand context missing', 500);
+    return errorResponse('Brand context missing', 400);
   }
 
   // GET /api/knowledge - List knowledge entries
@@ -307,6 +307,7 @@ async function syncProducts(
             content,
             embedding: hasValidEmbedding ? embedding : null,
           })
+          .eq('brand_id', brandId)
           .eq('id', existing.id);
       } else {
         // Insert new

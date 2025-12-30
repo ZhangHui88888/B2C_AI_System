@@ -2,11 +2,15 @@
 import Layout from '@layouts/Layout.astro';
 import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
 
-const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
+let siteUrl = 'https://example.com';
+try {
+  siteUrl = new URL(Astro.request.url).origin;
+} catch {}
 const breadcrumbItems = [
   { name: 'Home', url: siteUrl },
   { name: 'Order lookup', url: new URL('/order', siteUrl).toString() },
 ];
+
 ---
 
 <Layout title="Order lookup" description="Find and track your order.">

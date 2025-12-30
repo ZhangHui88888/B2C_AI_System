@@ -1,15 +1,39 @@
 ---
-const links = {
+export interface Props {
+  links?: Partial<Record<'instagram' | 'tiktok' | 'facebook' | 'youtube' | 'twitter' | 'pinterest', string | null>>;
+}
+
+const { links: linksProp } = Astro.props;
+
+const defaultLinks = {
   instagram: import.meta.env.PUBLIC_SOCIAL_INSTAGRAM || 'https://instagram.com',
   tiktok: import.meta.env.PUBLIC_SOCIAL_TIKTOK || 'https://tiktok.com',
   facebook: import.meta.env.PUBLIC_SOCIAL_FACEBOOK || 'https://facebook.com',
   youtube: import.meta.env.PUBLIC_SOCIAL_YOUTUBE || 'https://youtube.com',
+  twitter: null,
+  pinterest: null,
 };
+
+const links = { ...defaultLinks, ...(linksProp || {}) };
 ---
 
 <div class="flex items-center gap-3">
-  <a class="text-gray-400 hover:text-white" href={links.instagram} target="_blank" rel="noopener noreferrer">Instagram</a>
-  <a class="text-gray-400 hover:text-white" href={links.tiktok} target="_blank" rel="noopener noreferrer">TikTok</a>
-  <a class="text-gray-400 hover:text-white" href={links.facebook} target="_blank" rel="noopener noreferrer">Facebook</a>
-  <a class="text-gray-400 hover:text-white" href={links.youtube} target="_blank" rel="noopener noreferrer">YouTube</a>
+  {links.instagram && (
+    <a class="text-gray-400 hover:text-white" href={links.instagram} target="_blank" rel="noopener noreferrer">Instagram</a>
+  )}
+  {links.tiktok && (
+    <a class="text-gray-400 hover:text-white" href={links.tiktok} target="_blank" rel="noopener noreferrer">TikTok</a>
+  )}
+  {links.facebook && (
+    <a class="text-gray-400 hover:text-white" href={links.facebook} target="_blank" rel="noopener noreferrer">Facebook</a>
+  )}
+  {links.youtube && (
+    <a class="text-gray-400 hover:text-white" href={links.youtube} target="_blank" rel="noopener noreferrer">YouTube</a>
+  )}
+  {links.twitter && (
+    <a class="text-gray-400 hover:text-white" href={links.twitter} target="_blank" rel="noopener noreferrer">X</a>
+  )}
+  {links.pinterest && (
+    <a class="text-gray-400 hover:text-white" href={links.pinterest} target="_blank" rel="noopener noreferrer">Pinterest</a>
+  )}
 </div>
