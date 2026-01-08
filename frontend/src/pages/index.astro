@@ -1,7 +1,6 @@
 ---
 // Homepage - to be implemented in Step 2.1
 import Layout from '@layouts/Layout.astro';
-import { supabase } from '@lib/supabase';
 import ProductCard from '@components/catalog/ProductCard.astro';
 import CategoryCard from '@components/catalog/CategoryCard.astro';
 import MediaMentions from '@components/trust/MediaMentions.astro';
@@ -16,23 +15,25 @@ if (!brand) {
   return new Response('Site not found', { status: 404 });
 }
 
-const [{ data: featuredProducts }, { data: categories }] = await Promise.all([
-  supabase
-    .from('products')
-    .select('*')
-    .eq('brand_id', brand.id)
-    .eq('is_active', true)
-    .eq('is_featured', true)
-    .order('created_at', { ascending: false })
-    .limit(8),
-  supabase
-    .from('categories')
-    .select('*')
-    .eq('brand_id', brand.id)
-    .eq('is_active', true)
-    .order('sort_order', { ascending: true })
-    .limit(12),
+const apiOrigin = new URL(Astro.request.url).origin;
+
+const [featuredData, categoriesData] = await Promise.all([
+  fetch(new URL('/api/products/list', apiOrigin).toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-brand-id': brand.id },
+    body: JSON.stringify({ featured: true, limit: 8, sort: 'featured' }),
+  })
+    .then((r) => r.json())
+    .catch(() => null),
+  fetch(new URL('/api/categories', apiOrigin).toString(), {
+    headers: { 'x-brand-id': brand.id },
+  })
+    .then((r) => r.json())
+    .catch(() => null),
 ]);
+
+const featuredProducts = featuredData?.products || [];
+const categories = categoriesData?.categories || [];
 ---
 
 <Layout title="Home" description={`Shop curated products at ${brand.name || siteName}.`}> 

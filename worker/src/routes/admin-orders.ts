@@ -47,6 +47,51 @@ export async function handleAdminOrders(
   const access = await requireBrandManageAccess(env, admin, brandId);
   if (!access.ok) return access.response;
 
+  // GET /api/admin/orders - List orders (admin view)
+  if (path === '/api/admin/orders' && request.method === 'GET') {
+    try {
+      const url = new URL(request.url);
+      const page = Math.max(1, parseInt(url.searchParams.get('page') || '1'));
+      const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '20')));
+      const status = url.searchParams.get('status') || '';
+      const offset = (page - 1) * limit;
+
+      let query = supabase
+        .from(Tables.ORDERS)
+        .select('id, order_number, total_amount, status, customer_email, shipping_address, created_at, items', {
+          count: 'exact',
+        })
+        .eq('brand_id', brandId)
+        .order('created_at', { ascending: false });
+
+      if (status) {
+        query = query.eq('status', status);
+      }
+
+      const { data: orders, error, count } = await query.range(offset, offset + limit - 1);
+
+      if (error) {
+        console.error('Error listing orders:', error);
+        return errorResponse('Failed to fetch orders', 500);
+      }
+
+      const total = count || 0;
+      return jsonResponse({
+        success: true,
+        orders: orders || [],
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
+    } catch (err) {
+      console.error('Error in list orders:', err);
+      return errorResponse('Failed to fetch orders', 500);
+    }
+  }
+
   // GET /api/admin/orders/:id - Get order details (admin view)
   if (path.match(/^\/api\/admin\/orders\/[^\/]+$/) && request.method === 'GET') {
     const id = path.replace('/api/admin/orders/', '');

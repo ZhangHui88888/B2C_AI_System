@@ -2,15 +2,7 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
-
-// Get existing pixel configuration
-const { data: config } = await supabase
-  .from('tracking_pixels_config')
-  .select('*')
-  .limit(1);
-
-const pixelConfig = config?.[0] || {};
+const pixelConfig: any = {};
 ---
 
 <AdminLayout title="跟踪像素" activePage="marketing">
@@ -234,9 +226,47 @@ const pixelConfig = config?.[0] || {};
 </AdminLayout>
 
 <script>
-  const API_BASE = import.meta.env.PUBLIC_API_URL || '';
+  const API_URL = import.meta.env.PUBLIC_API_URL || '';
+  const apiBase = API_URL && API_URL.trim() ? API_URL.trim().replace(/\/$/, '') : '';
+  const api = (path) => (apiBase ? `${apiBase}${path}` : path);
   const form = document.getElementById('pixels-form') as HTMLFormElement;
   const toast = document.getElementById('toast');
+
+  function setField(name: string, value: any) {
+    const el = form?.querySelector(`[name="${name}"]`) as HTMLInputElement | HTMLTextAreaElement | null;
+    if (!el) return;
+
+    if (el instanceof HTMLInputElement && el.type === 'checkbox') {
+      el.checked = !!value;
+      return;
+    }
+
+    (el as any).value = value ?? '';
+  }
+
+  async function loadConfig() {
+    try {
+      const res = await fetch(api('/api/admin/marketing/tracking-pixels/config'));
+      if (!res.ok) return;
+      const data = await res.json();
+      const cfg = data?.data || {};
+
+      setField('facebook_pixel_id', cfg.facebook_pixel_id || '');
+      setField('facebook_access_token', cfg.facebook_access_token || '');
+      setField('facebook_test_event_code', cfg.facebook_test_event_code || '');
+      setField('google_ads_id', cfg.google_ads_id || '');
+      setField('google_conversion_label', cfg.google_conversion_label || '');
+      setField('google_remarketing_id', cfg.google_remarketing_id || '');
+      setField('tiktok_pixel_id', cfg.tiktok_pixel_id || '');
+      setField('tiktok_access_token', cfg.tiktok_access_token || '');
+      setField('pinterest_tag_id', cfg.pinterest_tag_id || '');
+      setField('pinterest_access_token', cfg.pinterest_access_token || '');
+      setField('server_side_enabled', cfg.server_side_enabled);
+      setField('hash_user_data', cfg.hash_user_data !== false);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  }
 
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -257,7 +287,7 @@ const pixelConfig = config?.[0] || {};
     if (!formData.has('hash_user_data')) data.hash_user_data = false;
 
     try {
-      const response = await fetch(`${API_BASE}/api/tracking/pixels/config`, {
+      const response = await fetch(api('/api/admin/marketing/tracking-pixels/config'), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -274,4 +304,6 @@ const pixelConfig = config?.[0] || {};
       alert('发生错误');
     }
   });
+
+  setTimeout(loadConfig, 0);
 </script>

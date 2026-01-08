@@ -2,23 +2,8 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
 
-// Get default brand (first active brand for now)
-const { data: brands } = await supabase
-  .from('brands')
-  .select('id')
-  .eq('is_active', true)
-  .limit(1);
-
-const defaultBrandId = brands?.[0]?.id || '';
-
-// Fetch categories for dropdown
-const { data: categories } = await supabase
-  .from('categories')
-  .select('id, name, slug, parent_id')
-  .eq('is_active', true)
-  .order('name');
+const categories: any[] = [];
 ---
 
 <AdminLayout title="新建商品" activePage="products">
@@ -39,7 +24,6 @@ const { data: categories } = await supabase
     </div>
 
     <form id="product-form" class="space-y-6">
-      <input type="hidden" name="brand_id" value={defaultBrandId} />
 
       <!-- Basic Information -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -251,9 +235,6 @@ const { data: categories } = await supabase
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             >
               <option value="">无分类</option>
-              {categories?.map((cat: any) => (
-                <option value={cat.id}>{cat.name}</option>
-              ))}
             </select>
           </div>
 
@@ -498,13 +479,36 @@ const { data: categories } = await supabase
       }
     });
 
+    // Load categories for dropdown
+    async function loadCategories() {
+      try {
+        const select = document.getElementById('category_id');
+        if (!select) return;
+
+        const res = await fetch('/api/admin/categories');
+        const json = await res.json();
+
+        if (!res.ok || !json?.success || !Array.isArray(json.categories)) {
+          return;
+        }
+
+        const options = ['<option value="">无分类</option>']
+          .concat(
+            json.categories.map((c) => `<option value="${c.id}">${c.name}</option>`)
+          )
+          .join('');
+        select.innerHTML = options;
+      } catch (err) {
+        console.error('Failed to load categories:', err);
+      }
+    }
+
     // Form submission
     form?.addEventListener('submit', async (e) => {
       e.preventDefault();
       
       const formData = new FormData(form);
       const data = {
-        brand_id: formData.get('brand_id'),
         name: formData.get('name'),
         slug: formData.get('slug'),
         description: formData.get('description') || null,
@@ -551,5 +555,7 @@ const { data: categories } = await supabase
         showToast('创建商品失败', 'error');
       }
     });
+
+    loadCategories();
   </script>
 </AdminLayout>

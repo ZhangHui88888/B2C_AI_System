@@ -2,18 +2,11 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
 
 // Get URL parameter for pre-filling source path
 const sourceParam = Astro.url.searchParams.get('source') || '';
 
-// Get all redirects
-const { data: redirects } = await supabase
-  .from('url_redirects')
-  .select('*')
-  .order('created_at', { ascending: false });
-
-const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+const redirects: any[] = [];
 ---
 
 <AdminLayout title="URL 重定向" activePage="seo">
@@ -43,15 +36,15 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
       <p class="text-sm font-medium text-gray-500">总重定向数</p>
-      <p class="text-2xl font-bold text-gray-900 mt-1">{redirects?.length || 0}</p>
+      <p class="text-2xl font-bold text-gray-900 mt-1" id="redirects-total">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
       <p class="text-sm font-medium text-gray-500">活跃重定向</p>
-      <p class="text-2xl font-bold text-green-600 mt-1">{redirects?.filter(r => r.is_active).length || 0}</p>
+      <p class="text-2xl font-bold text-green-600 mt-1" id="redirects-active">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
       <p class="text-sm font-medium text-gray-500">总访问数</p>
-      <p class="text-2xl font-bold text-blue-600 mt-1">{redirects?.reduce((sum, r) => sum + (r.hit_count || 0), 0) || 0}</p>
+      <p class="text-2xl font-bold text-blue-600 mt-1" id="redirects-hits">0</p>
     </div>
   </div>
 
@@ -70,63 +63,9 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200" id="redirects-tbody">
-          {redirects && redirects.length > 0 ? (
-            redirects.map((redirect) => (
-              <tr class="hover:bg-gray-50" data-id={redirect.id}>
-                <td class="px-6 py-4">
-                  <code class="text-sm bg-gray-100 px-2 py-1 rounded">{redirect.source_path}</code>
-                </td>
-                <td class="px-6 py-4">
-                  <p class="text-sm text-gray-900 truncate max-w-md" title={redirect.target_url}>
-                    {redirect.target_url}
-                  </p>
-                </td>
-                <td class="px-6 py-4">
-                  <span class={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    redirect.redirect_type === 301 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {redirect.redirect_type}
-                  </span>
-                </td>
-                <td class="px-6 py-4 text-sm text-gray-500">
-                  {redirect.hit_count || 0}
-                </td>
-                <td class="px-6 py-4">
-                  <button 
-                    class="toggle-status-btn"
-                    data-id={redirect.id}
-                    data-active={redirect.is_active}
-                  >
-                    <span class={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer ${
-                      redirect.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {redirect.is_active ? '活跃' : '停用'}
-                    </span>
-                  </button>
-                </td>
-                <td class="px-6 py-4 text-right">
-                  <button 
-                    class="text-primary-600 hover:text-primary-700 text-sm font-medium mr-3 edit-btn"
-                    data-redirect={JSON.stringify(redirect)}
-                  >
-                    编辑
-                  </button>
-                  <button 
-                    class="text-red-600 hover:text-red-700 text-sm font-medium delete-btn"
-                    data-id={redirect.id}
-                  >
-                    删除
-                  </button>
-                </td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colspan="6" class="px-6 py-12 text-center text-gray-500">
-                尚未配置重定向
-              </td>
-            </tr>
-          )}
+          <tr>
+            <td colspan="6" class="px-6 py-12 text-center text-gray-500">加载中...</td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -205,13 +144,30 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
   </div>
 </AdminLayout>
 
-<script define:vars={{ apiUrl, sourceParam }}>
+<script define:vars={{ sourceParam }}>
+  const tbody = document.getElementById('redirects-tbody');
+  const totalEl = document.getElementById('redirects-total');
+  const activeEl = document.getElementById('redirects-active');
+  const hitsEl = document.getElementById('redirects-hits');
+
   const modal = document.getElementById('redirect-modal');
   const modalBackdrop = document.getElementById('modal-backdrop');
   const closeBtn = document.getElementById('close-modal');
   const cancelBtn = document.getElementById('cancel-btn');
   const form = document.getElementById('redirect-form');
   const modalTitle = document.getElementById('modal-title');
+
+  let redirects = [];
+  const redirectById = new Map();
+
+  function escapeHtml(s) {
+    return String(s ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
 
   function openModal(redirect = null) {
     if (redirect) {
@@ -244,59 +200,94 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
   cancelBtn?.addEventListener('click', closeModal);
   modalBackdrop?.addEventListener('click', closeModal);
 
-  // Edit buttons
-  document.querySelectorAll('.edit-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const redirect = JSON.parse(btn.dataset.redirect);
-      openModal(redirect);
-    });
-  });
+  function renderRows() {
+    if (!tbody) return;
+    if (!Array.isArray(redirects) || redirects.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-gray-500">尚未配置重定向</td></tr>`;
+      return;
+    }
 
-  // Delete buttons
-  document.querySelectorAll('.delete-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('确定要删除此重定向吗？')) return;
-      
-      const id = btn.dataset.id;
-      try {
-        const response = await fetch(`${apiUrl}/api/seo/redirects/${id}`, {
-          method: 'DELETE'
-        });
-        if (response.ok) {
-          window.location.reload();
-        } else {
+    tbody.innerHTML = redirects
+      .map((r) => {
+        const typeBadgeClass = Number(r.redirect_type) === 301 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
+        const statusBadgeClass = r.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
+        const statusLabel = r.is_active ? '活跃' : '停用';
+        return `
+          <tr class="hover:bg-gray-50" data-id="${escapeHtml(r.id)}">
+            <td class="px-6 py-4"><code class="text-sm bg-gray-100 px-2 py-1 rounded">${escapeHtml(r.source_path)}</code></td>
+            <td class="px-6 py-4"><p class="text-sm text-gray-900 truncate max-w-md" title="${escapeHtml(r.target_url)}">${escapeHtml(r.target_url)}</p></td>
+            <td class="px-6 py-4"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${typeBadgeClass}">${escapeHtml(r.redirect_type)}</span></td>
+            <td class="px-6 py-4 text-sm text-gray-500">${escapeHtml(r.hit_count || 0)}</td>
+            <td class="px-6 py-4">
+              <button class="toggle-status-btn" data-id="${escapeHtml(r.id)}" data-active="${r.is_active ? 'true' : 'false'}">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer ${statusBadgeClass}">${statusLabel}</span>
+              </button>
+            </td>
+            <td class="px-6 py-4 text-right">
+              <button class="text-primary-600 hover:text-primary-700 text-sm font-medium mr-3 edit-btn" data-id="${escapeHtml(r.id)}">编辑</button>
+              <button class="text-red-600 hover:text-red-700 text-sm font-medium delete-btn" data-id="${escapeHtml(r.id)}">删除</button>
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    // Edit buttons
+    document.querySelectorAll('.edit-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        if (!id) return;
+        const redirect = redirectById.get(id);
+        openModal(redirect || null);
+      });
+    });
+
+    // Delete buttons
+    document.querySelectorAll('.delete-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('确定要删除此重定向吗？')) return;
+        const id = btn.dataset.id;
+        if (!id) return;
+
+        try {
+          const response = await fetch(`/api/admin/seo/redirects/${encodeURIComponent(id)}`, { method: 'DELETE' });
+          if (response.ok) {
+            window.location.reload();
+          } else {
+            alert('删除重定向失败');
+          }
+        } catch (error) {
+          console.error('Error:', error);
           alert('删除重定向失败');
         }
-      } catch (error) {
-        console.error('Error:', error);
-        alert('删除重定向失败');
-      }
+      });
     });
-  });
 
-  // Toggle status buttons
-  document.querySelectorAll('.toggle-status-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.dataset.id;
-      const currentActive = btn.dataset.active === 'true';
-      
-      try {
-        const response = await fetch(`${apiUrl}/api/seo/redirects/${id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ is_active: !currentActive })
-        });
-        if (response.ok) {
-          window.location.reload();
-        } else {
+    // Toggle status buttons
+    document.querySelectorAll('.toggle-status-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const currentActive = btn.dataset.active === 'true';
+        if (!id) return;
+
+        try {
+          const response = await fetch(`/api/admin/seo/redirects/${encodeURIComponent(id)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_active: !currentActive }),
+          });
+          if (response.ok) {
+            window.location.reload();
+          } else {
+            alert('更新状态失败');
+          }
+        } catch (error) {
+          console.error('Error:', error);
           alert('更新状态失败');
         }
-      } catch (error) {
-        console.error('Error:', error);
-        alert('更新状态失败');
-      }
+      });
     });
-  });
+  }
 
   // Form submit
   form?.addEventListener('submit', async (e) => {
@@ -311,7 +302,7 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
     };
 
     try {
-      const response = await fetch(`${apiUrl}/api/seo/redirects`, {
+      const response = await fetch(`/api/admin/seo/redirects`, {
         method: data.id ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -332,4 +323,28 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
   if (sourceParam) {
     openModal();
   }
+
+  async function load() {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-gray-500">加载中...</td></tr>`;
+    try {
+      const res = await fetch('/api/admin/seo/redirects');
+      const json = await res.json().catch(() => null);
+      redirects = Array.isArray(json?.redirects) ? json.redirects : [];
+      redirectById.clear();
+      redirects.forEach((r) => r?.id && redirectById.set(r.id, r));
+
+      const active = redirects.filter((r) => r.is_active).length;
+      const hits = redirects.reduce((sum, r) => sum + (Number(r.hit_count) || 0), 0);
+      if (totalEl) totalEl.textContent = String(redirects.length);
+      if (activeEl) activeEl.textContent = String(active);
+      if (hitsEl) hitsEl.textContent = String(hits);
+
+      renderRows();
+    } catch (e) {
+      console.error('Failed to load redirects:', e);
+      if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-red-600">加载失败</td></tr>`;
+    }
+  }
+
+  load();
 </script>

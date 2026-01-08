@@ -8,6 +8,7 @@ import { getSupabase } from '../utils/supabase';
 import { jsonResponse, errorResponse } from '../utils/response';
 import { getBrandId } from '../middleware/brand';
 import { sendResendEmail } from '../utils/email';
+import { validateCronSecret } from '../utils/cron';
 
 const Tables = {
   EMAIL_SEQUENCES: 'email_sequences',
@@ -26,9 +27,26 @@ export async function handleEmailSequences(
   path: string
 ): Promise<Response> {
   const supabase = getSupabase(env);
+
+  // ============================================
+  // CRON ENDPOINTS (for scheduled tasks)
+  // ============================================
+
+  if (request.method === 'POST' && path === '/api/email-sequences/process') {
+    const cron = validateCronSecret(request, env);
+    if (!cron.ok) return cron.response;
+    return await processSequenceEmails(supabase, env);
+  }
+
+  if (request.method === 'POST' && path === '/api/email-sequences/process-repurchase') {
+    const cron = validateCronSecret(request, env);
+    if (!cron.ok) return cron.response;
+    return await processRepurchaseReminders(supabase, env);
+  }
+
   const brandId = getBrandId(request);
 
-  if (!brandId) {
+  if (!brandId || brandId === 'all') {
     return errorResponse('Brand context missing', 400);
   }
 
@@ -151,16 +169,6 @@ export async function handleEmailSequences(
   // ============================================
   // CRON ENDPOINTS (for scheduled tasks)
   // ============================================
-
-  // POST /api/email-sequences/process - Process pending emails (cron)
-  if (request.method === 'POST' && path === '/api/email-sequences/process') {
-    return await processSequenceEmails(supabase, env);
-  }
-
-  // POST /api/email-sequences/process-repurchase - Process repurchase reminders (cron)
-  if (request.method === 'POST' && path === '/api/email-sequences/process-repurchase') {
-    return await processRepurchaseReminders(supabase, env);
-  }
 
   return errorResponse('Not found', 404);
 }

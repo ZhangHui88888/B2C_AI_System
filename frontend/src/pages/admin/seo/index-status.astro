@@ -2,19 +2,7 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
-
-const { data: indexStatus } = await supabase
-  .from('index_status')
-  .select('*')
-  .order('last_checked_at', { ascending: false });
-
-const allPages = indexStatus || [];
-const indexed = allPages.filter((p: any) => p.is_indexed);
-const notIndexed = allPages.filter((p: any) => !p.is_indexed);
-const indexRate = allPages.length ? Math.round((indexed.length / allPages.length) * 100) : 0;
-const mobileFriendly = allPages.filter((p: any) => p.is_mobile_friendly).length;
-const hasRichResults = allPages.filter((p: any) => p.has_rich_results).length;
+const allPages: any[] = [];
 ---
 
 <AdminLayout title="索引状态" activePage="seo">
@@ -35,25 +23,23 @@ const hasRichResults = allPages.filter((p: any) => p.has_rich_results).length;
   <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">总页面数</p>
-      <p class="text-2xl font-bold text-gray-900">{allPages.length}</p>
+      <p class="text-2xl font-bold text-gray-900" id="stat-total">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">索引率</p>
-      <p class={`text-2xl font-bold ${indexRate >= 90 ? 'text-green-600' : indexRate >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
-        {indexRate}%
-      </p>
+      <p class="text-2xl font-bold text-gray-900" id="stat-index-rate">0%</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">已索引</p>
-      <p class="text-2xl font-bold text-green-600">{indexed.length}</p>
+      <p class="text-2xl font-bold text-green-600" id="stat-indexed">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">未索引</p>
-      <p class="text-2xl font-bold text-red-600">{notIndexed.length}</p>
+      <p class="text-2xl font-bold text-red-600" id="stat-not-indexed">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">富媒体结果</p>
-      <p class="text-2xl font-bold text-purple-600">{hasRichResults}</p>
+      <p class="text-2xl font-bold text-purple-600" id="stat-rich">0</p>
     </div>
   </div>
 
@@ -61,11 +47,11 @@ const hasRichResults = allPages.filter((p: any) => p.has_rich_results).length;
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 mb-6">
     <div class="border-b border-gray-100">
       <nav class="flex -mb-px">
-        <button class="tab-btn px-6 py-3 text-sm font-medium border-b-2 border-primary-600 text-primary-600" data-filter="all">全部 ({allPages.length})
+        <button class="tab-btn px-6 py-3 text-sm font-medium border-b-2 border-primary-600 text-primary-600" data-filter="all">全部
         </button>
-        <button class="tab-btn px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-filter="indexed">已索引 ({indexed.length})
+        <button class="tab-btn px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-filter="indexed">已索引 (<span id="tab-indexed">0</span>)
         </button>
-        <button class="tab-btn px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-filter="not_indexed">未索引 ({notIndexed.length})
+        <button class="tab-btn px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-filter="not_indexed">未索引 (<span id="tab-not-indexed">0</span>)
         </button>
       </nav>
     </div>
@@ -85,70 +71,9 @@ const hasRichResults = allPages.filter((p: any) => p.has_rich_results).length;
           </tr>
         </thead>
         <tbody id="pages-tbody" class="divide-y divide-gray-100">
-          {allPages.length > 0 ? (
-            allPages.map((page: any) => (
-              <tr class="hover:bg-gray-50 page-row" data-indexed={page.is_indexed ? 'true' : 'false'}>
-                <td class="px-6 py-4">
-                  <p class="text-sm font-medium text-gray-900 truncate max-w-xs">{page.page_url}</p>
-                  <p class="text-xs text-gray-500">
-                    上次检查: {page.last_checked_at ? new Date(page.last_checked_at).toLocaleDateString() : '从未'}
-                  </p>
-                </td>
-                <td class="px-6 py-4">
-                  <span class="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700 capitalize">{page.page_type || 'page'}</span>
-                </td>
-                <td class="px-6 py-4 text-center">
-                  {page.is_indexed ? (
-                    <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100">
-                      <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                      </svg>
-                    </span>
-                  ) : (
-                    <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100">
-                      <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </span>
-                  )}
-                </td>
-                <td class="px-6 py-4 text-center">
-                  {page.is_mobile_friendly ? (
-                    <span class="text-green-600">✓</span>
-                  ) : (
-                    <span class="text-gray-400">-</span>
-                  )}
-                </td>
-                <td class="px-6 py-4 text-center">
-                  {page.has_rich_results ? (
-                    <span class="text-purple-600">✓</span>
-                  ) : (
-                    <span class="text-gray-400">-</span>
-                  )}
-                </td>
-                <td class="px-6 py-4">
-                  <p class="text-xs text-gray-600">{page.index_coverage_state || page.index_status || 'Unknown'}</p>
-                </td>
-                <td class="px-6 py-4">
-                  {!page.is_indexed && (
-                    <button
-                      class="text-primary-600 hover:text-primary-700 text-sm"
-                      data-url={page.page_url}
-                      onclick="requestIndexing(this)"
-                    >
-                      请求索引
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colspan="7" class="px-6 py-12 text-center text-gray-500">
-                暂无已检查的页面。点击"检查所有页面"开始。
-              </td>
-            </tr>
-          )}
+          <tr>
+            <td colspan="7" class="px-6 py-12 text-center text-gray-500">加载中...</td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -156,13 +81,86 @@ const hasRichResults = allPages.filter((p: any) => p.has_rich_results).length;
 </AdminLayout>
 
 <script>
+  const tbody = document.getElementById('pages-tbody');
+  const statTotal = document.getElementById('stat-total');
+  const statRate = document.getElementById('stat-index-rate');
+  const statIndexed = document.getElementById('stat-indexed');
+  const statNotIndexed = document.getElementById('stat-not-indexed');
+  const statRich = document.getElementById('stat-rich');
+  const tabIndexed = document.getElementById('tab-indexed');
+  const tabNotIndexed = document.getElementById('tab-not-indexed');
+
+  let currentPages = [];
+
+  function escapeHtml(s) {
+    return String(s ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  function renderRows(pages) {
+    if (!tbody) return;
+    if (!Array.isArray(pages) || pages.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-gray-500">暂无已检查的页面。点击"检查所有页面"开始。</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = pages
+      .map((page) => {
+        const indexed = !!page.is_indexed;
+        const mobile = !!page.is_mobile_friendly;
+        const rich = !!page.has_rich_results;
+        const last = page.last_checked_at ? new Date(page.last_checked_at).toLocaleDateString() : '从未';
+        const status = page.index_coverage_state || page.index_status || 'Unknown';
+
+        return `
+          <tr class="hover:bg-gray-50 page-row" data-indexed="${indexed ? 'true' : 'false'}">
+            <td class="px-6 py-4">
+              <p class="text-sm font-medium text-gray-900 truncate max-w-xs">${escapeHtml(page.page_url)}</p>
+              <p class="text-xs text-gray-500">上次检查: ${escapeHtml(last)}</p>
+            </td>
+            <td class="px-6 py-4"><span class="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700 capitalize">${escapeHtml(page.page_type || 'page')}</span></td>
+            <td class="px-6 py-4 text-center">
+              ${indexed ?
+                '<span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100"><svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg></span>' :
+                '<span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100"><svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></span>'
+              }
+            </td>
+            <td class="px-6 py-4 text-center">${mobile ? '<span class="text-green-600">✓</span>' : '<span class="text-gray-400">-</span>'}</td>
+            <td class="px-6 py-4 text-center">${rich ? '<span class="text-purple-600">✓</span>' : '<span class="text-gray-400">-</span>'}</td>
+            <td class="px-6 py-4"><p class="text-xs text-gray-600">${escapeHtml(status)}</p></td>
+            <td class="px-6 py-4">
+              ${indexed ? '' : `<button class="text-primary-600 hover:text-primary-700 text-sm" data-url="${escapeHtml(page.page_url)}" data-action="request">请求索引</button>`}
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    document.querySelectorAll('[data-action="request"]').forEach((btn) => {
+      btn.addEventListener('click', () => requestIndexing(btn));
+    });
+  }
+
+  function applyFilter(filter) {
+    document.querySelectorAll('.page-row').forEach((row) => {
+      const isIndexed = row.dataset.indexed;
+      if (filter === 'all') row.style.display = '';
+      else if (filter === 'indexed') row.style.display = isIndexed === 'true' ? '' : 'none';
+      else if (filter === 'not_indexed') row.style.display = isIndexed === 'false' ? '' : 'none';
+    });
+  }
+
   document.getElementById('check-all-btn')?.addEventListener('click', async () => {
     const btn = document.getElementById('check-all-btn') as HTMLButtonElement;
     btn.disabled = true;
     btn.textContent = '检查中...';
 
     try {
-      const response = await fetch('/api/index-status/check-all', { method: 'POST' });
+      const response = await fetch('/api/admin/index-status/check-all', { method: 'POST' });
       const data = await response.json();
 
       if (response.ok) {
@@ -191,16 +189,7 @@ const hasRichResults = allPages.filter((p: any) => p.has_rich_results).length;
       btn.classList.remove('border-transparent', 'text-gray-500');
       btn.classList.add('border-primary-600', 'text-primary-600');
 
-      document.querySelectorAll('.page-row').forEach(row => {
-        const isIndexed = (row as HTMLElement).dataset.indexed;
-        if (filter === 'all') {
-          (row as HTMLElement).style.display = '';
-        } else if (filter === 'indexed') {
-          (row as HTMLElement).style.display = isIndexed === 'true' ? '' : 'none';
-        } else if (filter === 'not_indexed') {
-          (row as HTMLElement).style.display = isIndexed === 'false' ? '' : 'none';
-        }
-      });
+      applyFilter(filter);
     });
   });
 
@@ -211,7 +200,7 @@ const hasRichResults = allPages.filter((p: any) => p.has_rich_results).length;
     btn.textContent = '请求中...';
 
     try {
-      const response = await fetch('/api/index-status/request-indexing', {
+      const response = await fetch('/api/admin/index-status/request-indexing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ page_url: pageUrl }),
@@ -234,4 +223,38 @@ const hasRichResults = allPages.filter((p: any) => p.has_rich_results).length;
   }
 
   (window as any).requestIndexing = requestIndexing;
+
+  async function loadIndexStatus() {
+    try {
+      const response = await fetch('/api/admin/index-status');
+      const data = await response.json().catch(() => null);
+      const pages = Array.isArray(data?.pages) ? data.pages : [];
+      currentPages = pages;
+
+      const indexed = pages.filter((p) => !!p.is_indexed);
+      const notIndexed = pages.filter((p) => !p.is_indexed);
+      const rate = pages.length ? Math.round((indexed.length / pages.length) * 100) : 0;
+      const rich = pages.filter((p) => !!p.has_rich_results).length;
+
+      if (statTotal) statTotal.textContent = String(pages.length);
+      if (statIndexed) statIndexed.textContent = String(indexed.length);
+      if (statNotIndexed) statNotIndexed.textContent = String(notIndexed.length);
+      if (statRich) statRich.textContent = String(rich);
+      if (tabIndexed) tabIndexed.textContent = String(indexed.length);
+      if (tabNotIndexed) tabNotIndexed.textContent = String(notIndexed.length);
+
+      if (statRate) {
+        statRate.textContent = `${rate}%`;
+        statRate.className = `text-2xl font-bold ${rate >= 90 ? 'text-green-600' : rate >= 70 ? 'text-yellow-600' : 'text-red-600'}`;
+      }
+
+      renderRows(pages);
+      applyFilter('all');
+    } catch (e) {
+      console.error('Failed to load index status:', e);
+      if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-red-600">加载失败</td></tr>`;
+    }
+  }
+
+  loadIndexStatus();
 </script>

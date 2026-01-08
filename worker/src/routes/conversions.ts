@@ -7,6 +7,7 @@ import type { Env } from '../index';
 import { getSupabase } from '../utils/supabase';
 import { jsonResponse, errorResponse } from '../utils/response';
 import { getBrandId } from '../middleware/brand';
+import { requireAdminAuth, requireBrandAdminAccess, requireBrandManageAccess } from '../middleware/admin-auth';
 import {
   sendServerConversions,
   buildPurchaseEvent,
@@ -26,7 +27,7 @@ export async function handleConversions(
   const supabase = getSupabase(env);
   const brandId = getBrandId(request);
 
-  if (!brandId) {
+  if (!brandId || brandId === 'all') {
     return errorResponse('Brand context missing', 400);
   }
 
@@ -42,17 +43,35 @@ export async function handleConversions(
 
   // POST /api/conversions/sync-order/:orderId - Sync order to all pixels
   if (request.method === 'POST' && path.match(/^\/api\/conversions\/sync-order\/[^/]+$/)) {
+    const { context: admin, response: authResponse } = await requireAdminAuth(request, env);
+    if (authResponse || !admin) return authResponse as Response;
+
+    const access = await requireBrandAdminAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
+
     const orderId = path.replace('/api/conversions/sync-order/', '');
     return await syncOrderConversion(supabase, brandId, orderId, request);
   }
 
   // GET /api/conversions/events - List sent events
   if (request.method === 'GET' && path === '/api/conversions/events') {
+    const { context: admin, response: authResponse } = await requireAdminAuth(request, env);
+    if (authResponse || !admin) return authResponse as Response;
+
+    const access = await requireBrandManageAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
+
     return await listEvents(supabase, brandId, request);
   }
 
   // POST /api/conversions/retry/:eventId - Retry failed event
   if (request.method === 'POST' && path.match(/^\/api\/conversions\/retry\/[^/]+$/)) {
+    const { context: admin, response: authResponse } = await requireAdminAuth(request, env);
+    if (authResponse || !admin) return authResponse as Response;
+
+    const access = await requireBrandAdminAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
+
     const eventId = path.replace('/api/conversions/retry/', '');
     return await retryEvent(supabase, brandId, eventId, request);
   }

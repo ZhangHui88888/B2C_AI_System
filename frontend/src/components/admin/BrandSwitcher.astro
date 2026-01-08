@@ -1,127 +1,137 @@
 ---
-import { supabase } from '@lib/supabase';
+// Brand switcher data is loaded client-side from worker API:
+// GET /api/admin/brands/available
 
-// Get all brands for super admin
-let brands: any[] = [];
-try {
-  const result = await supabase
-    .from('brands')
-    .select('id, name, slug, logo_url, is_active')
-    .eq('is_active', true)
-    .order('name');
-  brands = result.data || [];
-} catch (e) {
-  console.error('BrandSwitcher error:', e);
-}
-
-// Get current brand from cookie or default (null = all brands view)
 const currentBrandIdCookie = Astro.cookies.get('brand_id')?.value;
 const isAllBrandsView = currentBrandIdCookie === 'all' || !currentBrandIdCookie;
 const currentBrandId = isAllBrandsView ? null : currentBrandIdCookie;
-const currentBrand = currentBrandId ? brands?.find(b => b.id === currentBrandId) : null;
-
-if (!currentBrandIdCookie && brands && brands.length > 0) {
-  Astro.cookies.set('brand_id', brands[0].id, {
-    path: '/',
-    maxAge: 31536000,
-    sameSite: 'lax',
-  });
-}
-
-// Check if user is super admin
-const isSuperAdmin = true; // For now, assume super admin
-
 ---
 
-{brands && brands.length > 1 && (
-  <div class="relative" id="brand-switcher">
-    <button
-      type="button"
-      id="brand-switcher-btn"
-      class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
-    >
-      {isAllBrandsView ? (
-        <div class="w-5 h-5 bg-gradient-to-br from-primary-500 to-purple-500 rounded flex items-center justify-center">
-          <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-          </svg>
-        </div>
-      ) : currentBrand?.logo_url ? (
-        <img src={currentBrand.logo_url} alt={currentBrand.name} class="w-5 h-5 rounded object-cover" />
-      ) : (
-        <div class="w-5 h-5 bg-primary-100 rounded flex items-center justify-center">
-          <span class="text-xs font-bold text-primary-600">{currentBrand?.name?.charAt(0) || 'B'}</span>
-        </div>
-      )}
-      <span class="max-w-[120px] truncate">{isAllBrandsView ? 'All Brands' : (currentBrand?.name || 'Select Brand')}</span>
-      <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-      </svg>
-    </button>
-
-    <div
-      id="brand-switcher-menu"
-      class="hidden absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50"
-    >
-      <div class="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100">
-        Switch Brand
-      </div>
-      {isSuperAdmin && (
-        <button
-          type="button"
-          class="brand-option w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100"
-          data-brand-id="all"
-          data-brand-name="All Brands"
-        >
-          <div class="w-6 h-6 bg-gradient-to-br from-primary-500 to-purple-500 rounded flex items-center justify-center flex-shrink-0">
-            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-            </svg>
-          </div>
-          <div class="flex-1 text-left min-w-0">
-            <div class="font-medium">All Brands</div>
-            <div class="text-xs text-gray-500">Cross-brand overview</div>
-          </div>
-          {isAllBrandsView && (
-            <svg class="w-5 h-5 text-primary-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-            </svg>
-          )}
-        </button>
-      )}
-      {brands.map((brand) => (
-        <button
-          type="button"
-          class="brand-option w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-          data-brand-id={brand.id}
-          data-brand-name={brand.name}
-        >
-          {brand.logo_url ? (
-            <img src={brand.logo_url} alt={brand.name} class="w-6 h-6 rounded object-cover" />
-          ) : (
-            <div class="w-6 h-6 bg-primary-100 rounded flex items-center justify-center flex-shrink-0">
-              <span class="text-sm font-bold text-primary-600">{brand.name.charAt(0)}</span>
-            </div>
-          )}
-          <div class="flex-1 text-left min-w-0">
-            <div class="font-medium truncate">{brand.name}</div>
-            <div class="text-xs text-gray-500 truncate">{brand.slug}</div>
-          </div>
-          {brand.id === currentBrandId && (
-            <svg class="w-5 h-5 text-primary-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-            </svg>
-          )}
-        </button>
-      ))}
+<div class="relative" id="brand-switcher" data-current-brand-id={currentBrandId || ''} data-is-all={isAllBrandsView ? '1' : '0'}>
+  <button
+    type="button"
+    id="brand-switcher-btn"
+    class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+  >
+    <div class="w-5 h-5 bg-primary-100 rounded flex items-center justify-center">
+      <span id="brand-switcher-initial" class="text-xs font-bold text-primary-600">B</span>
     </div>
+    <span id="brand-switcher-label" class="max-w-[120px] truncate">Loading...</span>
+    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+    </svg>
+  </button>
+
+  <div
+    id="brand-switcher-menu"
+    class="hidden absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50"
+  >
+    <div class="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100">
+      Switch Brand
+    </div>
+    <div id="brand-switcher-options"></div>
   </div>
-)}
+</div>
 
 <script>
   const switcher = document.getElementById('brand-switcher');
   const btn = document.getElementById('brand-switcher-btn');
   const menu = document.getElementById('brand-switcher-menu');
+  const label = document.getElementById('brand-switcher-label');
+  const initial = document.getElementById('brand-switcher-initial');
+  const optionsWrap = document.getElementById('brand-switcher-options');
+
+  async function loadBrands() {
+    try {
+      const res = await fetch('/api/admin/brands/available');
+      const json = await res.json();
+      if (!res.ok || !json?.success || !Array.isArray(json.brands)) {
+        if (label) label.textContent = 'No Brands';
+        return;
+      }
+
+      const brands = json.brands;
+      const isOwner = json.isOwner === true;
+
+      const currentBrandId = switcher?.getAttribute('data-current-brand-id') || '';
+      const isAll = switcher?.getAttribute('data-is-all') === '1';
+
+      // Ensure brand cookie exists
+      const hasBrandCookie = document.cookie.split(';').some((c) => c.trim().startsWith('brand_id='));
+      if (!hasBrandCookie && brands.length > 0) {
+        document.cookie = `brand_id=${brands[0].id}; path=/; max-age=31536000; SameSite=Lax`;
+        window.location.reload();
+        return;
+      }
+
+      // Current label/icon
+      if (isAll && isOwner) {
+        if (label) label.textContent = 'All Brands';
+        if (initial) initial.textContent = 'A';
+      } else {
+        const current = brands.find((b) => b.id === currentBrandId) || brands[0];
+        if (label) label.textContent = current?.name || 'Select Brand';
+        if (initial) initial.textContent = (current?.name || 'B').charAt(0).toUpperCase();
+      }
+
+      // Menu options
+      if (optionsWrap) {
+        const parts = [];
+
+        if (isOwner) {
+          const check = isAll ? '<svg class="w-5 h-5 text-primary-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>' : '';
+          parts.push(
+            `<button type="button" class="brand-option w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100" data-brand-id="all" data-brand-name="All Brands">
+              <div class="w-6 h-6 bg-gradient-to-br from-primary-500 to-purple-500 rounded flex items-center justify-center flex-shrink-0">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+              </div>
+              <div class="flex-1 text-left min-w-0">
+                <div class="font-medium">All Brands</div>
+                <div class="text-xs text-gray-500">Cross-brand overview</div>
+              </div>
+              ${check}
+            </button>`
+          );
+        }
+
+        brands.forEach((b) => {
+          const selected = !isAll && b.id === currentBrandId;
+          const check = selected ? '<svg class="w-5 h-5 text-primary-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>' : '';
+          const icon = b.logo_url
+            ? `<img src="${b.logo_url}" alt="${b.name}" class="w-6 h-6 rounded object-cover" />`
+            : `<div class="w-6 h-6 bg-primary-100 rounded flex items-center justify-center flex-shrink-0"><span class="text-sm font-bold text-primary-600">${(b.name || 'B').charAt(0).toUpperCase()}</span></div>`;
+          parts.push(
+            `<button type="button" class="brand-option w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors" data-brand-id="${b.id}" data-brand-name="${b.name}">
+              ${icon}
+              <div class="flex-1 text-left min-w-0">
+                <div class="font-medium truncate">${b.name}</div>
+                <div class="text-xs text-gray-500 truncate">${b.slug || ''}</div>
+              </div>
+              ${check}
+            </button>`
+          );
+        });
+
+        optionsWrap.innerHTML = parts.join('');
+
+        optionsWrap.querySelectorAll('.brand-option').forEach((option) => {
+          option.addEventListener('click', async () => {
+            const brandId = option.getAttribute('data-brand-id');
+            if (!brandId) return;
+            document.cookie = `brand_id=${brandId}; path=/; max-age=31536000; SameSite=Lax`;
+            if (btn) {
+              btn.innerHTML = '<span class="text-sm">Switching...</span>';
+              btn.setAttribute('disabled', 'true');
+            }
+            window.location.reload();
+          });
+        });
+      }
+    } catch (err) {
+      console.error('Failed to load brands:', err);
+      if (label) label.textContent = 'No Brands';
+    }
+  }
 
   // Toggle menu
   btn?.addEventListener('click', (e) => {
@@ -131,35 +141,12 @@ const isSuperAdmin = true; // For now, assume super admin
 
   // Close menu when clicking outside
   document.addEventListener('click', (e) => {
-    if (switcher && !switcher.contains(e.target as Node)) {
+    const target = e.target;
+    if (switcher && target instanceof Node && !switcher.contains(target)) {
       menu?.classList.add('hidden');
     }
   });
 
   // Handle brand selection
-  document.querySelectorAll('.brand-option').forEach((option) => {
-    option.addEventListener('click', async () => {
-      const brandId = (option as HTMLElement).dataset.brandId;
-      const brandName = (option as HTMLElement).dataset.brandName;
-
-      if (!brandId) return;
-
-      try {
-        // Set cookie
-        document.cookie = `brand_id=${brandId}; path=/; max-age=31536000; SameSite=Lax`;
-        
-        // Show loading state
-        if (btn) {
-          btn.innerHTML = '<span class="text-sm">Switching...</span>';
-          btn.setAttribute('disabled', 'true');
-        }
-
-        // Reload page to apply new brand context
-        window.location.reload();
-      } catch (err) {
-        console.error('Failed to switch brand:', err);
-        alert('Failed to switch brand');
-      }
-    });
-  });
+  setTimeout(loadBrands, 0);
 </script>

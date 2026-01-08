@@ -2,34 +2,6 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
-
-// Get referral config
-const { data: config } = await supabase
-  .from('referral_config')
-  .select('*')
-  .single();
-
-// Get recent referrals
-const { data: referrals } = await supabase
-  .from('referrals')
-  .select(`
-    *,
-    referrer:customers!referrals_referrer_id_fkey(email, first_name, last_name),
-    referee:customers!referrals_referee_id_fkey(email, first_name, last_name)
-  `)
-  .order('referred_at', { ascending: false })
-  .limit(20);
-
-// Calculate stats
-const allReferrals = referrals || [];
-const completed = allReferrals.filter((r: any) => r.status === 'completed').length;
-const pending = allReferrals.filter((r: any) => r.status === 'pending').length;
-const totalRevenue = allReferrals
-  .filter((r: any) => r.status === 'completed')
-  .reduce((sum: number, r: any) => sum + parseFloat(r.order_amount || 0), 0);
-const conversionRate = allReferrals.length > 0 ? Math.round((completed / allReferrals.length) * 100) : 0;
-
 const statusColors: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
   completed: 'bg-green-100 text-green-700',
@@ -55,19 +27,19 @@ const statusColors: Record<string, string> = {
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">总推荐数</p>
-      <p class="text-2xl font-bold text-gray-900">{allReferrals.length}</p>
+      <p class="text-2xl font-bold text-gray-900" id="stat-total">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">已完成</p>
-      <p class="text-2xl font-bold text-green-600">{completed}</p>
+      <p class="text-2xl font-bold text-green-600" id="stat-completed">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">转化率</p>
-      <p class="text-2xl font-bold text-blue-600">{conversionRate}%</p>
+      <p class="text-2xl font-bold text-blue-600"><span id="stat-conversion">0</span>%</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">推荐收入</p>
-      <p class="text-2xl font-bold text-purple-600">${totalRevenue.toFixed(2)}</p>
+      <p class="text-2xl font-bold text-purple-600" id="stat-revenue">$0.00</p>
     </div>
   </div>
 
@@ -77,48 +49,46 @@ const statusColors: Record<string, string> = {
       <div class="bg-white rounded-xl shadow-sm border border-gray-100">
         <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
           <h3 class="font-semibold text-gray-900">配置</h3>
-          <span class={`text-xs px-2 py-1 rounded ${config?.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-            {config?.is_active ? '活跃' : '停用'}
-          </span>
+          <span id="config-status" class="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">加载中</span>
         </div>
         <form id="config-form" class="p-6 space-y-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">推荐人奖励（积分）</label>
-            <input type="number" name="referrer_points" value={config?.referrer_points || 100} class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
+            <input type="number" name="referrer_points" value={100} class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
           </div>
           
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">被推荐人奖励（积分）</label>
-            <input type="number" name="referee_points" value={config?.referee_points || 50} class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
+            <input type="number" name="referee_points" value={50} class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
           </div>
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">或被推荐人折扣 (%)</label>
-            <input type="number" name="referee_discount_percent" value={config?.referee_discount_percent || ''} placeholder="e.g., 10" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
+            <input type="number" name="referee_discount_percent" value={''} placeholder="e.g., 10" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
           </div>
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">最低订单金额</label>
-            <input type="number" name="min_order_amount" value={config?.min_order_amount || 0} step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
+            <input type="number" name="min_order_amount" value={0} step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
           </div>
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">每客户最大推荐数</label>
-            <input type="number" name="max_referrals_per_customer" value={config?.max_referrals_per_customer || ''} placeholder="无限制" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
+            <input type="number" name="max_referrals_per_customer" value={''} placeholder="无限制" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
           </div>
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">分享消息</label>
-            <textarea name="share_message" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500">{config?.share_message || 'Join using my referral code and get a special discount!'}</textarea>
+            <textarea name="share_message" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500">Join using my referral code and get a special discount!</textarea>
           </div>
 
           <div class="flex items-center gap-2">
-            <input type="checkbox" name="require_first_purchase" id="require_first_purchase" checked={config?.require_first_purchase !== false} class="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+            <input type="checkbox" name="require_first_purchase" id="require_first_purchase" checked={true} class="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
             <label for="require_first_purchase" class="text-sm text-gray-700">需要首次购买才能完成</label>
           </div>
 
           <div class="flex items-center gap-2">
-            <input type="checkbox" name="is_active" id="is_active" checked={config?.is_active} class="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+            <input type="checkbox" name="is_active" id="is_active" checked={false} class="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
             <label for="is_active" class="text-sm text-gray-700">计划已启用</label>
           </div>
 
@@ -147,41 +117,9 @@ const statusColors: Record<string, string> = {
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
-              {allReferrals.length > 0 ? (
-                allReferrals.map((r: any) => (
-                  <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4">
-                      <p class="text-sm font-medium text-gray-900">
-                        {r.referrer?.first_name || ''} {r.referrer?.last_name || ''}
-                      </p>
-                      <p class="text-xs text-gray-500">{r.referrer?.email || ''}</p>
-                    </td>
-                    <td class="px-6 py-4">
-                      <p class="text-sm font-medium text-gray-900">
-                        {r.referee?.first_name || ''} {r.referee?.last_name || ''}
-                      </p>
-                      <p class="text-xs text-gray-500">{r.referee?.email || ''}</p>
-                    </td>
-                    <td class="px-6 py-4">
-                      <span class={`text-xs px-2 py-1 rounded ${statusColors[r.status] || 'bg-gray-100'}`}>
-                        {r.status}
-                      </span>
-                    </td>
-                    <td class="px-6 py-4 text-sm text-gray-600">
-                      {r.order_amount ? `$${parseFloat(r.order_amount).toFixed(2)}` : '-'}
-                    </td>
-                    <td class="px-6 py-4 text-sm text-gray-500">
-                      {new Date(r.referred_at).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colspan="5" class="px-6 py-12 text-center text-gray-500">
-                    暂无推荐。与客户分享推荐码开始。
-                  </td>
-                </tr>
-              )}
+              <tr id="referrals-loading">
+                <td colspan="5" class="px-6 py-12 text-center text-gray-500">Loading...</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -191,6 +129,136 @@ const statusColors: Record<string, string> = {
 </AdminLayout>
 
 <script>
+  const API_URL = import.meta.env.PUBLIC_API_URL || '';
+  const apiBase = API_URL && API_URL.trim() ? API_URL.trim().replace(/\/$/, '') : '';
+  const api = (path) => (apiBase ? `${apiBase}${path}` : path);
+
+  const STATUS_COLORS: Record<string, string> = {
+    pending: 'bg-yellow-100 text-yellow-700',
+    completed: 'bg-green-100 text-green-700',
+    expired: 'bg-gray-100 text-gray-700',
+    cancelled: 'bg-red-100 text-red-700',
+  };
+
+  function escapeHtml(str: any) {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function formatMoney(amount: any) {
+    const n = typeof amount === 'number' ? amount : Number(amount);
+    const v = Number.isFinite(n) ? n : 0;
+    return `$${v.toFixed(2)}`;
+  }
+
+  function setText(id: string, value: any) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = String(value ?? '');
+  }
+
+  function setConfigStatus(isActive: boolean | null | undefined) {
+    const el = document.getElementById('config-status');
+    if (!el) return;
+    const active = !!isActive;
+    el.textContent = active ? '活跃' : '停用';
+    el.classList.remove('bg-green-100', 'text-green-700', 'bg-gray-100', 'text-gray-600');
+    if (active) {
+      el.classList.add('bg-green-100', 'text-green-700');
+    } else {
+      el.classList.add('bg-gray-100', 'text-gray-600');
+    }
+  }
+
+  function setField(name: string, value: any) {
+    const form = document.getElementById('config-form') as HTMLFormElement | null;
+    const el = form?.querySelector(`[name="${name}"]`) as HTMLInputElement | HTMLTextAreaElement | null;
+    if (!el) return;
+
+    if (el instanceof HTMLInputElement && el.type === 'checkbox') {
+      el.checked = !!value;
+      return;
+    }
+
+    (el as any).value = value ?? '';
+  }
+
+  function renderReferrals(rows: any[]) {
+    const tbody = document.querySelector('tbody.divide-y.divide-gray-100');
+    if (!tbody) return;
+
+    if (!Array.isArray(rows) || rows.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="5" class="px-6 py-12 text-center text-gray-500">暂无推荐。与客户分享推荐码开始。</td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = rows
+      .map((r: any) => {
+        const referrerName = `${r?.referrer?.first_name || ''} ${r?.referrer?.last_name || ''}`.trim();
+        const refereeName = `${r?.referee?.first_name || ''} ${r?.referee?.last_name || ''}`.trim();
+        const status = String(r?.status || '');
+        const cls = STATUS_COLORS[status] || 'bg-gray-100';
+        const orderAmount = r?.order_amount ? formatMoney(r.order_amount) : '-';
+        const date = r?.referred_at ? new Date(r.referred_at).toLocaleDateString() : '-';
+
+        return `
+          <tr class="hover:bg-gray-50">
+            <td class="px-6 py-4">
+              <p class="text-sm font-medium text-gray-900">${escapeHtml(referrerName)}</p>
+              <p class="text-xs text-gray-500">${escapeHtml(r?.referrer?.email || '')}</p>
+            </td>
+            <td class="px-6 py-4">
+              <p class="text-sm font-medium text-gray-900">${escapeHtml(refereeName)}</p>
+              <p class="text-xs text-gray-500">${escapeHtml(r?.referee?.email || '')}</p>
+            </td>
+            <td class="px-6 py-4">
+              <span class="text-xs px-2 py-1 rounded ${escapeHtml(cls)}">${escapeHtml(status)}</span>
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-600">${escapeHtml(orderAmount)}</td>
+            <td class="px-6 py-4 text-sm text-gray-500">${escapeHtml(date)}</td>
+          </tr>
+        `;
+      })
+      .join('');
+  }
+
+  async function loadPageData() {
+    try {
+      const res = await fetch(api('/api/admin/marketing/referrals/page-data'));
+      if (!res.ok) return;
+      const data = await res.json();
+
+      const stats = data?.stats || {};
+      setText('stat-total', stats.total || 0);
+      setText('stat-completed', stats.completed || 0);
+      setText('stat-conversion', stats.conversionRate || 0);
+      setText('stat-revenue', formatMoney(stats.totalRevenue || 0));
+
+      setConfigStatus(data?.config?.is_active);
+
+      const cfg = data?.config || {};
+      setField('referrer_points', cfg.referrer_points ?? 100);
+      setField('referee_points', cfg.referee_points ?? 50);
+      setField('referee_discount_percent', cfg.referee_discount_percent ?? '');
+      setField('min_order_amount', cfg.min_order_amount ?? 0);
+      setField('max_referrals_per_customer', cfg.max_referrals_per_customer ?? '');
+      setField('share_message', cfg.share_message ?? 'Join using my referral code and get a special discount!');
+      setField('require_first_purchase', cfg.require_first_purchase !== false);
+      setField('is_active', !!cfg.is_active);
+
+      renderReferrals(data?.referrals || []);
+    } catch {
+      // ignore
+    }
+  }
+
   document.getElementById('config-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target as HTMLFormElement;
@@ -208,7 +276,7 @@ const statusColors: Record<string, string> = {
     };
 
     try {
-      const response = await fetch('/api/referrals/config', {
+      const response = await fetch(api('/api/admin/marketing/referrals/config'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
@@ -225,4 +293,6 @@ const statusColors: Record<string, string> = {
       alert('保存配置失败');
     }
   });
+
+  setTimeout(loadPageData, 0);
 </script>

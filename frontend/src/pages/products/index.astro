@@ -1,6 +1,5 @@
 ---
 import Layout from '@layouts/Layout.astro';
-import { supabase } from '@lib/supabase';
 import ProductCard from '@components/catalog/ProductCard.astro';
 import CategoryCard from '@components/catalog/CategoryCard.astro';
 import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
@@ -16,41 +15,58 @@ if (!brand) {
 
 const pageSize = 12;
 
-const { data: categories } = await supabase
-  .from('categories')
-  .select('*')
-  .eq('brand_id', brand.id)
-  .eq('is_active', true)
-  .order('sort_order', { ascending: true });
+const apiOrigin = new URL(Astro.request.url).origin;
 
-const { data: initialProducts, count: totalCount } = await supabase
-  .from('products')
-  .select('*', { count: 'exact' })
-  .eq('brand_id', brand.id)
-  .eq('is_active', true)
-  .order('created_at', { ascending: false })
-  .range(0, pageSize - 1);
+const [categoriesData, initialProductsData, minPriceData, maxPriceData] = await Promise.all([
+  fetch(new URL('/api/categories', apiOrigin).toString(), {
+    headers: { 'x-brand-id': brand.id },
+  })
+    .then((r) => r.json())
+    .catch(() => null),
+  fetch(new URL('/api/products/list', apiOrigin).toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-brand-id': brand.id },
+    body: JSON.stringify({ page: 1, limit: pageSize, sort: 'newest' }),
+  })
+    .then((r) => r.json())
+    .catch(() => null),
+  fetch(new URL('/api/products/list', apiOrigin).toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-brand-id': brand.id },
+    body: JSON.stringify({ page: 1, limit: 1, sort: 'price_asc' }),
+  })
+    .then((r) => r.json())
+    .catch(() => null),
+  fetch(new URL('/api/products/list', apiOrigin).toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-brand-id': brand.id },
+    body: JSON.stringify({ page: 1, limit: 1, sort: 'price_desc' }),
+  })
+    .then((r) => r.json())
+    .catch(() => null),
+]);
 
-const { data: minPriceRows } = await supabase
-  .from('products')
-  .select('price')
-  .eq('brand_id', brand.id)
-  .eq('is_active', true)
-  .order('price', { ascending: true })
-  .limit(1);
+function flattenCategories(nodes: any[]): any[] {
+  const result: any[] = [];
+  const stack: any[] = Array.isArray(nodes) ? [...nodes] : [];
+  while (stack.length) {
+    const node = stack.shift();
+    if (!node) continue;
+    result.push(node);
+    if (Array.isArray(node.children) && node.children.length) {
+      stack.push(...node.children);
+    }
+  }
+  return result;
+}
 
-const { data: maxPriceRows } = await supabase
-  .from('products')
-  .select('price')
-  .eq('brand_id', brand.id)
-  .eq('is_active', true)
-  .order('price', { ascending: false })
-  .limit(1);
-
+const categories = flattenCategories(categoriesData?.categories || []);
+const initialProducts = initialProductsData?.products || [];
+const totalCount = initialProductsData?.pagination?.total || 0;
 const initialTotalPages = Math.max(1, Math.ceil((totalCount || 0) / pageSize));
 
-const initialMinPrice = minPriceRows?.[0]?.price !== undefined ? Number(minPriceRows?.[0]?.price) : undefined;
-const initialMaxPrice = maxPriceRows?.[0]?.price !== undefined ? Number(maxPriceRows?.[0]?.price) : undefined;
+const initialMinPrice = minPriceData?.products?.[0]?.price !== undefined ? Number(minPriceData.products[0].price) : undefined;
+const initialMaxPrice = maxPriceData?.products?.[0]?.price !== undefined ? Number(maxPriceData.products[0].price) : undefined;
 
 let siteUrl = 'https://example.com';
 try {

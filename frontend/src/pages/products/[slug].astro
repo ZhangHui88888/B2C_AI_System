@@ -2,7 +2,6 @@
 export const prerender = false;
 
 import Layout from '@layouts/Layout.astro';
-import { supabase } from '@lib/supabase';
 import ImageGallery from '@components/catalog/ImageGallery.astro';
 import AddToCartForm from '@components/catalog/AddToCartForm.astro';
 import ProductCard from '@components/catalog/ProductCard.astro';
@@ -27,27 +26,29 @@ if (!brand) {
   return new Response('Site not found', { status: 404 });
 }
 
-const { data: product } = await supabase
-  .from('products')
-  .select('*, categories(id, name, slug)')
-  .eq('brand_id', brand.id)
-  .eq('slug', slug)
-  .eq('is_active', true)
-  .single();
+const apiOrigin = new URL(Astro.request.url).origin;
+
+const productResponse = await fetch(
+  new URL(`/api/products/${encodeURIComponent(slug || '')}`, apiOrigin).toString(),
+  { headers: { 'x-brand-id': brand.id } }
+)
+  .then((r) => r.json())
+  .catch(() => null);
+
+const product = productResponse?.product;
 
 if (!product) {
   return Astro.redirect('/products');
 }
 
-// Fetch reviews for this product
-const { data: reviews } = await supabase
-  .from('reviews')
-  .select('*')
-  .eq('brand_id', brand.id)
-  .eq('product_id', product.id)
-  .eq('status', 'approved')
-  .order('created_at', { ascending: false })
-  .limit(10);
+const reviewsResponse = await fetch(
+  new URL(`/api/reviews/product/${encodeURIComponent(product.id)}?limit=10`, apiOrigin).toString(),
+  { headers: { 'x-brand-id': brand.id } }
+)
+  .then((r) => r.json())
+  .catch(() => null);
+
+const reviews = reviewsResponse?.data || [];
 
 // Calculate review stats
 const reviewList = reviews || [];
@@ -59,19 +60,7 @@ const ratingCounts = [0, 0, 0, 0, 0];
 reviewList.forEach(r => { if (r.rating >= 1 && r.rating <= 5) ratingCounts[r.rating - 1]++; });
 
 let relatedProducts: any[] = [];
-if (product.category_id) {
-  const { data: related } = await supabase
-    .from('products')
-    .select('*')
-    .eq('brand_id', brand.id)
-    .eq('is_active', true)
-    .eq('category_id', product.category_id)
-    .neq('id', product.id)
-    .order('created_at', { ascending: false })
-    .limit(4);
-
-  relatedProducts = related || [];
-}
+relatedProducts = productResponse?.relatedProducts || [];
 
 const images = [product.main_image_url, ...(product.images || [])].filter(Boolean) as string[];
 

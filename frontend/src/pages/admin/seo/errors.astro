@@ -2,19 +2,10 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
-
-// Get 404 errors
-const { data: errors } = await supabase
-  .from('error_404_logs')
-  .select('*')
-  .order('hit_count', { ascending: false });
-
-const unresolvedErrors = errors?.filter(e => !e.is_resolved) || [];
-const resolvedErrors = errors?.filter(e => e.is_resolved) || [];
-const totalHits = errors?.reduce((sum, e) => sum + (e.hit_count || 0), 0) || 0;
-
-const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+const errors: any[] = [];
+const unresolvedErrors: any[] = [];
+const resolvedErrors: any[] = [];
+const totalHits = 0;
 ---
 
 <AdminLayout title="404 错误" activePage="seo">
@@ -44,19 +35,19 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
   <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
       <p class="text-sm font-medium text-gray-500">总错误数</p>
-      <p class="text-2xl font-bold text-gray-900 mt-1">{errors?.length || 0}</p>
+      <p class="text-2xl font-bold text-gray-900 mt-1" id="total-errors">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
       <p class="text-sm font-medium text-gray-500">未解决</p>
-      <p class="text-2xl font-bold text-red-600 mt-1">{unresolvedErrors.length}</p>
+      <p class="text-2xl font-bold text-red-600 mt-1" id="unresolved-errors">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
       <p class="text-sm font-medium text-gray-500">已解决</p>
-      <p class="text-2xl font-bold text-green-600 mt-1">{resolvedErrors.length}</p>
+      <p class="text-2xl font-bold text-green-600 mt-1" id="resolved-errors">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
       <p class="text-sm font-medium text-gray-500">总访问数</p>
-      <p class="text-2xl font-bold text-blue-600 mt-1">{totalHits}</p>
+      <p class="text-2xl font-bold text-blue-600 mt-1" id="total-hits">0</p>
     </div>
   </div>
 
@@ -91,171 +82,196 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200" id="errors-tbody">
-          {errors && errors.length > 0 ? (
-            errors.map((error) => (
-              <tr class="error-row hover:bg-gray-50" data-id={error.id} data-resolved={error.is_resolved}>
-                <td class="px-6 py-4">
-                  <code class="text-sm bg-gray-100 px-2 py-1 rounded">{error.request_path}</code>
-                </td>
-                <td class="px-6 py-4">
-                  <p class="text-sm text-gray-500 truncate max-w-xs" title={error.referrer || 'Direct'}>
-                    {error.referrer || 'Direct'}
-                  </p>
-                </td>
-                <td class="px-6 py-4">
-                  <span class={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    error.hit_count > 50 ? 'bg-red-100 text-red-800' : 
-                    error.hit_count > 10 ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {error.hit_count}
-                  </span>
-                </td>
-                <td class="px-6 py-4 text-sm text-gray-500">
-                  {new Date(error.first_seen_at).toLocaleDateString()}
-                </td>
-                <td class="px-6 py-4 text-sm text-gray-500">
-                  {new Date(error.last_seen_at).toLocaleDateString()}
-                </td>
-                <td class="px-6 py-4">
-                  <span class={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    error.is_resolved ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {error.is_resolved ? '已解决' : '未解决'}
-                  </span>
-                </td>
-                <td class="px-6 py-4 text-right">
-                  {!error.is_resolved && (
-                    <>
-                      <a 
-                        href={`/admin/seo/redirects?source=${encodeURIComponent(error.request_path)}`}
-                        class="text-primary-600 hover:text-primary-700 text-sm font-medium mr-3"
-                      >
-                        创建重定向
-                      </a>
-                      <button 
-                        class="text-green-600 hover:text-green-700 text-sm font-medium mark-resolved-btn"
-                        data-id={error.id}
-                      >
-                        标记已解决
-                      </button>
-                    </>
-                  )}
-                  {error.is_resolved && (
-                    <button 
-                      class="text-yellow-600 hover:text-yellow-700 text-sm font-medium mark-unresolved-btn"
-                      data-id={error.id}
-                    >
-                      重新打开
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colspan="7" class="px-6 py-12 text-center text-gray-500">
-                <svg class="w-12 h-12 text-green-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                未记录 404 错误
-              </td>
-            </tr>
-          )}
+          <tr>
+            <td colspan="7" class="px-6 py-12 text-center text-gray-500">加载中...</td>
+          </tr>
         </tbody>
       </table>
     </div>
   </div>
 </AdminLayout>
 
-<script define:vars={{ apiUrl }}>
-  // Tab switching
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+<script>
+  const tbody = document.getElementById('errors-tbody');
+  const totalEl = document.getElementById('total-errors');
+  const unresolvedEl = document.getElementById('unresolved-errors');
+  const resolvedEl = document.getElementById('resolved-errors');
+  const hitsEl = document.getElementById('total-hits');
+
+  function escapeHtml(s) {
+    return String(s ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  function fmtDate(s) {
+    try {
+      return new Date(s).toLocaleDateString();
+    } catch {
+      return '';
+    }
+  }
+
+  function hitClass(hit) {
+    const h = Number(hit) || 0;
+    if (h > 50) return 'bg-red-100 text-red-800';
+    if (h > 10) return 'bg-yellow-100 text-yellow-800';
+    return 'bg-gray-100 text-gray-800';
+  }
+
+  function updateTabLabels(total, unresolved, resolved) {
+    const tabs = Array.from(document.querySelectorAll('.tab-btn'));
+    tabs.forEach((btn) => {
       const tab = btn.dataset.tab;
-      
-      // Update active tab style
-      document.querySelectorAll('.tab-btn').forEach(b => {
-        b.classList.remove('text-primary-600', 'border-b-2', 'border-primary-600');
-        b.classList.add('text-gray-500');
-      });
-      btn.classList.add('text-primary-600', 'border-b-2', 'border-primary-600');
-      btn.classList.remove('text-gray-500');
+      if (tab === 'unresolved') btn.textContent = `未解决 (${unresolved})`;
+      if (tab === 'resolved') btn.textContent = `已解决 (${resolved})`;
+      if (tab === 'all') btn.textContent = `全部 (${total})`;
+    });
+  }
 
-      // Filter rows
-      document.querySelectorAll('.error-row').forEach(row => {
-        const isResolved = row.dataset.resolved === 'true';
-        
-        let show = true;
-        if (tab === 'unresolved') show = !isResolved;
-        else if (tab === 'resolved') show = isResolved;
+  function renderRows(errors) {
+    if (!tbody) return;
+    if (!Array.isArray(errors) || errors.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="px-6 py-12 text-center text-gray-500">
+            <svg class="w-12 h-12 text-green-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            未记录 404 错误
+          </td>
+        </tr>
+      `;
+      return;
+    }
 
-        row.style.display = show ? '' : 'none';
+    tbody.innerHTML = errors
+      .map((e) => {
+        const resolved = !!e.is_resolved;
+        const statusBadge = resolved
+          ? '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">已解决</span>'
+          : '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">未解决</span>';
+
+        const actions = resolved
+          ? `<button class="text-yellow-600 hover:text-yellow-700 text-sm font-medium mark-unresolved-btn" data-id="${escapeHtml(e.id)}">重新打开</button>`
+          : `
+            <a href="/admin/seo/redirects?source=${encodeURIComponent(e.request_path || '')}" class="text-primary-600 hover:text-primary-700 text-sm font-medium mr-3">创建重定向</a>
+            <button class="text-green-600 hover:text-green-700 text-sm font-medium mark-resolved-btn" data-id="${escapeHtml(e.id)}">标记已解决</button>
+          `;
+
+        return `
+          <tr class="error-row hover:bg-gray-50" data-id="${escapeHtml(e.id)}" data-resolved="${resolved ? 'true' : 'false'}">
+            <td class="px-6 py-4"><code class="text-sm bg-gray-100 px-2 py-1 rounded">${escapeHtml(e.request_path)}</code></td>
+            <td class="px-6 py-4"><p class="text-sm text-gray-500 truncate max-w-xs" title="${escapeHtml(e.referrer || 'Direct')}">${escapeHtml(e.referrer || 'Direct')}</p></td>
+            <td class="px-6 py-4"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${hitClass(e.hit_count)}">${escapeHtml(e.hit_count || 0)}</span></td>
+            <td class="px-6 py-4 text-sm text-gray-500">${escapeHtml(fmtDate(e.first_seen_at))}</td>
+            <td class="px-6 py-4 text-sm text-gray-500">${escapeHtml(fmtDate(e.last_seen_at))}</td>
+            <td class="px-6 py-4">${statusBadge}</td>
+            <td class="px-6 py-4 text-right">${actions}</td>
+          </tr>
+        `;
+      })
+      .join('');
+  }
+
+  function applyTabFilter(tab) {
+    document.querySelectorAll('.error-row').forEach((row) => {
+      const isResolved = row.dataset.resolved === 'true';
+      let show = true;
+      if (tab === 'unresolved') show = !isResolved;
+      else if (tab === 'resolved') show = isResolved;
+      row.style.display = show ? '' : 'none';
+    });
+  }
+
+  function bindHandlers() {
+    document.querySelectorAll('.tab-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.tab || 'unresolved';
+        document.querySelectorAll('.tab-btn').forEach((b) => {
+          b.classList.remove('text-primary-600', 'border-b-2', 'border-primary-600');
+          b.classList.add('text-gray-500');
+        });
+        btn.classList.add('text-primary-600', 'border-b-2', 'border-primary-600');
+        btn.classList.remove('text-gray-500');
+        applyTabFilter(tab);
       });
     });
-  });
 
-  // Initially show only unresolved
-  document.querySelectorAll('.error-row').forEach(row => {
-    const isResolved = row.dataset.resolved === 'true';
-    row.style.display = isResolved ? 'none' : '';
-  });
-
-  // Mark resolved
-  document.querySelectorAll('.mark-resolved-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.dataset.id;
-      try {
-        const response = await fetch(`${apiUrl}/api/seo/errors/${id}/resolve`, {
-          method: 'POST'
-        });
-        if (response.ok) {
-          window.location.reload();
-        } else {
+    document.querySelectorAll('.mark-resolved-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        if (!id) return;
+        try {
+          const response = await fetch(`/api/admin/seo/errors/${encodeURIComponent(id)}/resolve`, { method: 'POST' });
+          if (response.ok) window.location.reload();
+          else alert('更新状态失败');
+        } catch (e) {
+          console.error('Error:', e);
           alert('更新状态失败');
         }
-      } catch (error) {
-        console.error('Error:', error);
-        alert('更新状态失败');
-      }
+      });
     });
-  });
 
-  // Mark unresolved (reopen)
-  document.querySelectorAll('.mark-unresolved-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.dataset.id;
-      try {
-        const response = await fetch(`${apiUrl}/api/seo/errors/${id}/reopen`, {
-          method: 'POST'
-        });
-        if (response.ok) {
-          window.location.reload();
-        } else {
+    document.querySelectorAll('.mark-unresolved-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        if (!id) return;
+        try {
+          const response = await fetch(`/api/admin/seo/errors/${encodeURIComponent(id)}/reopen`, { method: 'POST' });
+          if (response.ok) window.location.reload();
+          else alert('更新状态失败');
+        } catch (e) {
+          console.error('Error:', e);
           alert('更新状态失败');
         }
-      } catch (error) {
-        console.error('Error:', error);
-        alert('更新状态失败');
-      }
+      });
     });
-  });
+  }
 
-  // Clear resolved
+  async function load() {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-gray-500">加载中...</td></tr>`;
+
+    try {
+      const response = await fetch('/api/admin/seo/errors');
+      const json = await response.json().catch(() => null);
+      const errors = Array.isArray(json?.errors) ? json.errors : [];
+
+      const unresolved = errors.filter((e) => !e.is_resolved);
+      const resolved = errors.filter((e) => e.is_resolved);
+      const hits = errors.reduce((sum, e) => sum + (Number(e.hit_count) || 0), 0);
+
+      if (totalEl) totalEl.textContent = String(errors.length);
+      if (unresolvedEl) unresolvedEl.textContent = String(unresolved.length);
+      if (resolvedEl) resolvedEl.textContent = String(resolved.length);
+      if (hitsEl) hitsEl.textContent = String(hits);
+      updateTabLabels(errors.length, unresolved.length, resolved.length);
+
+      renderRows(errors);
+      bindHandlers();
+
+      // Default tab: unresolved
+      applyTabFilter('unresolved');
+    } catch (e) {
+      console.error('Failed to load 404 errors:', e);
+      if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-red-600">加载失败</td></tr>`;
+    }
+  }
+
   document.getElementById('clear-resolved-btn')?.addEventListener('click', async () => {
     if (!confirm('确定要删除所有已解决的 404 错误吗？')) return;
-    
     try {
-      const response = await fetch(`${apiUrl}/api/seo/errors/clear-resolved`, {
-        method: 'DELETE'
-      });
-      if (response.ok) {
-        window.location.reload();
-      } else {
-        alert('清除已解决错误失败');
-      }
-    } catch (error) {
-      console.error('Error:', error);
+      const response = await fetch(`/api/admin/seo/errors/clear-resolved`, { method: 'DELETE' });
+      if (response.ok) window.location.reload();
+      else alert('清除已解决错误失败');
+    } catch (e) {
+      console.error('Error:', e);
       alert('清除已解决错误失败');
     }
   });
+
+  load();
 </script>

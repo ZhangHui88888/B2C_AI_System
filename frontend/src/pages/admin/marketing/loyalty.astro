@@ -2,38 +2,8 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
-
-// Get member levels
-const { data: levels } = await supabase
-  .from('member_levels')
-  .select('*')
-  .order('level_order');
-
-// Get membership stats
-const { data: memberships } = await supabase
-  .from('customer_memberships')
-  .select('current_level_id, points_balance, lifetime_points');
-
-// Get points rules
-const { data: pointsRules } = await supabase
-  .from('points_rules')
-  .select('*')
-  .eq('is_active', true);
-
-// Get redemption options
-const { data: redemptions } = await supabase
-  .from('points_redemptions')
-  .select('*')
-  .eq('is_active', true);
-
-// Calculate stats
-const totalMembers = memberships?.length || 0;
-const totalPointsOutstanding = memberships?.reduce((sum: number, m: any) => sum + (m.points_balance || 0), 0) || 0;
-const levelCounts: Record<string, number> = {};
-for (const level of levels || []) {
-  levelCounts[level.id] = memberships?.filter((m: any) => m.current_level_id === level.id).length || 0;
-}
+const totalMembers = 0;
+const totalPointsOutstanding = 0;
 ---
 
 <AdminLayout title="会员计划" activePage="marketing">
@@ -53,19 +23,19 @@ for (const level of levels || []) {
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">总会员数</p>
-      <p class="text-2xl font-bold text-gray-900">{totalMembers}</p>
+      <p class="text-2xl font-bold text-gray-900" id="stat-total-members">{totalMembers}</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">未使用积分</p>
-      <p class="text-2xl font-bold text-blue-600">{totalPointsOutstanding.toLocaleString()}</p>
+      <p class="text-2xl font-bold text-blue-600" id="stat-points-outstanding">{totalPointsOutstanding.toLocaleString()}</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">活跃规则</p>
-      <p class="text-2xl font-bold text-green-600">{pointsRules?.length || 0}</p>
+      <p class="text-2xl font-bold text-green-600" id="stat-rules">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">兑换选项</p>
-      <p class="text-2xl font-bold text-purple-600">{redemptions?.length || 0}</p>
+      <p class="text-2xl font-bold text-purple-600" id="stat-redemptions">0</p>
     </div>
   </div>
 
@@ -96,36 +66,11 @@ for (const level of levels || []) {
         </button>
       </div>
 
-      {levels && levels.length > 0 ? (
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {levels.map((level: any) => (
-            <div class="border border-gray-200 rounded-lg p-4" style={`border-top: 4px solid ${level.badge_color || '#ccc'}`}>
-              <div class="flex items-center gap-3 mb-3">
-                <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold" style={`background-color: ${level.badge_color || '#ccc'}`}>
-                  {level.level_name.charAt(0)}
-                </div>
-                <div>
-                  <h4 class="font-semibold text-gray-900">{level.level_name}</h4>
-                  <p class="text-xs text-gray-500">{levelCounts[level.id] || 0} 位会员</p>
-                </div>
-              </div>
-              <div class="space-y-1 text-sm text-gray-600">
-                <p>最低积分：<span class="font-medium">{level.min_points || 0}</span></p>
-                <p>积分倍数：<span class="font-medium">{level.points_multiplier}x</span></p>
-                <p>折扣：<span class="font-medium">{level.discount_percentage || 0}%</span></p>
-                {level.free_shipping_threshold === 0 && (
-                  <p class="text-green-600 font-medium">✓ 免运费</p>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div class="text-center py-12 text-gray-500">
-          <p class="mb-4">尚未配置会员等级。</p>
-          <p class="text-sm">点击“初始化默认等级”创建铜牌、银牌、金牌和铂金等级。</p>
-        </div>
-      )}
+      <div id="levels-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+      <div id="levels-empty" class="text-center py-12 text-gray-500 hidden">
+        <p class="mb-4">尚未配置会员等级。</p>
+        <p class="text-sm">点击“初始化默认等级”创建铜牌、银牌、金牌和铂金等级。</p>
+      </div>
     </div>
 
     <!-- Rules Tab -->
@@ -136,31 +81,10 @@ for (const level of levels || []) {
         </button>
       </div>
 
-      {pointsRules && pointsRules.length > 0 ? (
-        <div class="space-y-3">
-          {pointsRules.map((rule: any) => (
-            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-              <div>
-                <p class="font-medium text-gray-900">{rule.rule_name}</p>
-                <p class="text-sm text-gray-500">
-                  Type: {rule.rule_type} | 
-                  {rule.points_per_dollar ? ` ${rule.points_per_dollar} pts/$` : ''} 
-                  {rule.fixed_points ? ` ${rule.fixed_points} pts fixed` : ''}
-                </p>
-              </div>
-              <div class="flex items-center gap-2">
-                <span class={`text-xs px-2 py-1 rounded ${rule.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                  {rule.is_active ? '活跃' : '停用'}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div class="text-center py-12 text-gray-500">
-          <p>未配置积分规则。添加规则以开始购物积分。</p>
-        </div>
-      )}
+      <div id="rules-list" class="space-y-3"></div>
+      <div id="rules-empty" class="text-center py-12 text-gray-500 hidden">
+        <p>未配置积分规则。添加规则以开始购物积分。</p>
+      </div>
     </div>
 
     <!-- Redemptions Tab -->
@@ -171,26 +95,10 @@ for (const level of levels || []) {
         </button>
       </div>
 
-      {redemptions && redemptions.length > 0 ? (
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {redemptions.map((r: any) => (
-            <div class="border border-gray-200 rounded-lg p-4">
-              <h4 class="font-semibold text-gray-900 mb-2">{r.redemption_name}</h4>
-              <p class="text-2xl font-bold text-primary-600 mb-2">{r.points_required} pts</p>
-              <p class="text-sm text-gray-600">
-                {r.redemption_type === 'discount_fixed' && `$${r.discount_amount} off`}
-                {r.redemption_type === 'discount_percent' && `${r.discount_percent}% off`}
-                {r.redemption_type === 'free_shipping' && '免运费'}
-              </p>
-              {r.description && <p class="text-xs text-gray-500 mt-2">{r.description}</p>}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div class="text-center py-12 text-gray-500">
-          <p>未配置兑换选项。添加客户兑换积分的方式。</p>
-        </div>
-      )}
+      <div id="redemptions-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      <div id="redemptions-empty" class="text-center py-12 text-gray-500 hidden">
+        <p>未配置兑换选项。添加客户兑换积分的方式。</p>
+      </div>
     </div>
 
     <!-- Members Tab -->
@@ -208,6 +116,153 @@ for (const level of levels || []) {
 </AdminLayout>
 
 <script>
+  const API_URL = import.meta.env.PUBLIC_API_URL || '';
+  const apiBase = API_URL && API_URL.trim() ? API_URL.trim().replace(/\/$/, '') : '';
+  const api = (path) => (apiBase ? `${apiBase}${path}` : path);
+
+  function escapeHtml(str) {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = String(value ?? '');
+  }
+
+  function renderLevels(levels, levelCounts) {
+    const grid = document.getElementById('levels-grid');
+    const empty = document.getElementById('levels-empty');
+    if (!grid || !empty) return;
+
+    const list = Array.isArray(levels) ? levels : [];
+    if (list.length === 0) {
+      grid.innerHTML = '';
+      empty.classList.remove('hidden');
+      return;
+    }
+
+    empty.classList.add('hidden');
+    grid.innerHTML = list
+      .map((level) => {
+        const name = level?.level_name || '';
+        const badge = level?.badge_color || '#ccc';
+        const id = level?.id || '';
+        const members = (levelCounts && id && typeof levelCounts[id] === 'number') ? levelCounts[id] : 0;
+
+        const freeShip = level?.free_shipping_threshold === 0;
+
+        return `
+          <div class="border border-gray-200 rounded-lg p-4" style="border-top: 4px solid ${escapeHtml(badge)}">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold" style="background-color: ${escapeHtml(badge)}">
+                ${escapeHtml(String(name).charAt(0))}
+              </div>
+              <div>
+                <h4 class="font-semibold text-gray-900">${escapeHtml(name)}</h4>
+                <p class="text-xs text-gray-500">${escapeHtml(members)} 位会员</p>
+              </div>
+            </div>
+            <div class="space-y-1 text-sm text-gray-600">
+              <p>最低积分：<span class="font-medium">${escapeHtml(level?.min_points || 0)}</span></p>
+              <p>积分倍数：<span class="font-medium">${escapeHtml(level?.points_multiplier || 1)}x</span></p>
+              <p>折扣：<span class="font-medium">${escapeHtml(level?.discount_percentage || 0)}%</span></p>
+              ${freeShip ? '<p class="text-green-600 font-medium">✓ 免运费</p>' : ''}
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+  }
+
+  function renderRules(rules) {
+    const listEl = document.getElementById('rules-list');
+    const empty = document.getElementById('rules-empty');
+    if (!listEl || !empty) return;
+
+    const list = Array.isArray(rules) ? rules : [];
+    if (list.length === 0) {
+      listEl.innerHTML = '';
+      empty.classList.remove('hidden');
+      return;
+    }
+
+    empty.classList.add('hidden');
+    listEl.innerHTML = list
+      .map((rule) => {
+        const isActive = !!rule?.is_active;
+        const badge = isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600';
+        const pointsPerDollar = rule?.points_per_dollar ? ` ${rule.points_per_dollar} pts/$` : '';
+        const fixedPoints = rule?.fixed_points ? ` ${rule.fixed_points} pts fixed` : '';
+        return `
+          <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div>
+              <p class="font-medium text-gray-900">${escapeHtml(rule?.rule_name || '')}</p>
+              <p class="text-sm text-gray-500">Type: ${escapeHtml(rule?.rule_type || '')} |${escapeHtml(pointsPerDollar)}${escapeHtml(fixedPoints)}</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs px-2 py-1 rounded ${escapeHtml(badge)}">${isActive ? '活跃' : '停用'}</span>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+  }
+
+  function renderRedemptions(redemptions) {
+    const grid = document.getElementById('redemptions-grid');
+    const empty = document.getElementById('redemptions-empty');
+    if (!grid || !empty) return;
+
+    const list = Array.isArray(redemptions) ? redemptions : [];
+    if (list.length === 0) {
+      grid.innerHTML = '';
+      empty.classList.remove('hidden');
+      return;
+    }
+
+    empty.classList.add('hidden');
+    grid.innerHTML = list
+      .map((r) => {
+        let desc = '';
+        if (r?.redemption_type === 'discount_fixed') desc = `$${r?.discount_amount} off`;
+        if (r?.redemption_type === 'discount_percent') desc = `${r?.discount_percent}% off`;
+        if (r?.redemption_type === 'free_shipping') desc = '免运费';
+        return `
+          <div class="border border-gray-200 rounded-lg p-4">
+            <h4 class="font-semibold text-gray-900 mb-2">${escapeHtml(r?.redemption_name || '')}</h4>
+            <p class="text-2xl font-bold text-primary-600 mb-2">${escapeHtml(r?.points_required || 0)} pts</p>
+            <p class="text-sm text-gray-600">${escapeHtml(desc)}</p>
+            ${r?.description ? `<p class="text-xs text-gray-500 mt-2">${escapeHtml(r.description)}</p>` : ''}
+          </div>
+        `;
+      })
+      .join('');
+  }
+
+  async function loadPageData() {
+    try {
+      const res = await fetch(api('/api/admin/marketing/loyalty/page-data'));
+      if (!res.ok) return;
+      const data = await res.json();
+
+      const stats = data?.stats || {};
+      setText('stat-total-members', stats.totalMembers || 0);
+      setText('stat-points-outstanding', (stats.totalPointsOutstanding || 0).toLocaleString());
+      setText('stat-rules', (data?.pointsRules || []).length || 0);
+      setText('stat-redemptions', (data?.redemptions || []).length || 0);
+
+      renderLevels(data?.levels || [], stats.levelCounts || {});
+      renderRules(data?.pointsRules || []);
+      renderRedemptions(data?.redemptions || []);
+    } catch {
+      // ignore
+    }
+  }
   // Tab switching
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -236,7 +291,7 @@ for (const level of levels || []) {
     btn.textContent = '初始化中...';
 
     try {
-      const response = await fetch('/api/membership/levels/init', { method: 'POST' });
+      const response = await fetch(api('/api/admin/marketing/loyalty/levels/init'), { method: 'POST' });
       const data = await response.json();
 
       if (response.ok) {
@@ -259,7 +314,7 @@ for (const level of levels || []) {
     if (!container) return;
 
     try {
-      const response = await fetch('/api/membership/customers?limit=20');
+      const response = await fetch(api('/api/admin/marketing/loyalty/members?limit=20'));
       const data = await response.json();
 
       if (data.memberships && data.memberships.length > 0) {
@@ -307,7 +362,7 @@ for (const level of levels || []) {
     btn.textContent = '重新计算中...';
 
     try {
-      const response = await fetch('/api/membership/recalculate', { method: 'POST' });
+      const response = await fetch(api('/api/admin/marketing/loyalty/recalculate'), { method: 'POST' });
       const data = await response.json();
 
       if (response.ok) {
@@ -323,4 +378,6 @@ for (const level of levels || []) {
       btn.textContent = '重新计算等级';
     }
   });
+
+  setTimeout(loadPageData, 0);
 </script>

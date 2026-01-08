@@ -120,3 +120,42 @@ export async function requireBrandManageAccess(
 
   return { ok: false, response: errorResponse('Brand access denied', 403) };
 }
+
+export async function requireBrandAdminAccess(
+  env: Env,
+  admin: AdminAuthContext,
+  brandId: string
+): Promise<{ ok: true } | { ok: false; response: Response }> {
+  if (!brandId) {
+    return { ok: false, response: errorResponse('Brand ID is required', 400) };
+  }
+
+  if (admin.isOwner) {
+    return { ok: true };
+  }
+
+  if (admin.brandIds.includes(brandId)) {
+    return { ok: true };
+  }
+
+  if (!admin.adminUserId) {
+    return { ok: false, response: errorResponse('Brand access denied', 403) };
+  }
+
+  const supabase = getSupabase(env);
+
+  const { data: assignment } = await supabase
+    .from('brand_user_assignments')
+    .select('role')
+    .eq('brand_id', brandId)
+    .eq('admin_user_id', admin.adminUserId)
+    .single();
+
+  const role = typeof (assignment as any)?.role === 'string' ? (assignment as any).role : '';
+
+  if (role === 'brand_admin') {
+    return { ok: true };
+  }
+
+  return { ok: false, response: errorResponse('Brand access denied', 403) };
+}

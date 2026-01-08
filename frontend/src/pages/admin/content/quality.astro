@@ -2,24 +2,10 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
 
-// Get products for the differentiation engine
-const { data: products } = await supabase
-  .from('products')
-  .select('id, name')
-  .eq('is_active', true)
-  .order('name');
-
-// Get stale content count for the badge
-const thirtyDaysAgo = new Date();
-thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-const { count: staleCount } = await supabase
-  .from('content_library')
-  .select('id', { count: 'exact', head: true })
-  .eq('status', 'published')
-  .lt('updated_at', thirtyDaysAgo.toISOString());
+// Data loaded dynamically via client-side API calls
+const products: any[] = [];
+const staleCount = 0;
 ---
 
 <AdminLayout title="内容质量" activePage="content">

@@ -3,22 +3,18 @@
  * Provides endpoints for health checks, metrics, and system status
  */
 
+import type { Env } from '../index';
 import { metricsCollector } from '../utils/metrics';
-import { jsonResponse, cors } from '../utils/response';
-
-interface MonitoringEnv {
-  ENVIRONMENT?: string;
-  SUPABASE_URL?: string;
-  SUPABASE_SERVICE_KEY?: string;
-  CACHE?: KVNamespace;
-}
+import { jsonResponse } from '../utils/response';
+import { requireAdminAuth } from '../middleware/admin-auth';
+import { validateCronSecret } from '../utils/cron';
 
 /**
  * Handle monitoring routes
  */
 export async function handleMonitoring(
   request: Request,
-  env: MonitoringEnv,
+  env: Env,
   path: string
 ): Promise<Response> {
   const url = new URL(request.url);
@@ -30,6 +26,8 @@ export async function handleMonitoring(
 
   // Health check with details - GET /api/health/detailed
   if (path === '/api/health/detailed' && request.method === 'GET') {
+    const cron = validateCronSecret(request, env);
+    if (!cron.ok) return cron.response;
     return handleDetailedHealthCheck(env);
   }
 
@@ -45,22 +43,34 @@ export async function handleMonitoring(
 
   // Performance metrics - GET /api/metrics
   if (path === '/api/metrics' && request.method === 'GET') {
+    const { response: authResponse } = await requireAdminAuth(request, env);
+    if (authResponse) return authResponse;
+
     const period = url.searchParams.get('period') || '1h';
     return handleMetrics(period);
   }
 
   // Endpoint metrics - GET /api/metrics/endpoints
   if (path === '/api/metrics/endpoints' && request.method === 'GET') {
+    const { response: authResponse } = await requireAdminAuth(request, env);
+    if (authResponse) return authResponse;
+
     return handleEndpointMetrics();
   }
 
   // System info - GET /api/system
   if (path === '/api/system' && request.method === 'GET') {
+    const { response: authResponse } = await requireAdminAuth(request, env);
+    if (authResponse) return authResponse;
+
     return handleSystemInfo(env);
   }
 
   // Prometheus metrics - GET /api/metrics/prometheus
   if (path === '/api/metrics/prometheus' && request.method === 'GET') {
+    const cron = validateCronSecret(request, env);
+    if (!cron.ok) return cron.response;
+
     return handlePrometheusMetrics();
   }
 
@@ -70,7 +80,7 @@ export async function handleMonitoring(
 /**
  * Simple health check
  */
-function handleHealthCheck(env: MonitoringEnv): Response {
+function handleHealthCheck(env: Env): Response {
   return jsonResponse({
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -81,7 +91,7 @@ function handleHealthCheck(env: MonitoringEnv): Response {
 /**
  * Detailed health check with dependency status
  */
-async function handleDetailedHealthCheck(env: MonitoringEnv): Promise<Response> {
+async function handleDetailedHealthCheck(env: Env): Promise<Response> {
   const startTime = Date.now();
   const checks: Record<string, { status: string; latency?: number; error?: string }> = {};
 
@@ -193,7 +203,7 @@ function handleEndpointMetrics(): Response {
 /**
  * Get system information
  */
-function handleSystemInfo(env: MonitoringEnv): Response {
+function handleSystemInfo(env: Env): Response {
   return jsonResponse({
     timestamp: new Date().toISOString(),
     environment: env.ENVIRONMENT || 'development',

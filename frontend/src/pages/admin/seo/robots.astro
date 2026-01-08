@@ -2,15 +2,8 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
 
-// Get robots config
-const { data: robotsConfig } = await supabase
-  .from('robots_config')
-  .select('*')
-  .single();
-
-const config = robotsConfig || {
+const config = {
   allow_gptbot: true,
   allow_claudebot: true,
   allow_perplexitybot: true,
@@ -21,7 +14,6 @@ const config = robotsConfig || {
 };
 
 const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
-const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
 
 // Generate preview
 function generateRobotsPreview(cfg: any): string {
@@ -237,7 +229,7 @@ const robotsPreview = generateRobotsPreview(config);
   </div>
 </AdminLayout>
 
-<script define:vars={{ apiUrl, siteUrl }}>
+<script define:vars={{ siteUrl }}>
   const form = document.getElementById('robots-form');
   const preview = document.getElementById('robots-preview');
 
@@ -334,7 +326,7 @@ const robotsPreview = generateRobotsPreview(config);
     };
 
     try {
-      const response = await fetch(`${apiUrl}/api/seo/robots/config`, {
+      const response = await fetch(`/api/admin/seo/robots/config`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -350,4 +342,54 @@ const robotsPreview = generateRobotsPreview(config);
       alert('保存配置失败');
     }
   });
+
+  async function loadConfig() {
+    try {
+      const res = await fetch('/api/admin/seo/robots/config');
+      const json = await res.json().catch(() => null);
+      const cfg = json?.config;
+      if (!cfg || !form) {
+        generatePreview();
+        return;
+      }
+
+      form.querySelector('input[name="allow_gptbot"]').checked = cfg.allow_gptbot !== false;
+      form.querySelector('input[name="allow_claudebot"]').checked = cfg.allow_claudebot !== false;
+      form.querySelector('input[name="allow_perplexitybot"]').checked = cfg.allow_perplexitybot !== false;
+      form.querySelector('input[name="allow_googlebot"]').checked = cfg.allow_googlebot !== false;
+      form.querySelector('input[name="allow_bingbot"]').checked = cfg.allow_bingbot !== false;
+
+      const container = document.getElementById('disallow-paths');
+      if (container) {
+        container.innerHTML = '';
+        const paths = Array.isArray(cfg.disallow_paths) ? cfg.disallow_paths : [];
+        paths.forEach((path) => {
+          const item = document.createElement('div');
+          item.className = 'flex gap-2 path-item';
+          item.innerHTML = `
+            <input
+              type="text"
+              name="disallow_paths[]"
+              value="${String(path).replaceAll('"', '&quot;')}"
+              class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              placeholder="/path-to-block"
+            />
+            <button type="button" class="remove-path-btn px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          `;
+          container.appendChild(item);
+        });
+        attachRemoveListeners();
+      }
+
+      generatePreview();
+    } catch {
+      generatePreview();
+    }
+  }
+
+  loadConfig();
 </script>

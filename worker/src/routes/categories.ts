@@ -85,9 +85,24 @@ export async function handleCategories(
       return errorResponse('Category not found', 404);
     }
 
+    const { data: subcategories, error: subcategoriesError } = await supabase
+      .from(Tables.CATEGORIES)
+      .select('*')
+      .eq('brand_id', brandId)
+      .eq('is_active', true)
+      .eq('parent_id', (category as any).id)
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true });
+
+    if (subcategoriesError) {
+      console.error('Error fetching subcategories:', subcategoriesError);
+      return errorResponse('Failed to fetch category', 500);
+    }
+
     return jsonResponse({
       success: true,
       category,
+      subcategories: subcategories || [],
     });
   }
 

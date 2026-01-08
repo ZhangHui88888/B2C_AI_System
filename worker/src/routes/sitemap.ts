@@ -432,19 +432,82 @@ async function handleGetSitemapStats(supabase: any, brandId: string | null): Pro
 
 async function handleGetShardList(supabase: any, brandId: string | null): Promise<Response> {
   try {
-    const { data, error } = await supabase
+    const selectPrimary = 'id, brand_id, shard_type, shard_index, url_count, last_generated_at, file_size_bytes, is_active';
+    const selectNoFileSize = 'id, brand_id, shard_type, shard_index, url_count, last_generated_at, is_active';
+    const selectNoIndex = 'id, brand_id, shard_type, url_count, last_generated_at, is_active';
+
+    const formatErr = (e: any) => {
+      const code = String(e?.code || '');
+      const message = String(e?.message || '');
+      const details = String(e?.details || '');
+      const hint = String(e?.hint || '');
+      return `[${code}] ${message}${details ? ` | ${details}` : ''}${hint ? ` | ${hint}` : ''}`.trim();
+    };
+
+    const isMissingColumn = (e: any, col: string) => {
+      const code = String(e?.code || '');
+      const msg = `${e?.message || ''} ${e?.details || ''} ${e?.hint || ''}`;
+      return code === '42703' || /column\s+.*does not exist/i.test(msg) || new RegExp(col, 'i').test(msg);
+    };
+
+    // Attempt 1: full select + full ordering
+    const q1 = await supabase
       .from('sitemap_shards')
-      .select('*')
+      .select(selectPrimary)
       .eq('brand_id', brandId)
       .order('shard_type')
       .order('shard_index');
+    if (!q1.error) return jsonResponse({ shards: q1.data || [] });
+    console.error('Sitemap shard list query error (q1):', q1.error);
 
-    if (error) throw error;
+    if (String(q1.error?.code || '') === 'PGRST205') {
+      return jsonResponse({ shards: [] });
+    }
 
-    return jsonResponse({ shards: data || [] });
+    // Attempt 2: drop file_size_bytes
+    if (isMissingColumn(q1.error, 'file_size_bytes')) {
+      const q2 = await supabase
+        .from('sitemap_shards')
+        .select(selectNoFileSize)
+        .eq('brand_id', brandId)
+        .order('shard_type')
+        .order('shard_index');
+      if (!q2.error) return jsonResponse({ shards: q2.data || [] });
+      console.error('Sitemap shard list query error (q2):', q2.error);
+
+      // Attempt 3: if shard_index is also missing, drop it and its ordering
+      if (isMissingColumn(q2.error, 'shard_index')) {
+        const q3 = await supabase
+          .from('sitemap_shards')
+          .select(selectNoIndex)
+          .eq('brand_id', brandId)
+          .order('shard_type');
+        if (!q3.error) return jsonResponse({ shards: q3.data || [] });
+        console.error('Sitemap shard list query error (q3):', q3.error);
+        throw q3.error;
+      }
+
+      throw q2.error;
+    }
+
+    // Attempt 2b: file_size_bytes not the issue, but shard_index might be missing
+    if (isMissingColumn(q1.error, 'shard_index')) {
+      const q2b = await supabase
+        .from('sitemap_shards')
+        .select(selectNoIndex)
+        .eq('brand_id', brandId)
+        .order('shard_type');
+      if (!q2b.error) return jsonResponse({ shards: q2b.data || [] });
+      console.error('Sitemap shard list query error (q2b):', q2b.error);
+      throw q2b.error;
+    }
+
+    throw q1.error;
   } catch (error) {
     console.error('Error getting shard list:', error);
-    return jsonResponse({ error: 'Failed to get shard list' }, 500);
+    const e: any = error;
+    const detail = `${String(e?.code || '')} ${String(e?.message || '')} ${String(e?.details || '')} ${String(e?.hint || '')}`.trim();
+    return jsonResponse({ error: detail ? `Failed to get shard list: ${detail}` : 'Failed to get shard list' }, 500);
   }
 }
 

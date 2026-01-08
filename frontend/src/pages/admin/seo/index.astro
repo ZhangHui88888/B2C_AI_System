@@ -2,85 +2,41 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
-
-// Get SEO stats overview
-const { data: products } = await supabase
-  .from('products')
-  .select('id, name, slug, meta_title, meta_description, images')
-  .eq('is_active', true);
-
-const { data: seoMeta } = await supabase
-  .from('seo_meta')
-  .select('*');
-
-const { data: redirects } = await supabase
-  .from('url_redirects')
-  .select('*')
-  .eq('is_active', true);
-
-const { data: errors404 } = await supabase
-  .from('error_404_logs')
-  .select('*')
-  .eq('is_resolved', false)
-  .order('hit_count', { ascending: false })
-  .limit(10);
-
-// Calculate stats
-const totalProducts = products?.length || 0;
-const productsWithMeta = products?.filter(p => p.meta_title && p.meta_description).length || 0;
-const productsWithoutMeta = totalProducts - productsWithMeta;
-const totalRedirects = redirects?.length || 0;
-const total404Errors = errors404?.length || 0;
-
-// Check for duplicate meta
-const titles = seoMeta?.map(m => m.meta_title).filter(Boolean) || [];
-const descriptions = seoMeta?.map(m => m.meta_description).filter(Boolean) || [];
-const duplicateTitles = titles.length - new Set(titles).size;
-const duplicateDescriptions = descriptions.length - new Set(descriptions).size;
-
-// Check images without alt
-const imagesWithoutAlt = products?.filter(p => {
-  const images = p.images || [];
-  return images.some((img: any) => !img.alt);
-}).length || 0;
-
 const seoStats = [
-  { 
-    label: '已有 Meta 的页面', 
-    value: productsWithMeta, 
-    total: totalProducts,
-    percentage: totalProducts > 0 ? Math.round((productsWithMeta / totalProducts) * 100) : 0,
+  {
+    id: 'meta_complete',
+    label: '已有 Meta 的页面',
+    value: 0,
+    total: 0,
+    percentage: 0,
     color: 'green',
-    icon: 'check'
+    icon: 'check',
   },
-  { 
-    label: '缺少 Meta', 
-    value: productsWithoutMeta, 
-    color: productsWithoutMeta > 0 ? 'red' : 'green',
-    icon: 'alert'
+  {
+    id: 'meta_missing',
+    label: '缺少 Meta',
+    value: 0,
+    color: 'green',
+    icon: 'alert',
   },
-  { 
-    label: '活跃重定向', 
-    value: totalRedirects, 
+  {
+    id: 'redirects',
+    label: '活跃重定向',
+    value: 0,
     color: 'blue',
-    icon: 'redirect'
+    icon: 'redirect',
   },
-  { 
-    label: '404 错误', 
-    value: total404Errors, 
-    color: total404Errors > 0 ? 'yellow' : 'green',
-    icon: 'error'
+  {
+    id: 'errors_404',
+    label: '404 错误',
+    value: 0,
+    color: 'green',
+    icon: 'error',
   },
 ];
 
-const issues = [
-  { type: 'warning', message: `发现 ${duplicateTitles} 个重复标题`, count: duplicateTitles, show: duplicateTitles > 0 },
-  { type: 'warning', message: `发现 ${duplicateDescriptions} 个重复 Meta 描述`, count: duplicateDescriptions, show: duplicateDescriptions > 0 },
-  { type: 'error', message: `${productsWithoutMeta} 个商品缺少 Meta 标签`, count: productsWithoutMeta, show: productsWithoutMeta > 0 },
-  { type: 'warning', message: `${imagesWithoutAlt} 个商品图片缺少 alt 文本`, count: imagesWithoutAlt, show: imagesWithoutAlt > 0 },
-  { type: 'info', message: `${total404Errors} 个未解决的 404 错误`, count: total404Errors, show: total404Errors > 0 },
-].filter(i => i.show);
+const issues: any[] = [];
+const errors404: any[] = [];
 ---
 
 <AdminLayout title="SEO 工具" activePage="seo">
@@ -98,14 +54,15 @@ const issues = [
           <div>
             <p class="text-sm font-medium text-gray-500">{stat.label}</p>
             <p class="text-2xl font-bold text-gray-900 mt-1">
-              {stat.value}
-              {stat.total && <span class="text-sm text-gray-500">/{stat.total}</span>}
+              <span id={`stat-${stat.id}`}>{stat.value}</span>
+              {stat.total !== undefined && <span class="text-sm text-gray-500">/<span id="stat-total">{stat.total}</span></span>}
             </p>
             {stat.percentage !== undefined && (
               <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
                 <div 
                   class={`h-2 rounded-full ${stat.percentage >= 80 ? 'bg-green-500' : stat.percentage >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
                   style={`width: ${stat.percentage}%`}
+                  id="stat-meta-progress"
                 />
               </div>
             )}
@@ -333,28 +290,8 @@ const issues = [
         <h3 class="font-semibold text-gray-900">最近 404 错误</h3>
         <a href="/admin/seo/errors" class="text-sm text-primary-600 hover:text-primary-700">查看全部 →</a>
       </div>
-      <div class="divide-y divide-gray-100">
-        {errors404 && errors404.length > 0 ? (
-          errors404.slice(0, 5).map((error: any) => (
-            <div class="px-6 py-3 flex items-center justify-between">
-              <div class="min-w-0 flex-1">
-                <p class="text-sm font-medium text-gray-900 truncate">{error.request_path}</p>
-                <p class="text-xs text-gray-500">{error.hit_count} 次访问</p>
-              </div>
-              <button 
-                class="text-xs text-primary-600 hover:text-primary-700 whitespace-nowrap ml-4"
-                data-path={error.request_path}
-                onclick="createRedirect(this)"
-              >
-                创建重定向
-              </button>
-            </div>
-          ))
-        ) : (
-          <div class="px-6 py-8 text-center text-gray-500">
-            未记录 404 错误
-          </div>
-        )}
+      <div class="divide-y divide-gray-100" id="recent-404">
+        <div class="px-6 py-8 text-center text-gray-500">加载中...</div>
       </div>
     </div>
   </div>
@@ -369,4 +306,84 @@ const issues = [
   }
   // Make function available globally
   (window as any).createRedirect = createRedirect;
+
+  async function loadSeoOverview() {
+    try {
+      const res = await fetch('/api/admin/seo/overview');
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) return;
+      const s = json.stats || {};
+
+      const total = Number(s.totalProducts) || 0;
+      const complete = Number(s.productsWithMeta) || 0;
+      const missing = Number(s.productsWithoutMeta) || 0;
+      const redirects = Number(s.totalRedirects) || 0;
+      const errors = Number(s.total404Errors) || 0;
+
+      const percent = total > 0 ? Math.round((complete / total) * 100) : 0;
+
+      const totalEl = document.getElementById('stat-total');
+      if (totalEl) totalEl.textContent = String(total);
+
+      const completeEl = document.getElementById('stat-meta_complete');
+      if (completeEl) completeEl.textContent = String(complete);
+
+      const missingEl = document.getElementById('stat-meta_missing');
+      if (missingEl) missingEl.textContent = String(missing);
+
+      const redirectsEl = document.getElementById('stat-redirects');
+      if (redirectsEl) redirectsEl.textContent = String(redirects);
+
+      const errorsEl = document.getElementById('stat-errors_404');
+      if (errorsEl) errorsEl.textContent = String(errors);
+
+      const bar = document.getElementById('stat-meta-progress');
+      if (bar) {
+        bar.style.width = `${percent}%`;
+        bar.className = `h-2 rounded-full ${percent >= 80 ? 'bg-green-500' : percent >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  async function loadRecent404() {
+    const container = document.getElementById('recent-404');
+    if (!container) return;
+
+    try {
+      const res = await fetch('/api/admin/seo/errors');
+      const json = await res.json().catch(() => null);
+      const errors = Array.isArray(json?.errors) ? json.errors : [];
+      const top = errors.filter((e) => !e.is_resolved).slice(0, 5);
+
+      if (top.length === 0) {
+        container.innerHTML = '<div class="px-6 py-8 text-center text-gray-500">未记录 404 错误</div>';
+        return;
+      }
+
+      container.innerHTML = top
+        .map((e) => {
+          const path = e.request_path || '';
+          const hits = e.hit_count || 0;
+          return `
+            <div class="px-6 py-3 flex items-center justify-between">
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-medium text-gray-900 truncate">${String(path).replaceAll('<', '&lt;').replaceAll('>', '&gt;')}</p>
+                <p class="text-xs text-gray-500">${hits} 次访问</p>
+              </div>
+              <button class="text-xs text-primary-600 hover:text-primary-700 whitespace-nowrap ml-4" data-path="${String(path).replaceAll('"', '&quot;')}" onclick="createRedirect(this)">
+                创建重定向
+              </button>
+            </div>
+          `;
+        })
+        .join('');
+    } catch {
+      container.innerHTML = '<div class="px-6 py-8 text-center text-gray-500">加载失败</div>';
+    }
+  }
+
+  loadSeoOverview();
+  loadRecent404();
 </script>

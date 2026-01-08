@@ -2,90 +2,13 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
-
-// Get all brands
-const { data: brands } = await supabase
-  .from('brands')
-  .select('id, name, slug, logo_url, is_active')
-  .eq('is_active', true)
-  .order('name');
-
-// Get cross-brand order stats
-const { data: orderStats } = await supabase
-  .from('orders')
-  .select('brand_id, status, total, created_at');
-
-// Get cross-brand product counts
-const { data: productStats } = await supabase
-  .from('products')
-  .select('brand_id, is_active, is_featured');
-
-// Get cross-brand customer counts
-const { data: customerStats } = await supabase
-  .from('customers')
-  .select('brand_id, total_spent, total_orders');
-
-// Calculate stats per brand
-const brandStats = (brands || []).map(brand => {
-  const orders = (orderStats || []).filter(o => o.brand_id === brand.id);
-  const products = (productStats || []).filter(p => p.brand_id === brand.id);
-  const customers = (customerStats || []).filter(c => c.brand_id === brand.id);
-  
-  const paidOrders = orders.filter(o => ['paid', 'shipped', 'delivered'].includes(o.status));
-  const totalRevenue = paidOrders.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0);
-  const pendingOrders = orders.filter(o => o.status === 'pending').length;
-  
-  return {
-    ...brand,
-    totalOrders: orders.length,
-    pendingOrders,
-    totalRevenue,
-    totalProducts: products.length,
-    activeProducts: products.filter(p => p.is_active).length,
-    totalCustomers: customers.length,
-    avgOrderValue: paidOrders.length > 0 ? totalRevenue / paidOrders.length : 0
-  };
-});
-
-// Calculate totals
 const totals = {
-  orders: brandStats.reduce((sum, b) => sum + b.totalOrders, 0),
-  pendingOrders: brandStats.reduce((sum, b) => sum + b.pendingOrders, 0),
-  revenue: brandStats.reduce((sum, b) => sum + b.totalRevenue, 0),
-  products: brandStats.reduce((sum, b) => sum + b.totalProducts, 0),
-  customers: brandStats.reduce((sum, b) => sum + b.totalCustomers, 0),
-  brands: brands?.length || 0
-};
-
-// Get recent orders across all brands
-const { data: recentOrders } = await supabase
-  .from('orders')
-  .select('id, order_number, customer_email, total, status, created_at, brand_id')
-  .order('created_at', { ascending: false })
-  .limit(10);
-
-// Enrich recent orders with brand info
-const enrichedOrders = (recentOrders || []).map(order => ({
-  ...order,
-  brand: brands?.find(b => b.id === order.brand_id)
-}));
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'USD' }).format(amount);
-}
-
-function formatDate(date: string): string {
-  return new Date(date).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
-
-const statusColors: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-700',
-  paid: 'bg-green-100 text-green-700',
-  shipped: 'bg-blue-100 text-blue-700',
-  delivered: 'bg-purple-100 text-purple-700',
-  cancelled: 'bg-gray-100 text-gray-600',
-  refunded: 'bg-red-100 text-red-700'
+  orders: 0,
+  pendingOrders: 0,
+  revenue: 0,
+  products: 0,
+  customers: 0,
+  brands: 0,
 };
 ---
 
@@ -95,7 +18,7 @@ const statusColors: Record<string, string> = {
     <div class="flex items-center justify-between">
       <div>
         <h2 class="text-2xl font-bold text-gray-900">多品牌概览</h2>
-        <p class="text-sm text-gray-600">汇总 {totals.brands} 个品牌的统计数据</p>
+        <p class="text-sm text-gray-600">汇总 <span id="totals-brands">{totals.brands}</span> 个品牌的统计数据</p>
       </div>
       <div class="flex items-center gap-2 text-sm text-gray-500">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -115,7 +38,7 @@ const statusColors: Record<string, string> = {
             </svg>
           </div>
           <div>
-            <p class="text-2xl font-bold text-gray-900">{totals.brands}</p>
+            <p class="text-2xl font-bold text-gray-900" id="totals-brands-card">{totals.brands}</p>
             <p class="text-xs text-gray-500">活跃品牌</p>
           </div>
         </div>
@@ -129,7 +52,7 @@ const statusColors: Record<string, string> = {
             </svg>
           </div>
           <div>
-            <p class="text-2xl font-bold text-gray-900">{formatCurrency(totals.revenue)}</p>
+            <p class="text-2xl font-bold text-gray-900" id="totals-revenue">$0.00</p>
             <p class="text-xs text-gray-500">总营收</p>
           </div>
         </div>
@@ -143,7 +66,7 @@ const statusColors: Record<string, string> = {
             </svg>
           </div>
           <div>
-            <p class="text-2xl font-bold text-gray-900">{totals.orders}</p>
+            <p class="text-2xl font-bold text-gray-900" id="totals-orders">0</p>
             <p class="text-xs text-gray-500">总订单</p>
           </div>
         </div>
@@ -157,7 +80,7 @@ const statusColors: Record<string, string> = {
             </svg>
           </div>
           <div>
-            <p class="text-2xl font-bold text-gray-900">{totals.pendingOrders}</p>
+            <p class="text-2xl font-bold text-gray-900" id="totals-pending-orders">0</p>
             <p class="text-xs text-gray-500">待处理订单</p>
           </div>
         </div>
@@ -171,7 +94,7 @@ const statusColors: Record<string, string> = {
             </svg>
           </div>
           <div>
-            <p class="text-2xl font-bold text-gray-900">{totals.products}</p>
+            <p class="text-2xl font-bold text-gray-900" id="totals-products">0</p>
             <p class="text-xs text-gray-500">总商品</p>
           </div>
         </div>
@@ -185,7 +108,7 @@ const statusColors: Record<string, string> = {
             </svg>
           </div>
           <div>
-            <p class="text-2xl font-bold text-gray-900">{totals.customers}</p>
+            <p class="text-2xl font-bold text-gray-900" id="totals-customers">0</p>
             <p class="text-xs text-gray-500">总客户</p>
           </div>
         </div>
@@ -212,59 +135,9 @@ const statusColors: Record<string, string> = {
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
-            {brandStats.map((brand) => (
-              <tr class="hover:bg-gray-50">
-                <td class="px-4 py-4">
-                  <div class="flex items-center gap-3">
-                    {brand.logo_url ? (
-                      <img src={brand.logo_url} alt={brand.name} class="w-8 h-8 rounded-lg object-cover" />
-                    ) : (
-                      <div class="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
-                        <span class="text-sm font-bold text-primary-600">{brand.name.charAt(0)}</span>
-                      </div>
-                    )}
-                    <div>
-                      <p class="font-medium text-gray-900">{brand.name}</p>
-                      <p class="text-xs text-gray-500">{brand.slug}</p>
-                    </div>
-                  </div>
-                </td>
-                <td class="px-4 py-4 text-right">
-                  <span class="font-semibold text-gray-900">{formatCurrency(brand.totalRevenue)}</span>
-                </td>
-                <td class="px-4 py-4 text-right text-gray-900">{brand.totalOrders}</td>
-                <td class="px-4 py-4 text-right">
-                  {brand.pendingOrders > 0 ? (
-                    <span class="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-700 rounded-full">
-                      {brand.pendingOrders}
-                    </span>
-                  ) : (
-                    <span class="text-gray-400">0</span>
-                  )}
-                </td>
-                <td class="px-4 py-4 text-right text-gray-900">
-                  {brand.activeProducts} / {brand.totalProducts}
-                </td>
-                <td class="px-4 py-4 text-right text-gray-900">{brand.totalCustomers}</td>
-                <td class="px-4 py-4 text-right text-gray-900">{formatCurrency(brand.avgOrderValue)}</td>
-                <td class="px-4 py-4 text-center">
-                  <div class="flex items-center justify-center gap-2">
-                    <a 
-                      href={`/admin/brands/${brand.id}/settings`}
-                      class="text-primary-600 hover:text-primary-700 text-sm"
-                    >
-                      设置
-                    </a>
-                    <button 
-                      class="switch-brand-btn text-gray-600 hover:text-gray-700 text-sm"
-                      data-brand-id={brand.id}
-                    >
-                      切换
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            <tr id="brand-stats-loading" class="hover:bg-gray-50">
+              <td class="px-4 py-6 text-center text-gray-500" colspan="8">Loading...</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -277,52 +150,186 @@ const statusColors: Record<string, string> = {
         <a href="/admin/orders" class="text-sm text-primary-600 hover:text-primary-700">查看全部</a>
       </div>
       <div class="divide-y divide-gray-100">
-        {enrichedOrders.length > 0 ? (
-          enrichedOrders.map((order) => (
-            <div class="p-4 flex items-center justify-between hover:bg-gray-50">
-              <div class="flex items-center gap-4">
-                <div class="flex items-center gap-2">
-                  {order.brand?.logo_url ? (
-                    <img src={order.brand.logo_url} alt={order.brand.name} class="w-6 h-6 rounded object-cover" />
-                  ) : (
-                    <div class="w-6 h-6 bg-primary-100 rounded flex items-center justify-center">
-                      <span class="text-xs font-bold text-primary-600">{order.brand?.name?.charAt(0) || '?'}</span>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <p class="font-medium text-gray-900">{order.order_number}</p>
-                  <p class="text-sm text-gray-500">{order.customer_email}</p>
-                </div>
-              </div>
-              <div class="flex items-center gap-6">
-                <span class="text-sm text-gray-500">{order.brand?.name}</span>
-                <span class="font-medium text-gray-900">{formatCurrency(parseFloat(order.total))}</span>
-                <span class={`px-2 py-1 text-xs font-medium rounded-full ${statusColors[order.status] || 'bg-gray-100 text-gray-600'}`}>
-                  {order.status}
-                </span>
-                <span class="text-sm text-gray-500">{formatDate(order.created_at)}</span>
-              </div>
-            </div>
-          ))
-        ) : (
-          <div class="p-8 text-center text-gray-500">
-            暂无任何品牌的订单
-          </div>
-        )}
+        <div id="recent-orders-loading" class="p-8 text-center text-gray-500">Loading...</div>
+        <div id="recent-orders-empty" class="p-8 text-center text-gray-500 hidden">暂无任何品牌的订单</div>
+        <div id="recent-orders-list"></div>
       </div>
     </div>
   </div>
 
   <script>
-    document.querySelectorAll('.switch-brand-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const brandId = (btn as HTMLElement).dataset.brandId;
-        if (brandId) {
-          document.cookie = `brand_id=${brandId}; path=/; max-age=31536000; SameSite=Lax`;
-          window.location.href = '/admin';
-        }
+    const API_URL = import.meta.env.PUBLIC_API_URL || '';
+    const apiBase = API_URL && API_URL.trim() ? API_URL.trim().replace(/\/$/, '') : '';
+    const api = (path) => (apiBase ? `${apiBase}${path}` : path);
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatCurrency(amount) {
+      const n = typeof amount === 'number' ? amount : Number(amount);
+      const v = Number.isFinite(n) ? n : 0;
+      return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'USD' }).format(v);
+    }
+
+    function formatDate(date) {
+      return new Date(date).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function setText(id, value) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = String(value ?? '');
+    }
+
+    function bindSwitchBrandButtons() {
+      document.querySelectorAll('.switch-brand-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const brandId = btn.dataset.brandId;
+          if (brandId) {
+            document.cookie = `brand_id=${brandId}; path=/; max-age=31536000; SameSite=Lax`;
+            window.location.href = '/admin';
+          }
+        });
       });
-    });
+    }
+
+    function renderBrandStatsRows(rows) {
+      const tbody = document.querySelector('tbody.divide-y.divide-gray-100');
+      if (!tbody) return;
+
+      if (!Array.isArray(rows) || rows.length === 0) {
+        tbody.innerHTML = `<tr class="hover:bg-gray-50"><td class="px-4 py-6 text-center text-gray-500" colspan="8">暂无数据</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = rows
+        .map((brand) => {
+          const logo = brand?.logo_url
+            ? `<img src="${escapeHtml(brand.logo_url)}" alt="${escapeHtml(brand?.name)}" class="w-8 h-8 rounded-lg object-cover" />`
+            : `<div class="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center"><span class="text-sm font-bold text-primary-600">${escapeHtml((brand?.name || 'B').charAt(0))}</span></div>`;
+
+          const pending = Number(brand?.pendingOrders || 0);
+          const pendingHtml = pending > 0
+            ? `<span class="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-700 rounded-full">${escapeHtml(pending)}</span>`
+            : `<span class="text-gray-400">0</span>`;
+
+          return `
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-4">
+                <div class="flex items-center gap-3">
+                  ${logo}
+                  <div>
+                    <p class="font-medium text-gray-900">${escapeHtml(brand?.name)}</p>
+                    <p class="text-xs text-gray-500">${escapeHtml(brand?.slug)}</p>
+                  </div>
+                </div>
+              </td>
+              <td class="px-4 py-4 text-right"><span class="font-semibold text-gray-900">${escapeHtml(formatCurrency(brand?.totalRevenue || 0))}</span></td>
+              <td class="px-4 py-4 text-right text-gray-900">${escapeHtml(brand?.totalOrders || 0)}</td>
+              <td class="px-4 py-4 text-right">${pendingHtml}</td>
+              <td class="px-4 py-4 text-right text-gray-900">${escapeHtml(brand?.activeProducts || 0)} / ${escapeHtml(brand?.totalProducts || 0)}</td>
+              <td class="px-4 py-4 text-right text-gray-900">${escapeHtml(brand?.totalCustomers || 0)}</td>
+              <td class="px-4 py-4 text-right text-gray-900">${escapeHtml(formatCurrency(brand?.avgOrderValue || 0))}</td>
+              <td class="px-4 py-4 text-center">
+                <div class="flex items-center justify-center gap-2">
+                  <a href="/admin/brands/${escapeHtml(brand?.id)}/settings" class="text-primary-600 hover:text-primary-700 text-sm">设置</a>
+                  <button class="switch-brand-btn text-gray-600 hover:text-gray-700 text-sm" data-brand-id="${escapeHtml(brand?.id)}">切换</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        })
+        .join('');
+
+      bindSwitchBrandButtons();
+    }
+
+    function renderRecentOrders(orders) {
+      const loading = document.getElementById('recent-orders-loading');
+      const empty = document.getElementById('recent-orders-empty');
+      const list = document.getElementById('recent-orders-list');
+      if (!list || !empty || !loading) return;
+
+      loading.classList.add('hidden');
+
+      if (!Array.isArray(orders) || orders.length === 0) {
+        empty.classList.remove('hidden');
+        list.innerHTML = '';
+        return;
+      }
+
+      empty.classList.add('hidden');
+
+      const statusColors = {
+        pending: 'bg-yellow-100 text-yellow-700',
+        paid: 'bg-green-100 text-green-700',
+        processing: 'bg-green-100 text-green-700',
+        shipped: 'bg-blue-100 text-blue-700',
+        delivered: 'bg-purple-100 text-purple-700',
+        cancelled: 'bg-gray-100 text-gray-600',
+        refunded: 'bg-red-100 text-red-700',
+        failed: 'bg-red-100 text-red-700',
+      };
+
+      list.innerHTML = orders
+        .map((order) => {
+          const brand = order?.brand || null;
+          const brandName = brand?.name || '';
+          const brandLogo = brand?.logo_url
+            ? `<img src="${escapeHtml(brand.logo_url)}" alt="${escapeHtml(brandName)}" class="w-6 h-6 rounded object-cover" />`
+            : `<div class="w-6 h-6 bg-primary-100 rounded flex items-center justify-center"><span class="text-xs font-bold text-primary-600">${escapeHtml((brandName || '?').charAt(0))}</span></div>`;
+
+          const status = order?.status || '';
+          const statusClass = statusColors[status] || 'bg-gray-100 text-gray-600';
+
+          return `
+            <div class="p-4 flex items-center justify-between hover:bg-gray-50">
+              <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">${brandLogo}</div>
+                <div>
+                  <p class="font-medium text-gray-900">${escapeHtml(order?.order_number || '')}</p>
+                  <p class="text-sm text-gray-500">${escapeHtml(order?.customer_email || '')}</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-6">
+                <span class="text-sm text-gray-500">${escapeHtml(brandName)}</span>
+                <span class="font-medium text-gray-900">${escapeHtml(formatCurrency(order?.total_amount || 0))}</span>
+                <span class="px-2 py-1 text-xs font-medium rounded-full ${statusClass}">${escapeHtml(status)}</span>
+                <span class="text-sm text-gray-500">${escapeHtml(formatDate(order?.created_at))}</span>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    async function loadPageData() {
+      try {
+        const res = await fetch(api('/api/admin/overview/page-data'));
+        if (!res.ok) return;
+        const data = await res.json();
+
+        const totals = data?.totals || {};
+        setText('totals-brands', totals.brands ?? 0);
+        setText('totals-brands-card', totals.brands ?? 0);
+        setText('totals-revenue', formatCurrency(totals.revenue ?? 0));
+        setText('totals-orders', totals.orders ?? 0);
+        setText('totals-pending-orders', totals.pendingOrders ?? 0);
+        setText('totals-products', totals.products ?? 0);
+        setText('totals-customers', totals.customers ?? 0);
+
+        renderBrandStatsRows(data?.brandStats || []);
+        renderRecentOrders(data?.recentOrders || []);
+      } catch {
+        // ignore
+      }
+    }
+
+    setTimeout(loadPageData, 0);
   </script>
 </AdminLayout>

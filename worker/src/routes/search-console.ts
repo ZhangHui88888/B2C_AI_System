@@ -7,6 +7,7 @@ import type { Env } from '../index';
 import { getSupabase } from '../utils/supabase';
 import { jsonResponse, errorResponse } from '../utils/response';
 import { getBrandId } from '../middleware/brand';
+import { requireAdminAuth, requireBrandAdminAccess, requireBrandManageAccess } from '../middleware/admin-auth';
 import {
   createSearchConsoleClient,
   formatDateRange,
@@ -28,8 +29,20 @@ export async function handleSearchConsole(
   const supabase = getSupabase(env);
   const brandId = getBrandId(request);
 
-  if (!brandId) {
+  if (!brandId || brandId === 'all') {
     return errorResponse('Brand context missing', 400);
+  }
+
+  const { context: admin, response: authResponse } = await requireAdminAuth(request, env);
+  if (authResponse || !admin) return authResponse as Response;
+
+  const access = await requireBrandManageAccess(env, admin, brandId);
+  if (!access.ok) return access.response;
+
+  const isWriteMethod = request.method !== 'GET' && request.method !== 'HEAD' && request.method !== 'OPTIONS';
+  if (isWriteMethod) {
+    const adminAccess = await requireBrandAdminAccess(env, admin, brandId);
+    if (!adminAccess.ok) return adminAccess.response;
   }
 
   // ============================================

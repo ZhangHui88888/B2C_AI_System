@@ -2,7 +2,6 @@
 export const prerender = false;
 
 import Layout from '@layouts/Layout.astro';
-import { supabase } from '@lib/supabase';
 import ProductCard from '@components/catalog/ProductCard.astro';
 import BreadcrumbSchema from '@components/seo/BreadcrumbSchema.astro';
 import { fetchSiteConfig } from '@lib/site-config';
@@ -23,64 +22,51 @@ if (!brand) {
   return new Response('Site not found', { status: 404 });
 }
 
-const { data: category } = await supabase
-  .from('categories')
-  .select('*')
-  .eq('brand_id', brand.id)
-  .eq('slug', slug)
-  .eq('is_active', true)
-  .single();
+const apiOrigin = new URL(Astro.request.url).origin;
+
+const categoryData = await fetch(new URL(`/api/categories/${encodeURIComponent(slug || '')}`, apiOrigin).toString(), {
+  headers: { 'x-brand-id': brand.id },
+})
+  .then((r) => r.json())
+  .catch(() => null);
+
+const category = categoryData?.category;
+const subcategories = categoryData?.subcategories || [];
 
 if (!category) {
   return Astro.redirect('/products');
 }
 
-const { data: subcategories } = await supabase
-  .from('categories')
-  .select('*')
-  .eq('brand_id', brand.id)
-  .eq('is_active', true)
-  .eq('parent_id', category.id)
-  .order('sort_order', { ascending: true });
+const [productsData, minPriceData, maxPriceData] = await Promise.all([
+  fetch(new URL('/api/products/list', apiOrigin).toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-brand-id': brand.id },
+    body: JSON.stringify({ category: category.slug, page: 1, limit: pageSize, sort: 'newest' }),
+  })
+    .then((r) => r.json())
+    .catch(() => null),
+  fetch(new URL('/api/products/list', apiOrigin).toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-brand-id': brand.id },
+    body: JSON.stringify({ category: category.slug, page: 1, limit: 1, sort: 'price_asc' }),
+  })
+    .then((r) => r.json())
+    .catch(() => null),
+  fetch(new URL('/api/products/list', apiOrigin).toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-brand-id': brand.id },
+    body: JSON.stringify({ category: category.slug, page: 1, limit: 1, sort: 'price_desc' }),
+  })
+    .then((r) => r.json())
+    .catch(() => null),
+]);
 
-const { data: products } = await supabase
-  .from('products')
-  .select('*')
-  .eq('brand_id', brand.id)
-  .eq('is_active', true)
-  .eq('category_id', category.id)
-  .order('created_at', { ascending: false })
-  .range(0, pageSize - 1);
-
-const { data: minPriceRows } = await supabase
-  .from('products')
-  .select('price')
-  .eq('brand_id', brand.id)
-  .eq('is_active', true)
-  .eq('category_id', category.id)
-  .order('price', { ascending: true })
-  .limit(1);
-
-const { data: maxPriceRows } = await supabase
-  .from('products')
-  .select('price')
-  .eq('brand_id', brand.id)
-  .eq('is_active', true)
-  .eq('category_id', category.id)
-  .order('price', { ascending: false })
-  .limit(1);
-
-const initialMinPrice = minPriceRows?.[0]?.price !== undefined ? Number(minPriceRows?.[0]?.price) : undefined;
-const initialMaxPrice = maxPriceRows?.[0]?.price !== undefined ? Number(maxPriceRows?.[0]?.price) : undefined;
-
-const { count: totalCount } = await supabase
-  .from('products')
-  .select('id', { count: 'exact', head: true })
-  .eq('brand_id', brand.id)
-  .eq('is_active', true)
-  .eq('category_id', category.id);
-
+const products = productsData?.products || [];
+const totalCount = productsData?.pagination?.total || 0;
 const initialTotalPages = Math.max(1, Math.ceil((totalCount || 0) / pageSize));
+
+const initialMinPrice = minPriceData?.products?.[0]?.price !== undefined ? Number(minPriceData.products[0].price) : undefined;
+const initialMaxPrice = maxPriceData?.products?.[0]?.price !== undefined ? Number(maxPriceData.products[0].price) : undefined;
 
 const breadcrumbItems = [
   { name: 'Home', url: siteUrl },
@@ -167,6 +153,8 @@ const breadcrumbItems = [
   </main>
 
   <script define:vars={{ categorySlug: category.slug }}>
+    import { api } from '@lib/api';
+
     const pageSize = 12;
 
     const searchEl = document.getElementById('category-search');

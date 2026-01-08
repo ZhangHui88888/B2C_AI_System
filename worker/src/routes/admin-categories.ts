@@ -43,7 +43,7 @@ export async function handleAdminCategories(
     try {
       const { data: categories, error } = await supabase
         .from(Tables.CATEGORIES)
-        .select('*')
+        .select('*, products:products(count)')
         .eq('brand_id', brandId)
         .order('sort_order', { ascending: true })
         .order('name', { ascending: true });

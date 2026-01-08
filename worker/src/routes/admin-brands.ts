@@ -1,7 +1,7 @@
 import { Env } from '../index';
 import { getSupabase } from '../utils/supabase';
 import { errorResponse, jsonResponse } from '../utils/response';
-import { requireAdminAuth } from '../middleware/admin-auth';
+import { requireAdminAuth, requireBrandAdminAccess, requireBrandManageAccess } from '../middleware/admin-auth';
 
 export async function handleAdminBrands(
   request: Request,
@@ -14,12 +14,75 @@ export async function handleAdminBrands(
   const { context: admin, response: authResponse } = await requireAdminAuth(request, env);
   if (authResponse || !admin) return authResponse as Response;
 
-  if (!admin.isOwner) {
-    return errorResponse('Forbidden', 403);
+  // GET /api/admin/brands/available - List brands current admin can manage (for BrandSwitcher)
+  if (path === '/api/admin/brands/available' && method === 'GET') {
+    try {
+      if (admin.isOwner) {
+        const { data, error } = await supabase
+          .from('brands')
+          .select('id, name, slug, logo_url, is_active')
+          .eq('is_active', true)
+          .order('name');
+
+        if (error) return errorResponse(error.message, 500);
+
+        return jsonResponse({
+          success: true,
+          isOwner: true,
+          brands: data || [],
+        });
+      }
+
+      if (!admin.adminUserId) {
+        return errorResponse('Forbidden', 403);
+      }
+
+      const { data: assignments, error: assignmentError } = await supabase
+        .from('brand_user_assignments')
+        .select('brand_id')
+        .eq('admin_user_id', admin.adminUserId);
+
+      if (assignmentError) return errorResponse(assignmentError.message, 500);
+
+      const brandIds = Array.isArray(assignments)
+        ? assignments
+            .map((x: any) => x?.brand_id)
+            .filter((x: any) => typeof x === 'string' && x)
+        : [];
+
+      if (brandIds.length === 0) {
+        return jsonResponse({
+          success: true,
+          isOwner: false,
+          brands: [],
+        });
+      }
+
+      const { data, error } = await supabase
+        .from('brands')
+        .select('id, name, slug, logo_url, is_active')
+        .in('id', brandIds)
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) return errorResponse(error.message, 500);
+
+      return jsonResponse({
+        success: true,
+        isOwner: false,
+        brands: data || [],
+      });
+    } catch (e) {
+      return errorResponse('Failed to fetch brands', 500);
+    }
   }
 
   // GET /api/admin/brands - List all brands
   if (path === '/api/admin/brands' && method === 'GET') {
+    if (!admin.isOwner) {
+      return errorResponse('Forbidden', 403);
+    }
+
     const { data, error } = await supabase
       .from('brands')
       .select('*')
@@ -34,6 +97,10 @@ export async function handleAdminBrands(
 
   // POST /api/admin/brands - Create new brand
   if (path === '/api/admin/brands' && method === 'POST') {
+    if (!admin.isOwner) {
+      return errorResponse('Forbidden', 403);
+    }
+
     try {
       const body = await request.json() as {
         name: string;
@@ -102,6 +169,9 @@ export async function handleAdminBrands(
   if (getBrandMatch && method === 'GET') {
     const brandId = getBrandMatch[1];
 
+    const access = await requireBrandManageAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
+
     const { data, error } = await supabase
       .from('brands')
       .select('*')
@@ -120,6 +190,9 @@ export async function handleAdminBrands(
   if (updateBrandMatch && method === 'PUT') {
     const brandId = updateBrandMatch[1];
 
+    const access = await requireBrandAdminAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
+
     try {
       const body = await request.json() as {
         name?: string;
@@ -135,6 +208,14 @@ export async function handleAdminBrands(
         contact_info?: Record<string, any>;
         custom_css?: string | null;
       };
+
+      if (!admin.isOwner) {
+        if (body.owner_email !== undefined) return errorResponse('Forbidden', 403);
+        if (body.slug !== undefined) return errorResponse('Forbidden', 403);
+        if (body.domain !== undefined) return errorResponse('Forbidden', 403);
+        if (body.is_active !== undefined) return errorResponse('Forbidden', 403);
+        if (body.settings !== undefined) return errorResponse('Forbidden', 403);
+      }
 
       // Check slug uniqueness if changing
       if (body.slug) {
@@ -207,6 +288,10 @@ export async function handleAdminBrands(
   if (deleteBrandMatch && method === 'DELETE') {
     const brandId = deleteBrandMatch[1];
 
+    if (!admin.isOwner) {
+      return errorResponse('Forbidden', 403);
+    }
+
     // Check if brand has associated data
     const { count: productCount } = await supabase
       .from('products')
@@ -251,6 +336,9 @@ export async function handleAdminBrands(
   if (listDomainsMatch && method === 'GET') {
     const brandId = listDomainsMatch[1];
 
+    const access = await requireBrandManageAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
+
     const { data, error } = await supabase
       .from('brand_domains')
       .select('*')
@@ -267,6 +355,9 @@ export async function handleAdminBrands(
   // POST /api/admin/brands/:id/domains - Add domain
   if (listDomainsMatch && method === 'POST') {
     const brandId = listDomainsMatch[1];
+
+    const access = await requireBrandAdminAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
 
     try {
       const body = await request.json() as {
@@ -331,6 +422,9 @@ export async function handleAdminBrands(
     const brandId = updateDomainMatch[1];
     const domainId = updateDomainMatch[2];
 
+    const access = await requireBrandAdminAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
+
     try {
       const body = await request.json() as {
         is_primary?: boolean;
@@ -386,6 +480,9 @@ export async function handleAdminBrands(
     const brandId = updateDomainMatch[1];
     const domainId = updateDomainMatch[2];
 
+    const access = await requireBrandAdminAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
+
     const { error } = await supabase
       .from('brand_domains')
       .delete()
@@ -403,10 +500,61 @@ export async function handleAdminBrands(
   // User Assignment Endpoints
   // ============================================
 
+  const usersPageDataMatch = path.match(/^\/api\/admin\/brands\/([^\/]+)\/users\/page-data$/);
+  if (usersPageDataMatch && method === 'GET') {
+    const brandId = usersPageDataMatch[1];
+
+    const access = await requireBrandAdminAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
+
+    const { data: brand, error: brandError } = await supabase
+      .from('brands')
+      .select('id, name, owner_email, is_active')
+      .eq('id', brandId)
+      .single();
+
+    if (brandError || !brand) {
+      return errorResponse('Brand not found', 404);
+    }
+
+    const { data: assignments, error: assignmentsError } = await supabase
+      .from('brand_user_assignments')
+      .select(`
+        *,
+        admin_user:admin_users(id, email, name, avatar_url, role, is_active)
+      `)
+      .eq('brand_id', brandId)
+      .order('created_at', { ascending: false });
+
+    if (assignmentsError) {
+      return errorResponse(assignmentsError.message, 500);
+    }
+
+    const { data: adminUsers, error: adminUsersError } = await supabase
+      .from('admin_users')
+      .select('id, email, name, avatar_url, role, is_active')
+      .eq('is_active', true)
+      .order('email');
+
+    if (adminUsersError) {
+      return errorResponse(adminUsersError.message, 500);
+    }
+
+    return jsonResponse({
+      success: true,
+      brand,
+      assignments: assignments || [],
+      adminUsers: adminUsers || [],
+    });
+  }
+
   // GET /api/admin/brands/:id/users - List brand users
   const listUsersMatch = path.match(/^\/api\/admin\/brands\/([^\/]+)\/users$/);
   if (listUsersMatch && method === 'GET') {
     const brandId = listUsersMatch[1];
+
+    const access = await requireBrandManageAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
 
     const { data, error } = await supabase
       .from('brand_user_assignments')
@@ -427,6 +575,9 @@ export async function handleAdminBrands(
   // POST /api/admin/brands/:id/users - Add user to brand
   if (listUsersMatch && method === 'POST') {
     const brandId = listUsersMatch[1];
+
+    const access = await requireBrandAdminAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
 
     try {
       const body = await request.json() as {
@@ -480,6 +631,9 @@ export async function handleAdminBrands(
     const brandId = updateUserMatch[1];
     const assignmentId = updateUserMatch[2];
 
+    const access = await requireBrandAdminAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
+
     try {
       const body = await request.json() as {
         role?: string;
@@ -519,6 +673,9 @@ export async function handleAdminBrands(
   if (updateUserMatch && method === 'DELETE') {
     const brandId = updateUserMatch[1];
     const assignmentId = updateUserMatch[2];
+
+    const access = await requireBrandAdminAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
 
     const { error } = await supabase
       .from('brand_user_assignments')

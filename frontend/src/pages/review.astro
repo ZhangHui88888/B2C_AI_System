@@ -1,6 +1,5 @@
 ---
 import Layout from '@layouts/Layout.astro';
-import { supabase } from '@lib/supabase';
 import { fetchSiteConfig } from '@lib/site-config';
 
 const orderId = Astro.url.searchParams.get('order');
@@ -19,22 +18,23 @@ let products: Array<{ product_id: string; name: string; image?: string }> = [];
 if (!orderId || !email) {
   error = 'Invalid review link. Please use the link from your email.';
 } else {
-  // Fetch order
-  const { data, error: fetchError } = await supabase
-    .from('orders')
-    .select('id, customer_email, customer_name, items, status, brand_id')
-    .eq('brand_id', brand.id)
-    .eq('id', orderId)
-    .eq('customer_email', email)
-    .single();
+  const apiOrigin = new URL(Astro.request.url).origin;
+  const data = await fetch(
+    new URL(`/api/orders/${encodeURIComponent(orderId)}?email=${encodeURIComponent(email)}`, apiOrigin).toString(),
+    { headers: { 'x-brand-id': brand.id } }
+  )
+    .then((r) => r.json())
+    .catch(() => null);
 
-  if (fetchError || !data) {
+  const orderRow = data?.order;
+
+  if (!orderRow) {
     error = 'Order not found or email does not match.';
-  } else if (data.status !== 'delivered') {
+  } else if (orderRow.status !== 'delivered') {
     error = 'You can only review products after your order has been delivered.';
   } else {
-    order = data;
-    products = (data.items || []).map((item: any) => ({
+    order = orderRow;
+    products = (orderRow.items || []).map((item: any) => ({
       product_id: item.product_id,
       name: item.name || 'Product',
       image: item.image || null,
@@ -180,8 +180,6 @@ if (!orderId || !email) {
   </div>
 
   <script>
-    const API_URL = import.meta.env.PUBLIC_API_URL || '';
-
     document.querySelectorAll('.review-form').forEach((form) => {
       const starRating = form.querySelector('.star-rating');
       const ratingInput = form.querySelector('.rating-input') as HTMLInputElement;
@@ -255,7 +253,7 @@ if (!orderId || !email) {
         submitBtn.textContent = 'Submitting...';
 
         try {
-          const res = await fetch(`${API_URL}/api/reviews`, {
+          const res = await fetch(`/api/reviews`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),

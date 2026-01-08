@@ -4,7 +4,7 @@ import '@styles/global.css';
 import Header from '@components/layout/Header.astro';
 import Footer from '@components/layout/Footer.astro';
 import ChatWidget from '@components/chat/ChatWidget.astro';
-import { supabase } from '@lib/supabase';
+// Categories fetched via Worker API
 import { canonicalFor, shouldNoIndex } from '@lib/seo';
 import { fetchSiteConfig } from '@lib/site-config';
 
@@ -78,12 +78,22 @@ const brandThemeOverrides = `
 `;
 const brandCustomCss = typeof brand.custom_css === 'string' ? brand.custom_css : '';
 
-const { data: categories } = await supabase
-  .from('categories')
-  .select('id, name, slug, parent_id, sort_order, is_active')
-  .eq('brand_id', brand.id)
-  .eq('is_active', true)
-  .order('sort_order', { ascending: true });
+// Fetch categories via Worker API (SSR)
+const apiUrl = import.meta.env.PUBLIC_API_URL || '';
+let categories: Array<{ id: string; name: string; slug: string; parent_id: string | null; sort_order: number; is_active: boolean; children?: any[] }> = [];
+if (apiUrl) {
+  try {
+    const res = await fetch(`${apiUrl}/api/categories`, {
+      headers: { 'x-brand-id': brand.id },
+    });
+    if (res.ok) {
+      const json = await res.json() as { categories?: typeof categories };
+      categories = json.categories || [];
+    }
+  } catch (e) {
+    console.error('Failed to fetch categories via API:', e);
+  }
+}
 ---
 
 <!DOCTYPE html>

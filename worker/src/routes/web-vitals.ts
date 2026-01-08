@@ -7,6 +7,8 @@ import type { Env } from '../index';
 import { getSupabase } from '../utils/supabase';
 import { jsonResponse, errorResponse } from '../utils/response';
 import { getBrandId } from '../middleware/brand';
+import { requireAdminAuth, requireBrandAdminAccess, requireBrandManageAccess } from '../middleware/admin-auth';
+import { validateCronSecret } from '../utils/cron';
 
 const Tables = {
   WEB_VITALS: 'web_vitals',
@@ -37,9 +39,27 @@ export async function handleWebVitals(
   path: string
 ): Promise<Response> {
   const supabase = getSupabase(env);
+
+  // ============================================
+  // CRON ENDPOINTS (for scheduled tasks)
+  // ============================================
+
+  // POST /api/vitals/aggregate - Trigger aggregation (cron)
+  if (request.method === 'POST' && path === '/api/vitals/aggregate') {
+    const cron = validateCronSecret(request, env);
+    if (!cron.ok) return cron.response;
+
+    const brandId = getBrandId(request);
+    if (!brandId || brandId === 'all') {
+      return errorResponse('Brand context missing', 400);
+    }
+
+    return await aggregateVitals(supabase, brandId);
+  }
+
   const brandId = getBrandId(request);
 
-  if (!brandId) {
+  if (!brandId || brandId === 'all') {
     return errorResponse('Brand context missing', 400);
   }
 
@@ -55,39 +75,70 @@ export async function handleWebVitals(
 
   // GET /api/vitals/overview - Dashboard overview
   if (request.method === 'GET' && path === '/api/vitals/overview') {
+    const { context: admin, response: authResponse } = await requireAdminAuth(request, env);
+    if (authResponse || !admin) return authResponse as Response;
+
+    const access = await requireBrandManageAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
+
     return await getVitalsOverview(supabase, brandId, request);
   }
 
   // GET /api/vitals/history - Historical data
   if (request.method === 'GET' && path === '/api/vitals/history') {
+    const { context: admin, response: authResponse } = await requireAdminAuth(request, env);
+    if (authResponse || !admin) return authResponse as Response;
+
+    const access = await requireBrandManageAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
+
     return await getVitalsHistory(supabase, brandId, request);
   }
 
   // GET /api/vitals/pages - Per-page breakdown
   if (request.method === 'GET' && path === '/api/vitals/pages') {
+    const { context: admin, response: authResponse } = await requireAdminAuth(request, env);
+    if (authResponse || !admin) return authResponse as Response;
+
+    const access = await requireBrandManageAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
+
     return await getVitalsByPage(supabase, brandId, request);
   }
 
   // GET /api/vitals/alerts - Performance alerts
   if (request.method === 'GET' && path === '/api/vitals/alerts') {
+    const { context: admin, response: authResponse } = await requireAdminAuth(request, env);
+    if (authResponse || !admin) return authResponse as Response;
+
+    const access = await requireBrandManageAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
+
     return await getAlerts(supabase, brandId, request);
   }
 
   // PUT /api/vitals/alerts/:id/acknowledge - Acknowledge alert
   if (request.method === 'PUT' && path.match(/^\/api\/vitals\/alerts\/[^/]+\/acknowledge$/)) {
+    const { context: admin, response: authResponse } = await requireAdminAuth(request, env);
+    if (authResponse || !admin) return authResponse as Response;
+
+    const access = await requireBrandAdminAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
+
     const id = path.replace('/api/vitals/alerts/', '').replace('/acknowledge', '');
     return await acknowledgeAlert(supabase, brandId, id);
   }
 
   // PUT /api/vitals/alerts/:id/resolve - Resolve alert
   if (request.method === 'PUT' && path.match(/^\/api\/vitals\/alerts\/[^/]+\/resolve$/)) {
+    const { context: admin, response: authResponse } = await requireAdminAuth(request, env);
+    if (authResponse || !admin) return authResponse as Response;
+
+    const access = await requireBrandAdminAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
+
     const id = path.replace('/api/vitals/alerts/', '').replace('/resolve', '');
     return await resolveAlert(supabase, brandId, id);
-  }
-
-  // POST /api/vitals/aggregate - Trigger aggregation (cron)
-  if (request.method === 'POST' && path === '/api/vitals/aggregate') {
-    return await aggregateVitals(supabase, brandId);
   }
 
   return errorResponse('Not found', 404);

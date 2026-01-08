@@ -2,24 +2,13 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
 
 const page = parseInt(Astro.url.searchParams.get('page') || '1');
 const status = Astro.url.searchParams.get('status') || 'abandoned';
 const limit = 20;
-const offset = (page - 1) * limit;
-
-let query = supabase
-  .from('abandoned_carts')
-  .select('*', { count: 'exact' })
-  .order('abandoned_at', { ascending: false, nullsFirst: false });
-
-if (status !== 'all') {
-  query = query.eq('status', status);
-}
-
-const { data: carts, count } = await query.range(offset, offset + limit - 1);
-const totalPages = Math.ceil((count || 0) / limit);
+const carts: any[] = [];
+const count = 0;
+const totalPages = 0;
 
 const statusOptions = ['active', 'abandoned', 'email_sent', 'recovered', 'unsubscribed'];
 
@@ -51,7 +40,7 @@ function formatMoney(amount: number | null): string {
   <div class="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
     <div>
       <h1 class="text-2xl font-bold text-gray-900">弃购购物车</h1>
-      <p class="text-sm text-gray-500">共找到 {count || 0} 个购物车</p>
+      <p class="text-sm text-gray-500">共找到 <span id="total-count">{count || 0}</span> 个购物车</p>
     </div>
     <div class="flex items-center gap-3">
       <select id="status-filter" class="text-sm border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500">
@@ -81,83 +70,18 @@ function formatMoney(amount: number | null): string {
           <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">已发邮件</th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-gray-200">
-        {carts && carts.length > 0 ? (
-          carts.map((cart: any) => {
-            const items = cart.items as any[] || [];
-            const itemCount = items.reduce((sum: number, i: any) => sum + (i.quantity || 1), 0);
-            return (
-              <tr class="hover:bg-gray-50">
-                <td class="px-4 py-4">
-                  <input 
-                    type="checkbox" 
-                    class="cart-checkbox rounded border-gray-300" 
-                    data-id={cart.id}
-                    data-status={cart.status}
-                    disabled={cart.status !== 'abandoned' || !cart.customer_email}
-                  />
-                </td>
-                <td class="px-4 py-4">
-                  <div class="text-sm font-medium text-gray-900">{cart.customer_email || '匿名'}</div>
-                  {cart.customer_name && <div class="text-sm text-gray-500">{cart.customer_name}</div>}
-                </td>
-                <td class="px-4 py-4">
-                  <div class="text-sm text-gray-900">{itemCount} item{itemCount !== 1 ? 's' : ''}</div>
-                  <div class="text-xs text-gray-500 max-w-xs truncate">
-                    {items.slice(0, 2).map((i: any) => i.name).join(', ')}
-                    {items.length > 2 && ` +${items.length - 2} more`}
-                  </div>
-                </td>
-                <td class="px-4 py-4 text-sm font-medium text-gray-900">
-                  {formatMoney(cart.subtotal)}
-                </td>
-                <td class="px-4 py-4">
-                  <span class={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(cart.status)}`}>
-                    {cart.status?.replace('_', ' ')}
-                  </span>
-                </td>
-                <td class="px-4 py-4 text-sm text-gray-500">
-                  {formatDate(cart.abandoned_at)}
-                </td>
-                <td class="px-4 py-4 text-sm text-gray-500">
-                  {cart.recovery_email_count || 0}
-                  {cart.last_email_sent_at && (
-                    <div class="text-xs text-gray-400">Last: {formatDate(cart.last_email_sent_at)}</div>
-                  )}
-                </td>
-              </tr>
-            );
-          })
-        ) : (
-          <tr>
-            <td colspan="7" class="px-6 py-12 text-center text-gray-500">
-              未找到弃购购物车
-            </td>
-          </tr>
-        )}
+      <tbody class="divide-y divide-gray-200" id="carts-body">
+        <tr>
+          <td colspan="7" class="px-6 py-12 text-center text-gray-500">Loading...</td>
+        </tr>
       </tbody>
     </table>
   </div>
 
-  {totalPages > 1 && (
-    <div class="mt-6 flex items-center justify-between">
-      <div class="text-sm text-gray-500">
-        第 {page} 页，共 {totalPages} 页
-      </div>
-      <div class="flex gap-2">
-        {page > 1 && (
-          <a href={`?page=${page - 1}&status=${status}`} class="px-3 py-1 border rounded text-sm hover:bg-gray-50">
-            上一页
-          </a>
-        )}
-        {page < totalPages && (
-          <a href={`?page=${page + 1}&status=${status}`} class="px-3 py-1 border rounded text-sm hover:bg-gray-50">
-            下一页
-          </a>
-        )}
-      </div>
-    </div>
-  )}
+  <div class="mt-6 flex items-center justify-between hidden" id="pagination">
+    <div class="text-sm text-gray-500" id="pagination-text">第 {page} 页，共 {totalPages} 页</div>
+    <div class="flex gap-2" id="pagination-links"></div>
+  </div>
 
   <!-- Recovery Email Modal -->
   <div id="recovery-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -179,8 +103,13 @@ function formatMoney(amount: number | null): string {
   </div>
 </AdminLayout>
 
-<script>
-  const API_BASE = import.meta.env.PUBLIC_API_URL || '';
+<script define:vars={{ status, page, limit }}>
+  const API_URL = import.meta.env.PUBLIC_API_URL || '';
+  const apiBase = API_URL && API_URL.trim() ? API_URL.trim().replace(/\/$/, '') : '';
+  const api = (path) => (apiBase ? `${apiBase}${path}` : path);
+  const initialStatus = status;
+  const initialPage = page;
+  const initialLimit = limit;
   
   // Status filter
   document.getElementById('status-filter')?.addEventListener('change', (e) => {
@@ -188,24 +117,147 @@ function formatMoney(amount: number | null): string {
     window.location.href = `?status=${status}`;
   });
 
-  // Select all
-  document.getElementById('select-all')?.addEventListener('change', (e) => {
-    const checked = (e.target as HTMLInputElement).checked;
-    document.querySelectorAll('.cart-checkbox:not(:disabled)').forEach((cb) => {
-      (cb as HTMLInputElement).checked = checked;
+  function formatDate(dateStr) {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     });
-    updateSelectedCount();
-  });
+  }
 
-  // Individual checkboxes
-  document.querySelectorAll('.cart-checkbox').forEach((cb) => {
-    cb.addEventListener('change', updateSelectedCount);
-  });
+  function formatMoney(amount) {
+    const n = typeof amount === 'number' ? amount : Number(amount);
+    const v = Number.isFinite(n) ? n : 0;
+    return `$${v.toFixed(2)}`;
+  }
+
+  function getStatusColor(s) {
+    const colors = {
+      active: 'bg-blue-100 text-blue-800',
+      abandoned: 'bg-yellow-100 text-yellow-800',
+      email_sent: 'bg-purple-100 text-purple-800',
+      recovered: 'bg-green-100 text-green-800',
+      unsubscribed: 'bg-gray-100 text-gray-800',
+    };
+    return colors[s] || 'bg-gray-100 text-gray-800';
+  }
 
   function updateSelectedCount() {
     const selected = document.querySelectorAll('.cart-checkbox:checked').length;
     const countEl = document.getElementById('selected-count');
     if (countEl) countEl.textContent = `已选择 ${selected} 个购物车`;
+  }
+
+  function bindCheckboxEvents() {
+    document.getElementById('select-all')?.addEventListener('change', (e) => {
+      const checked = (e.target as HTMLInputElement).checked;
+      document.querySelectorAll('.cart-checkbox:not(:disabled)').forEach((cb) => {
+        (cb as HTMLInputElement).checked = checked;
+      });
+      updateSelectedCount();
+    });
+
+    document.querySelectorAll('.cart-checkbox').forEach((cb) => {
+      cb.addEventListener('change', updateSelectedCount);
+    });
+  }
+
+  function renderPagination(page, totalPages, status) {
+    const container = document.getElementById('pagination');
+    const text = document.getElementById('pagination-text');
+    const links = document.getElementById('pagination-links');
+    if (!container || !text || !links) return;
+
+    if (totalPages <= 1) {
+      container.classList.add('hidden');
+      return;
+    }
+
+    container.classList.remove('hidden');
+    text.textContent = `第 ${page} 页，共 ${totalPages} 页`;
+
+    const parts = [];
+    if (page > 1) {
+      parts.push(`<a href="?page=${page - 1}&status=${encodeURIComponent(status)}" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">上一页</a>`);
+    }
+    if (page < totalPages) {
+      parts.push(`<a href="?page=${page + 1}&status=${encodeURIComponent(status)}" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">下一页</a>`);
+    }
+    links.innerHTML = parts.join('');
+  }
+
+  function renderCarts(carts) {
+    const tbody = document.getElementById('carts-body');
+    if (!tbody) return;
+
+    if (!Array.isArray(carts) || carts.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="px-6 py-12 text-center text-gray-500">未找到弃购购物车</td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = carts
+      .map((cart) => {
+        const items = Array.isArray(cart?.items) ? cart.items : [];
+        const itemCount = items.reduce((sum, i) => sum + (i?.quantity || 1), 0);
+        const names = items.slice(0, 2).map((i) => i?.name).filter(Boolean).join(', ');
+        const more = items.length > 2 ? ` +${items.length - 2} more` : '';
+
+        const disabled = cart?.status !== 'abandoned' || !cart?.customer_email;
+        const statusClass = getStatusColor(cart?.status);
+
+        return `
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-4">
+              <input type="checkbox" class="cart-checkbox rounded border-gray-300" data-id="${cart?.id || ''}" data-status="${cart?.status || ''}" ${disabled ? 'disabled' : ''} />
+            </td>
+            <td class="px-4 py-4">
+              <div class="text-sm font-medium text-gray-900">${cart?.customer_email || '匿名'}</div>
+              ${cart?.customer_name ? `<div class="text-sm text-gray-500">${cart.customer_name}</div>` : ''}
+            </td>
+            <td class="px-4 py-4">
+              <div class="text-sm text-gray-900">${itemCount} item${itemCount !== 1 ? 's' : ''}</div>
+              <div class="text-xs text-gray-500 max-w-xs truncate">${names}${more}</div>
+            </td>
+            <td class="px-4 py-4 text-sm font-medium text-gray-900">${formatMoney(cart?.subtotal)}</td>
+            <td class="px-4 py-4">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClass}">${String(cart?.status || '').replace('_', ' ')}</span>
+            </td>
+            <td class="px-4 py-4 text-sm text-gray-500">${formatDate(cart?.abandoned_at)}</td>
+            <td class="px-4 py-4 text-sm text-gray-500">
+              ${cart?.recovery_email_count || 0}
+              ${cart?.last_email_sent_at ? `<div class="text-xs text-gray-400">Last: ${formatDate(cart.last_email_sent_at)}</div>` : ''}
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+  }
+
+  async function loadPageData() {
+    try {
+      const res = await fetch(
+        api(
+          `/api/admin/marketing/abandoned-carts/page-data?status=${encodeURIComponent(initialStatus)}&page=${initialPage}&limit=${initialLimit}`
+        )
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+
+      const total = data?.pagination?.total ?? 0;
+      document.getElementById('total-count')!.textContent = String(total);
+      renderCarts(data?.carts || []);
+      renderPagination(data?.pagination?.page || 1, data?.pagination?.totalPages || 0, initialStatus);
+      bindCheckboxEvents();
+    } catch {
+      // ignore
+    }
   }
 
   // Modal handling
@@ -237,7 +289,7 @@ function formatMoney(amount: number | null): string {
     const discountCode = (document.getElementById('discount-code') as HTMLInputElement)?.value;
 
     try {
-      const response = await fetch(`${API_BASE}/api/tracking/abandoned/send-recovery`, {
+      const response = await fetch(api('/api/admin/marketing/abandoned-carts/send-recovery'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -261,4 +313,6 @@ function formatMoney(amount: number | null): string {
 
     modal?.classList.add('hidden');
   });
+
+  setTimeout(loadPageData, 0);
 </script>

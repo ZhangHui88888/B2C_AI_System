@@ -1,13 +1,7 @@
 ---
 export const prerender = false;
-
-import { supabase } from '@lib/supabase';
-
-// Check if already logged in
-const { data: { session } } = await supabase.auth.getSession();
-if (session) {
-  return Astro.redirect('/admin');
-}
+// Auth check handled client-side
+import '@styles/global.css';
 ---
 
 <!DOCTYPE html>
@@ -17,7 +11,6 @@ if (session) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex,nofollow" />
   <title>管理后台登录</title>
-  <link rel="stylesheet" href="/src/styles/global.css" />
 </head>
 <body class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
   <div class="w-full max-w-md">
@@ -80,12 +73,13 @@ if (session) {
     </p>
   </div>
 
-  <script type="module">
+  <script type="module" define:vars={{
+    supabaseUrl: import.meta.env.PUBLIC_SUPABASE_URL,
+    supabaseAnonKey: import.meta.env.PUBLIC_SUPABASE_ANON_KEY,
+  }}>
     import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-    const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    let supabase;
 
     const form = document.getElementById('login-form');
     const errorEl = document.getElementById('error-message');
@@ -105,6 +99,30 @@ if (session) {
       submitBtn.textContent = loading ? '登录中...' : '登录';
     }
 
+    if (!supabaseUrl || !supabaseAnonKey) {
+      showError('缺少 Supabase 配置：请在 frontend/.env 配置 PUBLIC_SUPABASE_URL 与 PUBLIC_SUPABASE_ANON_KEY 后重启前端服务');
+    } else {
+      try {
+        supabase = createClient(supabaseUrl, supabaseAnonKey, {
+          auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+          },
+        });
+        
+        // Check if already logged in and redirect
+        (async () => {
+          const { data } = await supabase.auth.getSession();
+          if (data?.session) {
+            window.location.href = '/admin';
+          }
+        })();
+      } catch (err) {
+        console.error('Failed to create supabase client:', err);
+        showError(`Supabase 初始化失败：${err?.message || '请检查 PUBLIC_SUPABASE_URL 是否为正确的 https://xxx.supabase.co'}`);
+      }
+    }
+
     form?.addEventListener('submit', async (e) => {
       e.preventDefault();
       hideError();
@@ -120,6 +138,12 @@ if (session) {
       }
 
       try {
+        if (!supabase) {
+          showError('Supabase 未初始化：请检查 PUBLIC_SUPABASE_URL / PUBLIC_SUPABASE_ANON_KEY 配置并重启前端');
+          setLoading(false);
+          return;
+        }
+
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
@@ -136,7 +160,8 @@ if (session) {
           window.location.href = '/admin';
         }
       } catch (err) {
-        showError('发生错误，请重试。');
+        console.error('Login error:', err);
+        showError(err?.message || '发生错误，请重试。');
         setLoading(false);
       }
     });

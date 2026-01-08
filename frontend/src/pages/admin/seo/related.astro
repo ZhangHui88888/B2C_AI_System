@@ -2,61 +2,6 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
-
-// Get related content data
-const { data: relatedContent } = await supabase
-  .from('related_content')
-  .select('*')
-  .eq('is_active', true)
-  .order('updated_at', { ascending: false });
-
-// Get products for source selection
-const { data: products } = await supabase
-  .from('products')
-  .select('id, name, slug')
-  .eq('is_active', true)
-  .order('name')
-  .limit(100);
-
-// Get blogs for source selection  
-const { data: blogs } = await supabase
-  .from('blog_posts')
-  .select('id, title, slug')
-  .eq('status', 'published')
-  .order('title')
-  .limit(50);
-
-const allRelated = relatedContent || [];
-const allProducts = products || [];
-const allBlogs = blogs || [];
-
-// Group by source
-const groupedBySource = allRelated.reduce((acc: any, item: any) => {
-  const key = `${item.source_type}:${item.source_id}`;
-  if (!acc[key]) {
-    acc[key] = { source_type: item.source_type, source_id: item.source_id, items: [] };
-  }
-  acc[key].items.push(item);
-  return acc;
-}, {});
-
-const sourceGroups = Object.values(groupedBySource);
-
-const stats = {
-  totalRelations: allRelated.length,
-  aiGenerated: allRelated.filter((r: any) => r.is_ai_generated).length,
-  manualOverride: allRelated.filter((r: any) => !r.is_ai_generated).length,
-  avgRelevance: allRelated.length 
-    ? Math.round(allRelated.reduce((sum: number, r: any) => sum + (r.relevance_score || 0), 0) / allRelated.length * 100) 
-    : 0,
-};
-
-const relationshipTypes = {
-  similar: allRelated.filter((r: any) => r.relationship_type === 'similar').length,
-  complementary: allRelated.filter((r: any) => r.relationship_type === 'complementary').length,
-  frequently_bought: allRelated.filter((r: any) => r.relationship_type === 'frequently_bought_together').length,
-};
 ---
 
 <AdminLayout title="相关内容推荐" activePage="seo">
@@ -78,19 +23,19 @@ const relationshipTypes = {
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">推荐关系总数</p>
-      <p class="text-2xl font-bold text-gray-900">{stats.totalRelations}</p>
+      <p class="text-2xl font-bold text-gray-900" id="stat-total">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">AI 生成</p>
-      <p class="text-2xl font-bold text-blue-600">{stats.aiGenerated}</p>
+      <p class="text-2xl font-bold text-blue-600" id="stat-ai">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">手动设置</p>
-      <p class="text-2xl font-bold text-purple-600">{stats.manualOverride}</p>
+      <p class="text-2xl font-bold text-purple-600" id="stat-manual">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">平均相关度</p>
-      <p class="text-2xl font-bold text-green-600">{stats.avgRelevance}%</p>
+      <p class="text-2xl font-bold text-green-600" id="stat-avg">0%</p>
     </div>
   </div>
 
@@ -99,15 +44,15 @@ const relationshipTypes = {
     <h3 class="font-semibold text-gray-900 mb-3">推荐类型分布</h3>
     <div class="grid grid-cols-3 gap-4 text-center">
       <div>
-        <p class="text-2xl font-bold text-blue-600">{relationshipTypes.similar}</p>
+        <p class="text-2xl font-bold text-blue-600" id="stat-similar">0</p>
         <p class="text-sm text-gray-600">相似产品</p>
       </div>
       <div>
-        <p class="text-2xl font-bold text-green-600">{relationshipTypes.complementary}</p>
+        <p class="text-2xl font-bold text-green-600" id="stat-complementary">0</p>
         <p class="text-sm text-gray-600">互补产品</p>
       </div>
       <div>
-        <p class="text-2xl font-bold text-purple-600">{relationshipTypes.frequently_bought}</p>
+        <p class="text-2xl font-bold text-purple-600" id="stat-frequently">0</p>
         <p class="text-sm text-gray-600">经常一起购买</p>
       </div>
     </div>
@@ -121,15 +66,12 @@ const relationshipTypes = {
         <label class="block text-sm font-medium text-gray-700 mb-1">内容类型</label>
         <select id="source-type" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500">
           <option value="product">产品</option>
-          <option value="blog">博客文章</option>
         </select>
       </div>
       <div class="flex-1 min-w-[200px]">
         <label class="block text-sm font-medium text-gray-700 mb-1">选择内容</label>
         <select id="source-id" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary-500 focus:border-primary-500">
-          {allProducts.map((p: any) => (
-            <option value={p.id} data-type="product">{p.name}</option>
-          ))}
+          <option value="">加载中...</option>
         </select>
       </div>
       <div class="flex items-end">
@@ -150,66 +92,12 @@ const relationshipTypes = {
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
       <h3 class="font-semibold text-gray-900">现有推荐关系</h3>
-      <span class="text-sm text-gray-500">{sourceGroups.length} 个来源</span>
+      <span class="text-sm text-gray-500"><span id="stat-sources">0</span> 个来源</span>
     </div>
 
-    {sourceGroups.length > 0 ? (
-      <div class="divide-y divide-gray-100">
-        {(sourceGroups as any[]).slice(0, 20).map((group: any) => {
-          const sourceName = group.source_type === 'product' 
-            ? allProducts.find((p: any) => p.id === group.source_id)?.name 
-            : allBlogs.find((b: any) => b.id === group.source_id)?.title;
-          
-          return (
-            <div class="px-6 py-4">
-              <div class="flex items-center justify-between mb-3">
-                <div class="flex items-center gap-2">
-                  <span class={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                    group.source_type === 'product' ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'
-                  }`}>
-                    {group.source_type === 'product' ? '产品' : '博客'}
-                  </span>
-                  <span class="font-medium text-gray-900">{sourceName || group.source_id}</span>
-                </div>
-                <span class="text-sm text-gray-500">{group.items.length} 个推荐</span>
-              </div>
-              <div class="flex flex-wrap gap-2">
-                {group.items.map((item: any) => {
-                  const relatedName = item.related_type === 'product'
-                    ? allProducts.find((p: any) => p.id === item.related_id)?.name
-                    : allBlogs.find((b: any) => b.id === item.related_id)?.title;
-                  
-                  return (
-                    <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg text-sm">
-                      <span class={`w-2 h-2 rounded-full ${
-                        item.relationship_type === 'similar' ? 'bg-blue-500' :
-                        item.relationship_type === 'complementary' ? 'bg-green-500' :
-                        'bg-purple-500'
-                      }`}></span>
-                      <span class="text-gray-700">{relatedName || item.related_id}</span>
-                      <span class="text-gray-400">({Math.round((item.relevance_score || 0) * 100)}%)</span>
-                      <button
-                        class="delete-btn text-red-400 hover:text-red-600"
-                        data-id={item.id}
-                        title="删除"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    ) : (
-      <div class="px-6 py-12 text-center">
-        <div class="text-4xl mb-4">🔗</div>
-        <p class="text-gray-500">暂无推荐关系</p>
-        <p class="text-sm text-gray-400 mt-1">点击"批量生成推荐"开始为所有产品生成智能推荐</p>
-      </div>
-    )}
+    <div id="related-container" class="divide-y divide-gray-100">
+      <div class="px-6 py-12 text-center text-gray-500">加载中...</div>
+    </div>
   </div>
 
   <!-- Toast -->
@@ -221,8 +109,18 @@ const relationshipTypes = {
   </div>
 </AdminLayout>
 
-<script define:vars={{ allProducts, allBlogs }}>
-  const API_URL = import.meta.env.PUBLIC_API_URL || '';
+<script>
+  let products: any[] = [];
+  let related: any[] = [];
+
+  function escapeHtml(s: any) {
+    return String(s ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
 
   function showToast(message, isSuccess = true) {
     const toast = document.getElementById('toast');
@@ -236,20 +134,123 @@ const relationshipTypes = {
     }
   }
 
-  // Update source options when type changes
-  document.getElementById('source-type')?.addEventListener('change', (e) => {
-    const type = (e.target as HTMLSelectElement).value;
-    const select = document.getElementById('source-id') as HTMLSelectElement;
-    select.innerHTML = '';
+  function setText(id: string, v: any) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = String(v);
+  }
 
-    const items = type === 'product' ? allProducts : allBlogs;
-    items.forEach((item) => {
+  function populateProducts() {
+    const select = document.getElementById('source-id') as HTMLSelectElement | null;
+    if (!select) return;
+    select.innerHTML = '';
+    products.forEach((p) => {
       const option = document.createElement('option');
-      option.value = item.id;
-      option.textContent = item.name || item.title;
+      option.value = p.id;
+      option.textContent = p.name;
       select.appendChild(option);
     });
-  });
+  }
+
+  function renderRelated() {
+    const container = document.getElementById('related-container');
+    if (!container) return;
+
+    const filtered = related.filter((r) => r.source_type === 'product' && r.related_type === 'product');
+
+    const stats = {
+      totalRelations: filtered.length,
+      aiGenerated: filtered.filter((r) => !!r.is_ai_generated).length,
+      manualOverride: filtered.filter((r) => !r.is_ai_generated).length,
+      avgRelevance: filtered.length ? Math.round(filtered.reduce((s, r) => s + (Number(r.relevance_score) || 0), 0) / filtered.length * 100) : 0,
+    };
+    const relationshipTypes = {
+      similar: filtered.filter((r) => r.relationship_type === 'similar').length,
+      complementary: filtered.filter((r) => r.relationship_type === 'complementary').length,
+      frequently_bought: filtered.filter((r) => r.relationship_type === 'frequently_bought_together').length,
+    };
+
+    const grouped = filtered.reduce((acc: any, item: any) => {
+      const key = `${item.source_type}:${item.source_id}`;
+      if (!acc[key]) acc[key] = { source_type: item.source_type, source_id: item.source_id, items: [] };
+      acc[key].items.push(item);
+      return acc;
+    }, {});
+
+    const groups = Object.values(grouped) as any[];
+    const productNameById = new Map(products.map((p) => [p.id, p.name]));
+
+    setText('stat-total', stats.totalRelations);
+    setText('stat-ai', stats.aiGenerated);
+    setText('stat-manual', stats.manualOverride);
+    setText('stat-avg', `${stats.avgRelevance}%`);
+    setText('stat-similar', relationshipTypes.similar);
+    setText('stat-complementary', relationshipTypes.complementary);
+    setText('stat-frequently', relationshipTypes.frequently_bought);
+    setText('stat-sources', groups.length);
+
+    if (groups.length === 0) {
+      container.innerHTML = `
+        <div class="px-6 py-12 text-center">
+          <div class="text-4xl mb-4">🔗</div>
+          <p class="text-gray-500">暂无推荐关系</p>
+          <p class="text-sm text-gray-400 mt-1">点击"批量生成推荐"开始为所有产品生成智能推荐</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = groups.slice(0, 20).map((group: any) => {
+      const sourceName = productNameById.get(group.source_id) || group.source_id;
+      const itemsHtml = group.items.map((item: any) => {
+        const relatedName = productNameById.get(item.related_id) || item.related_id;
+        const dot = item.relationship_type === 'similar' ? 'bg-blue-500' : item.relationship_type === 'complementary' ? 'bg-green-500' : 'bg-purple-500';
+        return `
+          <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg text-sm">
+            <span class="w-2 h-2 rounded-full ${dot}"></span>
+            <span class="text-gray-700">${escapeHtml(relatedName)}</span>
+            <span class="text-gray-400">(${Math.round((Number(item.relevance_score) || 0) * 100)}%)</span>
+            <button class="delete-btn text-red-400 hover:text-red-600" data-id="${escapeHtml(item.id)}" title="删除">×</button>
+          </div>
+        `;
+      }).join('');
+      return `
+        <div class="px-6 py-4">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700">产品</span>
+              <span class="font-medium text-gray-900">${escapeHtml(sourceName)}</span>
+            </div>
+            <span class="text-sm text-gray-500">${group.items.length} 个推荐</span>
+          </div>
+          <div class="flex flex-wrap gap-2">${itemsHtml}</div>
+        </div>
+      `;
+    }).join('');
+
+    bindDeleteButtons();
+  }
+
+  async function loadPageData() {
+    try {
+      const [productsRes, relatedRes] = await Promise.all([
+        fetch('/api/admin/products?limit=100&page=1'),
+        fetch('/api/admin/related-content?source_type=product'),
+      ]);
+
+      const productsJson = await productsRes.json().catch(() => null);
+      products = Array.isArray(productsJson?.products) ? productsJson.products : [];
+      populateProducts();
+
+      const relatedJson = await relatedRes.json().catch(() => null);
+      related = Array.isArray(relatedJson?.related_content) ? relatedJson.related_content : [];
+
+      renderRelated();
+    } catch (e) {
+      console.error('Failed to load related page data:', e);
+      const container = document.getElementById('related-container');
+      if (container) container.innerHTML = '<div class="px-6 py-12 text-center text-red-600">加载失败</div>';
+    }
+  }
 
   // Generate for all
   document.getElementById('generate-all-btn')?.addEventListener('click', async () => {
@@ -263,7 +264,7 @@ const relationshipTypes = {
     btn.innerHTML = '<span class="animate-spin">⏳</span> 生成中...';
 
     try {
-      const res = await fetch(`${API_URL}/api/related-content/generate-all`, {
+      const res = await fetch('/api/admin/related-content/generate-all', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -300,7 +301,7 @@ const relationshipTypes = {
     btn.textContent = '生成中...';
 
     try {
-      const res = await fetch(`${API_URL}/api/related-content/generate`, {
+      const res = await fetch('/api/admin/related-content/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -328,28 +329,30 @@ const relationshipTypes = {
     }
   });
 
-  // Delete buttons
-  document.querySelectorAll('.delete-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const target = e.currentTarget as HTMLButtonElement;
-      const id = target.dataset.id;
+  function bindDeleteButtons() {
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const target = e.currentTarget as HTMLButtonElement;
+        const id = target.dataset.id;
+        if (!id) return;
 
-      if (!confirm('确定删除此推荐关系？')) return;
+        if (!confirm('确定删除此推荐关系？')) return;
 
-      try {
-        const res = await fetch(`${API_URL}/api/related-content/${id}`, {
-          method: 'DELETE',
-        });
+        try {
+          const res = await fetch(`/api/admin/related-content/${id}`, { method: 'DELETE' });
 
-        if (res.ok) {
-          showToast('已删除');
-          target.closest('.inline-flex')?.remove();
-        } else {
+          if (res.ok) {
+            showToast('已删除');
+            target.closest('.inline-flex')?.remove();
+          } else {
+            showToast('删除失败', false);
+          }
+        } catch (error) {
           showToast('删除失败', false);
         }
-      } catch (error) {
-        showToast('删除失败', false);
-      }
+      });
     });
-  });
+  }
+
+  loadPageData();
 </script>

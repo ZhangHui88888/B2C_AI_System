@@ -2,22 +2,6 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
-
-const { data: orphanPages } = await supabase
-  .from('orphan_pages')
-  .select('*')
-  .order('detected_at', { ascending: false });
-
-const allOrphans = orphanPages || [];
-const unresolvedCount = allOrphans.filter((p: any) => !p.is_resolved).length;
-const resolvedCount = allOrphans.filter((p: any) => p.is_resolved).length;
-
-const byType = {
-  product: allOrphans.filter((p: any) => p.page_type === 'product' && !p.is_resolved).length,
-  category: allOrphans.filter((p: any) => p.page_type === 'category' && !p.is_resolved).length,
-  blog: allOrphans.filter((p: any) => p.page_type === 'blog' && !p.is_resolved).length,
-};
 ---
 
 <AdminLayout title="孤立页面检测" activePage="seo">
@@ -39,23 +23,23 @@ const byType = {
   <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">未解决</p>
-      <p class="text-2xl font-bold text-red-600">{unresolvedCount}</p>
+      <p class="text-2xl font-bold text-red-600" id="stat-unresolved">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">已解决</p>
-      <p class="text-2xl font-bold text-green-600">{resolvedCount}</p>
+      <p class="text-2xl font-bold text-green-600" id="stat-resolved">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">产品页</p>
-      <p class="text-2xl font-bold text-blue-600">{byType.product}</p>
+      <p class="text-2xl font-bold text-blue-600" id="stat-product">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">分类页</p>
-      <p class="text-2xl font-bold text-purple-600">{byType.category}</p>
+      <p class="text-2xl font-bold text-purple-600" id="stat-category">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">博客</p>
-      <p class="text-2xl font-bold text-indigo-600">{byType.blog}</p>
+      <p class="text-2xl font-bold text-indigo-600" id="stat-blog">0</p>
     </div>
   </div>
 
@@ -76,13 +60,13 @@ const byType = {
   <!-- Filter Tabs -->
   <div class="flex gap-2 mb-4">
     <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-primary-600 text-white" data-filter="unresolved">
-      未解决 ({unresolvedCount})
+      未解决 (<span id="tab-unresolved">0</span>)
     </button>
     <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200" data-filter="resolved">
-      已解决 ({resolvedCount})
+      已解决 (<span id="tab-resolved">0</span>)
     </button>
     <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200" data-filter="all">
-      全部 ({allOrphans.length})
+      全部 (<span id="tab-all">0</span>)
     </button>
   </div>
 
@@ -101,75 +85,12 @@ const byType = {
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100" id="orphans-table">
-          {allOrphans.filter((p: any) => !p.is_resolved).map((page: any) => (
-            <tr class="orphan-row hover:bg-gray-50" data-resolved={page.is_resolved ? 'true' : 'false'}>
-              <td class="px-6 py-4">
-                <div>
-                  <p class="font-medium text-gray-900 truncate max-w-xs">{page.page_title || page.page_url}</p>
-                  <a href={page.page_url} target="_blank" class="text-sm text-primary-600 hover:underline truncate block max-w-xs">
-                    {page.page_url}
-                  </a>
-                </div>
-              </td>
-              <td class="px-6 py-4">
-                <span class={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                  page.page_type === 'product' ? 'bg-blue-100 text-blue-700' :
-                  page.page_type === 'category' ? 'bg-purple-100 text-purple-700' :
-                  'bg-indigo-100 text-indigo-700'
-                }`}>
-                  {page.page_type === 'product' ? '产品' : page.page_type === 'category' ? '分类' : '博客'}
-                </span>
-              </td>
-              <td class="px-6 py-4 text-center">
-                <span class="text-red-600 font-medium">{page.incoming_links_count}</span>
-              </td>
-              <td class="px-6 py-4 text-center">
-                {page.is_resolved ? (
-                  <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
-                    ✓ 已解决
-                  </span>
-                ) : (
-                  <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">
-                    待处理
-                  </span>
-                )}
-              </td>
-              <td class="px-6 py-4 text-sm text-gray-500">
-                {new Date(page.detected_at).toLocaleDateString('zh-CN')}
-              </td>
-              <td class="px-6 py-4 text-center">
-                {!page.is_resolved && (
-                  <div class="flex items-center justify-center gap-2">
-                    <button
-                      class="resolve-btn px-3 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded"
-                      data-id={page.id}
-                      data-action="links_added"
-                    >
-                      已添加链接
-                    </button>
-                    <button
-                      class="resolve-btn px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded"
-                      data-id={page.id}
-                      data-action="ignored"
-                    >
-                      忽略
-                    </button>
-                  </div>
-                )}
-              </td>
-            </tr>
-          ))}
+          <tr>
+            <td colspan="6" class="px-6 py-12 text-center text-gray-500">加载中...</td>
+          </tr>
         </tbody>
       </table>
     </div>
-
-    {allOrphans.length === 0 && (
-      <div class="px-6 py-12 text-center">
-        <div class="text-4xl mb-4">🎉</div>
-        <p class="text-gray-500">没有检测到孤立页面</p>
-        <p class="text-sm text-gray-400 mt-1">点击"扫描孤立页面"按钮开始检测</p>
-      </div>
-    )}
   </div>
 
   <!-- Scan Result Toast -->
@@ -182,8 +103,6 @@ const byType = {
 </AdminLayout>
 
 <script>
-  const API_URL = import.meta.env.PUBLIC_API_URL || '';
-
   function showToast(message: string, isSuccess = true) {
     const toast = document.getElementById('toast');
     const icon = document.getElementById('toast-icon');
@@ -203,7 +122,7 @@ const byType = {
     btn.innerHTML = '<span class="animate-spin">⏳</span> 扫描中...';
 
     try {
-      const res = await fetch(`${API_URL}/api/seo/links/orphans/scan`, {
+      const res = await fetch(`/api/admin/seo/links/orphans/scan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -223,32 +142,102 @@ const byType = {
     }
   });
 
-  // Resolve buttons
-  document.querySelectorAll('.resolve-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const target = e.currentTarget as HTMLButtonElement;
-      const id = target.dataset.id;
-      const action = target.dataset.action;
+  function bindResolveButtons() {
+    document.querySelectorAll('.resolve-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const target = e.currentTarget as HTMLButtonElement;
+        const id = target.dataset.id;
+        const action = target.dataset.action;
 
-      try {
-        const res = await fetch(`${API_URL}/api/seo/links/orphans/${id}/resolve`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ resolution_action: action }),
-        });
+        try {
+          const res = await fetch(`/api/admin/seo/links/orphans/${id}/resolve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ resolution_action: action }),
+          });
 
-        if (res.ok) {
-          showToast('已标记为解决');
-          const row = target.closest('tr');
-          row?.remove();
-        } else {
+          if (res.ok) {
+            showToast('已标记为解决');
+            const row = target.closest('tr');
+            row?.remove();
+          } else {
+            showToast('操作失败', false);
+          }
+        } catch (error) {
           showToast('操作失败', false);
         }
-      } catch (error) {
-        showToast('操作失败', false);
-      }
+      });
     });
-  });
+  }
+
+  async function loadOrphans() {
+    try {
+      const res = await fetch('/api/admin/seo/links/orphans?show_resolved=true');
+      const data = await res.json().catch(() => null);
+      const orphans = Array.isArray(data?.orphans) ? data.orphans : [];
+
+      const unresolved = orphans.filter((p: any) => !p.is_resolved);
+      const resolved = orphans.filter((p: any) => p.is_resolved);
+      const byType = {
+        product: unresolved.filter((p: any) => p.page_type === 'product').length,
+        category: unresolved.filter((p: any) => p.page_type === 'category').length,
+        blog: unresolved.filter((p: any) => p.page_type === 'blog').length,
+      };
+
+      document.getElementById('stat-unresolved')!.textContent = String(unresolved.length);
+      document.getElementById('stat-resolved')!.textContent = String(resolved.length);
+      document.getElementById('stat-product')!.textContent = String(byType.product);
+      document.getElementById('stat-category')!.textContent = String(byType.category);
+      document.getElementById('stat-blog')!.textContent = String(byType.blog);
+      document.getElementById('tab-unresolved')!.textContent = String(unresolved.length);
+      document.getElementById('tab-resolved')!.textContent = String(resolved.length);
+      document.getElementById('tab-all')!.textContent = String(orphans.length);
+
+      const tbody = document.getElementById('orphans-table');
+      if (!tbody) return;
+
+      tbody.innerHTML = orphans.map((page: any) => {
+        const typeClass = page.page_type === 'product'
+          ? 'bg-blue-100 text-blue-700'
+          : page.page_type === 'category'
+            ? 'bg-purple-100 text-purple-700'
+            : 'bg-indigo-100 text-indigo-700';
+        const typeLabel = page.page_type === 'product' ? '产品' : page.page_type === 'category' ? '分类' : '博客';
+        const statusHtml = page.is_resolved
+          ? '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">✓ 已解决</span>'
+          : '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">待处理</span>';
+        const actionsHtml = page.is_resolved
+          ? ''
+          : `
+            <div class="flex items-center justify-center gap-2">
+              <button class="resolve-btn px-3 py-1 text-xs font-medium text-green-600 hover:bg-green-50 rounded" data-id="${page.id}" data-action="links_added">已添加链接</button>
+              <button class="resolve-btn px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded" data-id="${page.id}" data-action="ignored">忽略</button>
+            </div>
+          `;
+        return `
+          <tr class="orphan-row hover:bg-gray-50" data-resolved="${page.is_resolved ? 'true' : 'false'}">
+            <td class="px-6 py-4">
+              <div>
+                <p class="font-medium text-gray-900 truncate max-w-xs">${page.page_title || page.page_url}</p>
+                <a href="${page.page_url}" target="_blank" class="text-sm text-primary-600 hover:underline truncate block max-w-xs">${page.page_url}</a>
+              </div>
+            </td>
+            <td class="px-6 py-4"><span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ${typeClass}">${typeLabel}</span></td>
+            <td class="px-6 py-4 text-center"><span class="text-red-600 font-medium">${page.incoming_links_count}</span></td>
+            <td class="px-6 py-4 text-center">${statusHtml}</td>
+            <td class="px-6 py-4 text-sm text-gray-500">${new Date(page.detected_at).toLocaleDateString('zh-CN')}</td>
+            <td class="px-6 py-4 text-center">${actionsHtml}</td>
+          </tr>
+        `;
+      }).join('');
+
+      bindResolveButtons();
+    } catch (e) {
+      console.error('Failed to load orphans:', e);
+      const tbody = document.getElementById('orphans-table');
+      if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-red-600">加载失败</td></tr>`;
+    }
+  }
 
   // Filter tabs
   document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -279,4 +268,6 @@ const byType = {
       });
     });
   });
+
+  loadOrphans();
 </script>

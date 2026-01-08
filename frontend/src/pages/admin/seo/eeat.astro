@@ -2,24 +2,7 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
-
-const { data: eeatScores } = await supabase
-  .from('eeat_scores')
-  .select('*')
-  .order('overall_score', { ascending: true });
-
-const allScores = eeatScores || [];
-const avgScore = allScores.length 
-  ? Math.round(allScores.reduce((sum: number, s: any) => sum + s.overall_score, 0) / allScores.length)
-  : 0;
-
-const scoreDistribution = {
-  excellent: allScores.filter((s: any) => s.overall_score >= 80).length,
-  good: allScores.filter((s: any) => s.overall_score >= 60 && s.overall_score < 80).length,
-  needsWork: allScores.filter((s: any) => s.overall_score >= 40 && s.overall_score < 60).length,
-  poor: allScores.filter((s: any) => s.overall_score < 40).length,
-};
+const allScores: any[] = [];
 ---
 
 <AdminLayout title="E-E-A-T 评分" activePage="seo">
@@ -40,25 +23,23 @@ const scoreDistribution = {
   <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">平均分</p>
-      <p class={`text-2xl font-bold ${avgScore >= 60 ? 'text-green-600' : avgScore >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
-        {avgScore}/100
-      </p>
+      <p class="text-2xl font-bold text-gray-900" id="avg-score">0/100</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">优秀 (80+)</p>
-      <p class="text-2xl font-bold text-green-600">{scoreDistribution.excellent}</p>
+      <p class="text-2xl font-bold text-green-600" id="count-excellent">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">良好 (60-79)</p>
-      <p class="text-2xl font-bold text-blue-600">{scoreDistribution.good}</p>
+      <p class="text-2xl font-bold text-blue-600" id="count-good">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">需改进 (40-59)</p>
-      <p class="text-2xl font-bold text-yellow-600">{scoreDistribution.needsWork}</p>
+      <p class="text-2xl font-bold text-yellow-600" id="count-needsWork">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">较差 (&lt;40)</p>
-      <p class="text-2xl font-bold text-red-600">{scoreDistribution.poor}</p>
+      <p class="text-2xl font-bold text-red-600" id="count-poor">0</p>
     </div>
   </div>
 
@@ -103,68 +84,10 @@ const scoreDistribution = {
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-gray-100">
-          {allScores.length > 0 ? (
-            allScores.map((score: any) => (
-              <tr class="hover:bg-gray-50">
-                <td class="px-6 py-4">
-                  <p class="text-sm font-medium text-gray-900 capitalize">{score.content_type}</p>
-                  <p class="text-xs text-gray-500">{score.content_id?.substring(0, 8)}...</p>
-                </td>
-                <td class="px-6 py-4 text-center">
-                  <span class={`text-sm font-medium ${score.experience_score >= 60 ? 'text-green-600' : score.experience_score >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
-                    {score.experience_score}
-                  </span>
-                </td>
-                <td class="px-6 py-4 text-center">
-                  <span class={`text-sm font-medium ${score.expertise_score >= 60 ? 'text-green-600' : score.expertise_score >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
-                    {score.expertise_score}
-                  </span>
-                </td>
-                <td class="px-6 py-4 text-center">
-                  <span class={`text-sm font-medium ${score.authoritativeness_score >= 60 ? 'text-green-600' : score.authoritativeness_score >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
-                    {score.authoritativeness_score}
-                  </span>
-                </td>
-                <td class="px-6 py-4 text-center">
-                  <span class={`text-sm font-medium ${score.trustworthiness_score >= 60 ? 'text-green-600' : score.trustworthiness_score >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
-                    {score.trustworthiness_score}
-                  </span>
-                </td>
-                <td class="px-6 py-4 text-center">
-                  <div class="flex items-center justify-center gap-2">
-                    <div class="w-16 bg-gray-200 rounded-full h-2">
-                      <div
-                        class={`h-2 rounded-full ${
-                          score.overall_score >= 80 ? 'bg-green-500' :
-                          score.overall_score >= 60 ? 'bg-blue-500' :
-                          score.overall_score >= 40 ? 'bg-yellow-500' : 'bg-red-500'
-                        }`}
-                        style={`width: ${score.overall_score}%`}
-                      />
-                    </div>
-                    <span class="text-sm font-bold">{score.overall_score}</span>
-                  </div>
-                </td>
-                <td class="px-6 py-4">
-                  <button
-                    class="text-primary-600 hover:text-primary-700 text-sm"
-                    data-type={score.content_type}
-                    data-id={score.content_id}
-                    onclick="getRecommendations(this)"
-                  >
-                    获取建议
-                  </button>
-                </td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colspan="7" class="px-6 py-12 text-center text-gray-500">
-                暂无 E-E-A-T 评分。点击"分析所有内容"开始。
-              </td>
-            </tr>
-          )}
+        <tbody class="divide-y divide-gray-100" id="scores-tbody">
+          <tr>
+            <td colspan="7" class="px-6 py-12 text-center text-gray-500">加载中...</td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -189,13 +112,116 @@ const scoreDistribution = {
 </AdminLayout>
 
 <script>
+  const tbody = document.getElementById('scores-tbody');
+  const avgEl = document.getElementById('avg-score');
+  const excellentEl = document.getElementById('count-excellent');
+  const goodEl = document.getElementById('count-good');
+  const needsWorkEl = document.getElementById('count-needsWork');
+  const poorEl = document.getElementById('count-poor');
+
+  function escapeHtml(s) {
+    return String(s ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  function overallBarClass(score) {
+    const v = Number(score) || 0;
+    if (v >= 80) return 'bg-green-500';
+    if (v >= 60) return 'bg-blue-500';
+    if (v >= 40) return 'bg-yellow-500';
+    return 'bg-red-500';
+  }
+
+  function textScoreClass(score) {
+    const v = Number(score) || 0;
+    if (v >= 60) return 'text-green-600';
+    if (v >= 40) return 'text-yellow-600';
+    return 'text-red-600';
+  }
+
+  function renderRows(scores) {
+    if (!tbody) return;
+    if (!Array.isArray(scores) || scores.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-gray-500">暂无 E-E-A-T 评分。点击"分析所有内容"开始。</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = scores
+      .map((score) => {
+        const overall = Number(score.overall_score) || 0;
+        return `
+          <tr class="hover:bg-gray-50">
+            <td class="px-6 py-4">
+              <p class="text-sm font-medium text-gray-900 capitalize">${escapeHtml(score.content_type)}</p>
+              <p class="text-xs text-gray-500">${escapeHtml(String(score.content_id || '').substring(0, 8))}...</p>
+            </td>
+            <td class="px-6 py-4 text-center"><span class="text-sm font-medium ${textScoreClass(score.experience_score)}">${escapeHtml(score.experience_score)}</span></td>
+            <td class="px-6 py-4 text-center"><span class="text-sm font-medium ${textScoreClass(score.expertise_score)}">${escapeHtml(score.expertise_score)}</span></td>
+            <td class="px-6 py-4 text-center"><span class="text-sm font-medium ${textScoreClass(score.authoritativeness_score)}">${escapeHtml(score.authoritativeness_score)}</span></td>
+            <td class="px-6 py-4 text-center"><span class="text-sm font-medium ${textScoreClass(score.trustworthiness_score)}">${escapeHtml(score.trustworthiness_score)}</span></td>
+            <td class="px-6 py-4 text-center">
+              <div class="flex items-center justify-center gap-2">
+                <div class="w-16 bg-gray-200 rounded-full h-2"><div class="h-2 rounded-full ${overallBarClass(overall)}" style="width: ${escapeHtml(overall)}%"></div></div>
+                <span class="text-sm font-bold">${escapeHtml(overall)}</span>
+              </div>
+            </td>
+            <td class="px-6 py-4">
+              <button class="text-primary-600 hover:text-primary-700 text-sm" data-type="${escapeHtml(score.content_type)}" data-id="${escapeHtml(score.content_id)}" data-action="recommend">获取建议</button>
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+  }
+
+  function bindRecommendHandlers() {
+    document.querySelectorAll('[data-action="recommend"]').forEach((btn) => {
+      btn.addEventListener('click', () => getRecommendations(btn));
+    });
+  }
+
+  async function loadScores() {
+    try {
+      const response = await fetch('/api/admin/eeat/scores');
+      const data = await response.json().catch(() => null);
+      const scores = Array.isArray(data?.scores) ? data.scores : [];
+
+      const avgScore = scores.length ? Math.round(scores.reduce((sum, s) => sum + (Number(s.overall_score) || 0), 0) / scores.length) : 0;
+      const dist = {
+        excellent: scores.filter((s) => (Number(s.overall_score) || 0) >= 80).length,
+        good: scores.filter((s) => (Number(s.overall_score) || 0) >= 60 && (Number(s.overall_score) || 0) < 80).length,
+        needsWork: scores.filter((s) => (Number(s.overall_score) || 0) >= 40 && (Number(s.overall_score) || 0) < 60).length,
+        poor: scores.filter((s) => (Number(s.overall_score) || 0) < 40).length,
+      };
+
+      if (avgEl) {
+        avgEl.textContent = `${avgScore}/100`;
+        avgEl.className = `text-2xl font-bold ${avgScore >= 60 ? 'text-green-600' : avgScore >= 40 ? 'text-yellow-600' : 'text-red-600'}`;
+      }
+      if (excellentEl) excellentEl.textContent = String(dist.excellent);
+      if (goodEl) goodEl.textContent = String(dist.good);
+      if (needsWorkEl) needsWorkEl.textContent = String(dist.needsWork);
+      if (poorEl) poorEl.textContent = String(dist.poor);
+
+      renderRows(scores);
+      bindRecommendHandlers();
+    } catch (e) {
+      console.error('Failed to load E-E-A-T scores:', e);
+      if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-red-600">加载失败</td></tr>`;
+    }
+  }
+
   document.getElementById('analyze-all-btn')?.addEventListener('click', async () => {
     const btn = document.getElementById('analyze-all-btn') as HTMLButtonElement;
     btn.disabled = true;
     btn.textContent = '分析中...';
 
     try {
-      const response = await fetch('/api/eeat/analyze-all', { method: 'POST' });
+      const response = await fetch('/api/admin/eeat/analyze-all', { method: 'POST' });
       const data = await response.json();
 
       if (response.ok) {
@@ -225,7 +251,7 @@ const scoreDistribution = {
     content.innerHTML = '<div class="text-center py-8">加载建议中...</div>';
 
     try {
-      const response = await fetch('/api/eeat/recommendations', {
+      const response = await fetch('/api/admin/eeat/recommendations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content_type: contentType, content_id: contentId }),
@@ -271,4 +297,6 @@ const scoreDistribution = {
 
   (window as any).getRecommendations = getRecommendations;
   (window as any).closeModal = closeModal;
+
+  loadScores();
 </script>

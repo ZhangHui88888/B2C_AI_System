@@ -2,27 +2,23 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
 
 const { id } = Astro.params;
 
-// Fetch brand details
-const { data: brand, error } = await supabase
-  .from('brands')
-  .select('*')
-  .eq('id', id)
-  .single();
+// Client-side load via /api/admin/* (avoid SSR direct Supabase access; required after RLS hardening)
+const brand: any = {
+  id,
+  name: 'Loading...',
+  is_active: true,
+  logo_url: null,
+  favicon_url: null,
+  custom_css: null,
+  theme: {},
+  social_links: {},
+  contact_info: {},
+};
 
-if (error || !brand) {
-  return Astro.redirect('/admin/brands');
-}
-
-// Fetch brand domains
-const { data: domains } = await supabase
-  .from('brand_domains')
-  .select('*')
-  .eq('brand_id', id)
-  .order('is_primary', { ascending: false });
+const domains: any[] = [];
 
 // Default theme values
 const defaultTheme = {
@@ -51,11 +47,11 @@ const contactInfo = brand.contact_info || {};
           </svg>
         </a>
         <div>
-          <h2 class="text-lg font-semibold text-gray-900">{brand.name} 设置</h2>
+          <h2 id="brand-name-header" class="text-lg font-semibold text-gray-900">{brand.name} 设置</h2>
           <p class="text-sm text-gray-600">配置品牌主题、域名和联系信息</p>
         </div>
       </div>
-      <span class={`px-3 py-1 text-sm font-medium rounded-full ${brand.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+      <span id="brand-status-badge" class={`px-3 py-1 text-sm font-medium rounded-full ${brand.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
         {brand.is_active ? '活跃' : '停用'}
       </span>
     </div>
@@ -173,7 +169,7 @@ const contactInfo = brand.contact_info || {};
           <div id="theme-preview" class="p-6 border rounded-lg bg-gray-50">
             <div class="flex items-center gap-4 mb-4">
               <div class="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold" id="preview-logo" style={`background-color: ${theme.primaryColor}`}>
-                {brand.name.charAt(0)}
+                <span id="brand-name-initial">{brand.name.charAt(0)}</span>
               </div>
               <span class="font-semibold" id="preview-name" style={`font-family: ${theme.fontFamily}`}>{brand.name}</span>
             </div>
@@ -383,6 +379,154 @@ const contactInfo = brand.contact_info || {};
 
   <script define:vars={{ brandId: id }}>
     const API_URL = import.meta.env.PUBLIC_API_URL || '';
+    const apiBase = API_URL && API_URL.trim() ? API_URL.trim().replace(/\/$/, '') : '';
+    const api = (path) => (apiBase ? `${apiBase}${path}` : path);
+
+    function setText(id, value) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value;
+    }
+
+    function setValue(id, value) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if ('value' in el) el.value = value ?? '';
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function renderDomains(domains) {
+      const list = document.getElementById('domains-list');
+      if (!list) return;
+      if (!Array.isArray(domains) || domains.length === 0) {
+        list.innerHTML = `
+          <div class="text-center py-8 text-gray-500">
+            <p>未配置自定义域名</p>
+            <p class="text-sm">添加自定义域名以用于此品牌</p>
+          </div>
+        `;
+        bindDomainActions();
+        return;
+      }
+
+      list.innerHTML = domains
+        .map((domain) => {
+          const statusDot = domain?.dns_verified ? 'bg-green-500' : 'bg-yellow-500';
+          const verifiedText = domain?.dns_verified
+            ? '<span class="text-green-600">已验证</span>'
+            : '<span class="text-yellow-600">等待验证</span>';
+          const primaryBadge = domain?.is_primary
+            ? '<span class="text-primary-600 font-medium">Primary</span>'
+            : '';
+          const setPrimaryBtn = domain?.is_primary
+            ? ''
+            : `<button class="set-primary-btn text-sm text-primary-600 hover:text-primary-700" data-id="${escapeHtml(domain?.id)}">设为主域名</button>`;
+
+          return `
+            <div class="flex items-center justify-between p-4 border rounded-lg" data-domain-id="${escapeHtml(domain?.id)}">
+              <div class="flex items-center gap-4">
+                <div class="w-3 h-3 rounded-full ${statusDot}"></div>
+                <div>
+                  <p class="font-medium text-gray-900">${escapeHtml(domain?.domain)}</p>
+                  <div class="flex items-center gap-2 text-sm text-gray-500">
+                    ${primaryBadge}
+                    <span>SSL: ${escapeHtml(domain?.ssl_status)}</span>
+                    ${verifiedText}
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                ${setPrimaryBtn}
+                <button class="verify-domain-btn text-sm text-gray-600 hover:text-gray-700" data-id="${escapeHtml(domain?.id)}">验证</button>
+                <button class="delete-domain-btn text-sm text-red-600 hover:text-red-700" data-id="${escapeHtml(domain?.id)}">移除</button>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+
+      bindDomainActions();
+    }
+
+    async function loadBrandAndDomains() {
+      try {
+        const [brandRes, domainsRes] = await Promise.all([
+          fetch(api(`/api/admin/brands/${brandId}`)),
+          fetch(api(`/api/admin/brands/${brandId}/domains`)),
+        ]);
+
+        if (!brandRes.ok) {
+          window.location.href = '/admin/brands';
+          return;
+        }
+
+        const brand = await brandRes.json();
+        const domains = domainsRes.ok ? await domainsRes.json() : [];
+
+        setText('brand-name-header', brand?.name || 'Brand');
+        setText('brand-name-initial', (brand?.name || '?').charAt(0));
+        setText('preview-name', brand?.name || 'Brand');
+
+        if (brand?.name) {
+          document.title = `${brand.name} Settings`;
+        }
+
+        // status badge
+        const statusBadge = document.getElementById('brand-status-badge');
+        if (statusBadge) {
+          const active = !!brand?.is_active;
+          statusBadge.textContent = active ? '活跃' : '停用';
+          statusBadge.className = `px-3 py-1 text-sm font-medium rounded-full ${active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`;
+        }
+
+        // theme inputs
+        const theme = { ...(brand?.theme || {}) };
+        if (typeof theme.primaryColor === 'string') setValue('primaryColor', theme.primaryColor);
+        if (typeof theme.primaryColor === 'string') setValue('primaryColorText', theme.primaryColor);
+        if (typeof theme.secondaryColor === 'string') setValue('secondaryColor', theme.secondaryColor);
+        if (typeof theme.secondaryColor === 'string') setValue('secondaryColorText', theme.secondaryColor);
+        if (typeof theme.accentColor === 'string') setValue('accentColor', theme.accentColor);
+        if (typeof theme.accentColor === 'string') setValue('accentColorText', theme.accentColor);
+        if (typeof theme.fontFamily === 'string') setValue('fontFamily', theme.fontFamily);
+        if (typeof theme.buttonStyle === 'string') setValue('buttonStyle', theme.buttonStyle);
+        if (typeof theme.headerStyle === 'string') setValue('headerStyle', theme.headerStyle);
+        if (typeof theme.footerStyle === 'string') setValue('footerStyle', theme.footerStyle);
+
+        // brand assets
+        setValue('logoUrl', brand?.logo_url || '');
+        setValue('faviconUrl', brand?.favicon_url || '');
+        setValue('customCss', brand?.custom_css || '');
+
+        // contact
+        const contact = brand?.contact_info || {};
+        setValue('contactEmail', contact?.email || '');
+        setValue('contactPhone', contact?.phone || '');
+        setValue('contactAddress', contact?.address || '');
+        setValue('contactHours', contact?.hours || '');
+        setValue('contactSupport', contact?.support_email || '');
+
+        // social
+        const social = brand?.social_links || {};
+        setValue('socialFacebook', social?.facebook || '');
+        setValue('socialInstagram', social?.instagram || '');
+        setValue('socialTiktok', social?.tiktok || '');
+        setValue('socialTwitter', social?.twitter || '');
+        setValue('socialYoutube', social?.youtube || '');
+        setValue('socialPinterest', social?.pinterest || '');
+
+        updatePreview();
+        renderDomains(domains);
+      } catch {
+        // ignore
+      }
+    }
 
     // Tab switching
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -474,7 +618,7 @@ const contactInfo = brand.contact_info || {};
       };
       
       try {
-        const res = await fetch(`${API_URL}/api/admin/brands/${brandId}`, {
+        const res = await fetch(api(`/api/admin/brands/${brandId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
@@ -504,7 +648,7 @@ const contactInfo = brand.contact_info || {};
       };
       
       try {
-        const res = await fetch(`${API_URL}/api/admin/brands/${brandId}`, {
+        const res = await fetch(api(`/api/admin/brands/${brandId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contact_info }),
@@ -535,7 +679,7 @@ const contactInfo = brand.contact_info || {};
       };
       
       try {
-        const res = await fetch(`${API_URL}/api/admin/brands/${brandId}`, {
+        const res = await fetch(api(`/api/admin/brands/${brandId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ social_links }),
@@ -572,7 +716,7 @@ const contactInfo = brand.contact_info || {};
       const isPrimary = document.getElementById('new-domain-primary').checked;
       
       try {
-        const res = await fetch(`${API_URL}/api/admin/brands/${brandId}/domains`, {
+        const res = await fetch(api(`/api/admin/brands/${brandId}/domains`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ domain, is_primary: isPrimary }),
@@ -590,49 +734,55 @@ const contactInfo = brand.contact_info || {};
     });
 
     // Domain actions
-    document.querySelectorAll('.delete-domain-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const domainId = btn.dataset.id;
-        if (!confirm('确定要移除此域名吗？')) return;
-        
-        try {
-          const res = await fetch(`${API_URL}/api/admin/brands/${brandId}/domains/${domainId}`, {
-            method: 'DELETE',
-          });
-          
-          if (res.ok) {
-            window.location.reload();
-          } else {
-            const err = await res.json();
-            alert(err.error || '移除域名失败');
-          }
-        } catch (err) {
-          alert('移除域名失败');
-        }
-      });
-    });
 
-    document.querySelectorAll('.set-primary-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const domainId = btn.dataset.id;
-        
-        try {
-          const res = await fetch(`${API_URL}/api/admin/brands/${brandId}/domains/${domainId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ is_primary: true }),
-          });
-          
-          if (res.ok) {
-            window.location.reload();
-          } else {
-            const err = await res.json();
-            alert(err.error || '设置主域名失败');
+    function bindDomainActions() {
+      document.querySelectorAll('.delete-domain-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const domainId = btn.dataset.id;
+          if (!confirm('确定要移除此域名吗？')) return;
+
+          try {
+            const res = await fetch(api(`/api/admin/brands/${brandId}/domains/${domainId}`), {
+              method: 'DELETE',
+            });
+
+            if (res.ok) {
+              window.location.reload();
+            } else {
+              const err = await res.json();
+              alert(err.error || '移除域名失败');
+            }
+          } catch (err) {
+            alert('移除域名失败');
           }
-        } catch (err) {
-          alert('设置主域名失败');
-        }
+        });
       });
-    });
+
+      document.querySelectorAll('.set-primary-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const domainId = btn.dataset.id;
+
+          try {
+            const res = await fetch(api(`/api/admin/brands/${brandId}/domains/${domainId}`), {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ is_primary: true }),
+            });
+
+            if (res.ok) {
+              window.location.reload();
+            } else {
+              const err = await res.json();
+              alert(err.error || '设置主域名失败');
+            }
+          } catch (err) {
+            alert('设置主域名失败');
+          }
+        });
+      });
+    }
+
+    // Load initial data after AdminLayout fetch wrapper is installed
+    setTimeout(loadBrandAndDomains, 0);
   </script>
 </AdminLayout>

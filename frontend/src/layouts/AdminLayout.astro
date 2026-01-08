@@ -1,6 +1,5 @@
 ---
 import '@styles/global.css';
-import { supabase } from '@lib/supabase';
 import BrandSwitcher from '@components/admin/BrandSwitcher.astro';
 
 export interface Props {
@@ -11,27 +10,9 @@ export interface Props {
 const { title, activePage = '' } = Astro.props;
 const siteName = import.meta.env.PUBLIC_SITE_NAME || 'DTC Admin';
 
-// Check authentication - temporarily disabled for debugging
-let session = null;
-let user = null;
-try {
-  const authResult = await supabase.auth.getSession();
-  session = authResult.data?.session;
-  user = session?.user;
-} catch (e) {
-  console.error('Auth error:', e);
-}
-
-// Redirect to login if not authenticated (skip for login page)
-// TEMPORARILY DISABLED FOR DEBUGGING
-// const currentPath = Astro.url.pathname;
-// if (!session && currentPath !== '/admin/login') {
-//   return Astro.redirect('/admin/login');
-// }
-
-// Get user display info
-const userEmail = user?.email || 'Admin';
-const userInitial = userEmail.charAt(0).toUpperCase();
+// Auth is handled client-side via JWT token check
+const userEmail = 'Admin';
+const userInitial = 'A';
 
 const navItems = [
   { href: '/admin', label: '仪表盘', icon: 'home', id: 'dashboard' },
@@ -173,7 +154,11 @@ const icons: Record<string, string> = {
       </div>
     </div>
 
-    <script>
+    <script define:vars={{
+      supabaseUrl: import.meta.env.PUBLIC_SUPABASE_URL,
+      supabaseAnonKey: import.meta.env.PUBLIC_SUPABASE_ANON_KEY,
+      apiBaseUrl: import.meta.env.PUBLIC_API_URL,
+    }}>
       const sidebar = document.getElementById('sidebar');
       const overlay = document.getElementById('sidebar-overlay');
       const openBtn = document.getElementById('open-sidebar');
@@ -192,8 +177,6 @@ const icons: Record<string, string> = {
       logoutBtn?.addEventListener('click', async () => {
         // Sign out via Supabase
         const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-        const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-        const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
         const supabase = createClient(supabaseUrl, supabaseAnonKey);
         await supabase.auth.signOut();
         window.location.href = '/admin/login';
@@ -202,8 +185,6 @@ const icons: Record<string, string> = {
       async function getAccessToken() {
         try {
           const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-          const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-          const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
           const supabase = createClient(supabaseUrl, supabaseAnonKey);
           const { data } = await supabase.auth.getSession();
           return data?.session?.access_token || null;
@@ -229,8 +210,15 @@ const icons: Record<string, string> = {
       // Auto-inject admin headers for worker admin APIs
       const _fetch = window.fetch.bind(window);
       window.fetch = async (input, init) => {
-        const url = typeof input === 'string' ? input : (input instanceof URL ? input.toString() : input.url);
-        const isAdminApi = url.includes('/api/admin/');
+        const rawUrl = typeof input === 'string' ? input : (input instanceof URL ? input.toString() : input.url);
+        let u;
+        try {
+          u = new URL(rawUrl, window.location.origin);
+        } catch {
+          return _fetch(input, init);
+        }
+
+        const isAdminApi = u.pathname.startsWith('/api/admin/');
         if (!isAdminApi) return _fetch(input, init);
 
         const token = await getAccessToken();
@@ -240,7 +228,23 @@ const icons: Record<string, string> = {
         if (token) headers.set('Authorization', `Bearer ${token}`);
         if (brandId) headers.set('x-brand-id', brandId);
 
-        return _fetch(url, {
+        // Optional: route admin API to dedicated worker base URL (useful in local dev)
+        let finalUrl = rawUrl;
+        let base = typeof apiBaseUrl === 'string' ? apiBaseUrl.trim() : '';
+        const isLocalHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (isLocalHost && base && !/localhost|127\.0\.0\.1/i.test(base)) {
+          base = '';
+        }
+
+        if (base && u.origin === window.location.origin) {
+          try {
+            finalUrl = new URL(`${u.pathname}${u.search}`, base).toString();
+          } catch {
+            finalUrl = rawUrl;
+          }
+        }
+
+        return _fetch(finalUrl, {
           ...init,
           headers,
         });

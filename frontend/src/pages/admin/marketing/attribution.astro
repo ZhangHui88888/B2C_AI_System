@@ -74,7 +74,9 @@ import AdminLayout from '@layouts/AdminLayout.astro';
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-  const API_BASE = import.meta.env.PUBLIC_API_URL || '';
+  const API_URL = import.meta.env.PUBLIC_API_URL || '';
+  const apiBase = API_URL && API_URL.trim() ? API_URL.trim().replace(/\/$/, '') : '';
+  const api = (path) => (apiBase ? `${apiBase}${path}` : path);
   let chart: any = null;
 
   async function loadData() {
@@ -82,7 +84,7 @@ import AdminLayout from '@layouts/AdminLayout.astro';
     const groupBy = (document.getElementById('group-filter') as HTMLSelectElement).value;
 
     try {
-      const response = await fetch(`${API_BASE}/api/tracking/attribution?days=${days}&group_by=${groupBy}`);
+      const response = await fetch(api(`/api/admin/marketing/attribution/report?days=${days}&group_by=${groupBy}`));
       const result = await response.json();
 
       if (result.data) {

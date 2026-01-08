@@ -2,31 +2,37 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
 
 const { id } = Astro.params;
 
-// Fetch product
-const { data: product, error: productError } = await supabase
-  .from('products')
-  .select('*')
-  .eq('id', id)
-  .single();
+const product = {
+  id,
+  brand_id: '',
+  name: '',
+  slug: '',
+  short_description: '',
+  description: '',
+  price: 0,
+  compare_price: null,
+  cost: null,
+  stock_quantity: null,
+  stock_status: 'in_stock',
+  main_image_url: '',
+  images: [],
+  category_id: null,
+  is_active: false,
+  is_featured: false,
+  shipping_weight: null,
+  shipping_time: '',
+  seo_title: '',
+  seo_description: '',
+  supplier_info: {},
+};
 
-if (productError || !product) {
-  return Astro.redirect('/admin/products');
-}
-
-// Fetch categories for dropdown
-const { data: categories } = await supabase
-  .from('categories')
-  .select('id, name, slug, parent_id')
-  .eq('brand_id', product.brand_id)
-  .eq('is_active', true)
-  .order('name');
+const categories: any[] = [];
 ---
 
-<AdminLayout title={`Edit: ${product.name}`} activePage="products">
+<AdminLayout title="编辑商品" activePage="products">
   <div class="max-w-4xl">
     <!-- Header -->
     <div class="mb-6 flex items-center justify-between">
@@ -50,7 +56,6 @@ const { data: categories } = await supabase
 
     <form id="product-form" class="space-y-6">
       <input type="hidden" name="id" value={product.id} />
-      <input type="hidden" name="brand_id" value={product.brand_id} />
 
       <!-- Basic Information -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -222,36 +227,16 @@ const { data: categories } = await supabase
 
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">附加图片</label>
-            <div id="images-container" class="space-y-2">
-              {(product.images || []).map((url: string, index: number) => (
-                <div class="flex gap-2 image-row">
-                  <input
-                    type="url"
-                    name="images[]"
-                    value={url}
-                    class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                    placeholder="https://..."
-                  />
-                  <button type="button" class="remove-image px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-              ))}
-            </div>
+            <div id="images-container" class="space-y-2"></div>
             <button type="button" id="add-image" class="mt-2 text-sm text-primary-600 hover:text-primary-700 font-medium">
               + 添加另一张图片
             </button>
           </div>
 
-          <!-- Image Preview -->
-          {product.main_image_url && (
-            <div class="mt-4">
-              <p class="text-sm text-gray-500 mb-2">预览：</p>
-              <img src={product.main_image_url} alt="Product preview" class="w-32 h-32 object-cover rounded-lg border" />
-            </div>
-          )}
+          <div id="main-image-preview" class="mt-4 hidden">
+            <p class="text-sm text-gray-500 mb-2">预览：</p>
+            <img id="main-image-preview-img" src="" alt="Product preview" class="w-32 h-32 object-cover rounded-lg border" />
+          </div>
         </div>
       </div>
 
@@ -268,9 +253,6 @@ const { data: categories } = await supabase
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             >
               <option value="">无分类</option>
-              {categories?.map((cat: any) => (
-                <option value={cat.id} selected={product.category_id === cat.id}>{cat.name}</option>
-              ))}
             </select>
           </div>
 
@@ -434,7 +416,7 @@ const { data: categories } = await supabase
   <!-- Toast Notification -->
   <div id="toast" class="fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg transform translate-y-full opacity-0 transition-all duration-300 z-50"></div>
 
-  <script define:vars={{ productId: product.id }}>
+  <script define:vars={{ productId: id }}>
     const form = document.getElementById('product-form');
     const toast = document.getElementById('toast');
     const deleteBtn = document.getElementById('delete-btn');
@@ -452,6 +434,133 @@ const { data: categories } = await supabase
         toast.style.transform = 'translateY(100%)';
         toast.style.opacity = '0';
       }, 3000);
+    }
+
+    async function loadProduct() {
+      try {
+        const res = await fetch(`/api/admin/products/${productId}`);
+        const result = await res.json();
+
+        if (!res.ok || !result?.success || !result?.product) {
+          window.location.href = '/admin/products';
+          return;
+        }
+
+        const product = result.product;
+
+        document.title = `Edit: ${product.name}`;
+
+        const nameEl = document.getElementById('name');
+        if (nameEl) nameEl.value = product.name || '';
+
+        const slugEl = document.getElementById('slug');
+        if (slugEl) slugEl.value = product.slug || '';
+
+        const shortDescEl = document.getElementById('short_description');
+        if (shortDescEl) shortDescEl.value = product.short_description || '';
+
+        const descEl = document.getElementById('description');
+        if (descEl) descEl.value = product.description || '';
+
+        const priceEl = document.getElementById('price');
+        if (priceEl) priceEl.value = product.price ?? 0;
+
+        const comparePriceEl = document.getElementById('compare_price');
+        if (comparePriceEl) comparePriceEl.value = product.compare_price ?? '';
+
+        const costEl = document.getElementById('cost');
+        if (costEl) costEl.value = product.cost ?? '';
+
+        const stockQtyEl = document.getElementById('stock_quantity');
+        if (stockQtyEl) stockQtyEl.value = product.stock_quantity ?? '';
+
+        const stockStatusEl = document.getElementById('stock_status');
+        if (stockStatusEl) stockStatusEl.value = product.stock_status || 'in_stock';
+
+        const shippingWeightEl = document.getElementById('shipping_weight');
+        if (shippingWeightEl) shippingWeightEl.value = product.shipping_weight ?? '';
+
+        const shippingTimeEl = document.getElementById('shipping_time');
+        if (shippingTimeEl) shippingTimeEl.value = product.shipping_time || '';
+
+        const seoTitleEl = document.getElementById('seo_title');
+        if (seoTitleEl) seoTitleEl.value = product.seo_title || '';
+        const seoTitleCountEl = document.getElementById('seo_title_count');
+        if (seoTitleCountEl) seoTitleCountEl.textContent = (product.seo_title || '').length;
+        const seoPreviewTitleEl = document.getElementById('seo-preview-title');
+        if (seoPreviewTitleEl) seoPreviewTitleEl.textContent = product.seo_title || product.name || '';
+
+        const seoDescEl = document.getElementById('seo_description');
+        if (seoDescEl) seoDescEl.value = product.seo_description || '';
+        const seoDescCountEl = document.getElementById('seo_description_count');
+        if (seoDescCountEl) seoDescCountEl.textContent = (product.seo_description || '').length;
+        const seoPreviewDescEl = document.getElementById('seo-preview-description');
+        if (seoPreviewDescEl) seoPreviewDescEl.textContent = product.seo_description || product.short_description || 'No description';
+
+        const seoPreviewUrlEl = document.getElementById('seo-preview-url');
+        if (seoPreviewUrlEl) seoPreviewUrlEl.textContent = `https://yourstore.com/products/${product.slug || ''}`;
+
+        const supplierNameEl = document.getElementById('supplier_name');
+        if (supplierNameEl) supplierNameEl.value = product.supplier_info?.name || '';
+        const supplierUrlEl = document.getElementById('supplier_url');
+        if (supplierUrlEl) supplierUrlEl.value = product.supplier_info?.url || '';
+        const supplierSkuEl = document.getElementById('supplier_sku');
+        if (supplierSkuEl) supplierSkuEl.value = product.supplier_info?.sku || '';
+
+        const isActiveEl = document.getElementById('is_active');
+        if (isActiveEl) isActiveEl.checked = product.is_active === true;
+        const isFeaturedEl = document.getElementById('is_featured');
+        if (isFeaturedEl) isFeaturedEl.checked = product.is_featured === true;
+
+        const mainImageEl = document.getElementById('main_image_url');
+        if (mainImageEl) mainImageEl.value = product.main_image_url || '';
+
+        const previewEl = document.getElementById('main-image-preview');
+        const previewImgEl = document.getElementById('main-image-preview-img');
+        if (previewEl && previewImgEl && product.main_image_url) {
+          previewImgEl.src = product.main_image_url;
+          previewEl.classList.remove('hidden');
+        }
+
+        const imagesContainer = document.getElementById('images-container');
+        if (imagesContainer) {
+          imagesContainer.innerHTML = '';
+          const images = Array.isArray(product.images) ? product.images : [];
+          const list = images.length > 0 ? images : [''];
+          list.forEach((url) => {
+            const row = document.createElement('div');
+            row.className = 'flex gap-2 image-row';
+            row.innerHTML = `
+              <input type="url" name="images[]" value="${url || ''}" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="https://..." />
+              <button type="button" class="remove-image px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            `;
+            imagesContainer.appendChild(row);
+          });
+        }
+
+        const categorySelect = document.getElementById('category_id');
+        if (categorySelect) {
+          const catRes = await fetch('/api/admin/categories');
+          const catJson = await catRes.json();
+          if (catRes.ok && catJson?.success && Array.isArray(catJson.categories)) {
+            const options = ['<option value="">无分类</option>']
+              .concat(
+                catJson.categories.map((c) => {
+                  const selected = product.category_id === c.id ? ' selected' : '';
+                  return `<option value="${c.id}"${selected}>${c.name}</option>`;
+                })
+              )
+              .join('');
+            categorySelect.innerHTML = options;
+          }
+        }
+      } catch {
+        window.location.href = '/admin/products';
+      }
     }
 
     // Auto-generate slug from name
@@ -509,8 +618,6 @@ const { data: categories } = await supabase
       
       const formData = new FormData(form);
       const data = {
-        id: formData.get('id'),
-        brand_id: formData.get('brand_id'),
         name: formData.get('name'),
         slug: formData.get('slug'),
         description: formData.get('description') || null,
@@ -578,5 +685,7 @@ const { data: categories } = await supabase
 
     deleteBtn?.addEventListener('click', handleDelete);
     deleteBtnMobile?.addEventListener('click', handleDelete);
+
+    loadProduct();
   </script>
 </AdminLayout>

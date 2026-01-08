@@ -7,6 +7,7 @@ import type { Env } from '../index';
 import { getSupabase } from '../utils/supabase';
 import { jsonResponse, errorResponse } from '../utils/response';
 import { getBrandId } from '../middleware/brand';
+import { requireAdminAuth, requireBrandAdminAccess, requireBrandManageAccess } from '../middleware/admin-auth';
 import { sendResendEmail } from '../utils/email';
 
 // Table names
@@ -45,7 +46,7 @@ export async function handleTracking(
   const supabase = getSupabase(env);
   const brandId = getBrandId(request);
 
-  if (!brandId) {
+  if (!brandId || brandId === 'all') {
     return errorResponse('Brand context missing', 400);
   }
 
@@ -92,11 +93,19 @@ export async function handleTracking(
 
   // GET /api/tracking/abandoned - Get abandoned carts (admin)
   if (request.method === 'GET' && path === '/api/tracking/abandoned') {
+    const { context: admin, response: authResponse } = await requireAdminAuth(request, env);
+    if (authResponse || !admin) return authResponse as Response;
+    const access = await requireBrandManageAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
     return await getAbandonedCarts(supabase, brandId, request);
   }
 
   // POST /api/tracking/abandoned/send-recovery - Send recovery emails
   if (request.method === 'POST' && path === '/api/tracking/abandoned/send-recovery') {
+    const { context: admin, response: authResponse } = await requireAdminAuth(request, env);
+    if (authResponse || !admin) return authResponse as Response;
+    const access = await requireBrandAdminAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
     return await sendRecoveryEmails(supabase, brandId, env, request);
   }
 
@@ -111,11 +120,19 @@ export async function handleTracking(
 
   // GET /api/tracking/pixels/config - Get pixel configuration
   if (request.method === 'GET' && path === '/api/tracking/pixels/config') {
+    const { context: admin, response: authResponse } = await requireAdminAuth(request, env);
+    if (authResponse || !admin) return authResponse as Response;
+    const access = await requireBrandManageAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
     return await getPixelsConfig(supabase, brandId);
   }
 
   // PUT /api/tracking/pixels/config - Update pixel configuration
   if (request.method === 'PUT' && path === '/api/tracking/pixels/config') {
+    const { context: admin, response: authResponse } = await requireAdminAuth(request, env);
+    if (authResponse || !admin) return authResponse as Response;
+    const access = await requireBrandAdminAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
     return await updatePixelsConfig(supabase, brandId, request);
   }
 
@@ -140,6 +157,10 @@ export async function handleTracking(
 
   // GET /api/tracking/attribution - Get attribution report
   if (request.method === 'GET' && path === '/api/tracking/attribution') {
+    const { context: admin, response: authResponse } = await requireAdminAuth(request, env);
+    if (authResponse || !admin) return authResponse as Response;
+    const access = await requireBrandManageAccess(env, admin, brandId);
+    if (!access.ok) return access.response;
     return await getAttributionReport(supabase, brandId, request);
   }
 
@@ -942,14 +963,29 @@ async function getAttributionReport(
     let orderTotals: Record<string, number> = {};
 
     if (orderIds.length > 0) {
-      const { data: orders } = await supabase
-        .from(Tables.ORDERS)
-        .select('id, total')
-        .eq('brand_id', brandId)
-        .in('id', orderIds);
+      const parseMoney = (value: any) => {
+        const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+        return Number.isFinite(n) ? n : 0;
+      };
+
+      const queryOrders = async (field: 'total_amount' | 'total') => {
+        return await supabase
+          .from(Tables.ORDERS)
+          .select(`id, ${field}`)
+          .eq('brand_id', brandId)
+          .in('id', orderIds);
+      };
+
+      const first = await queryOrders('total_amount');
+      let orders = first.data as any[] | null;
+
+      if (first.error && String(first.error?.message || '').toLowerCase().includes('does not exist')) {
+        const fallback = await queryOrders('total');
+        orders = fallback.data as any[] | null;
+      }
 
       orderTotals = (orders || []).reduce((acc: Record<string, number>, o: any) => {
-        acc[o.id] = parseFloat(o.total) || 0;
+        acc[o.id] = parseMoney(o.total_amount ?? o.total);
         return acc;
       }, {});
     }

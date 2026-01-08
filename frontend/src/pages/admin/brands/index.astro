@@ -2,17 +2,6 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
-
-// Fetch all brands
-const { data: brands, error } = await supabase
-  .from('brands')
-  .select('*')
-  .order('created_at', { ascending: false });
-
-if (error) {
-  console.error('Failed to fetch brands:', error);
-}
 ---
 
 <AdminLayout title="品牌管理" activePage="brands">
@@ -33,72 +22,18 @@ if (error) {
 
     <!-- Brands Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {brands && brands.length > 0 ? (
-        brands.map((brand) => (
-          <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
-            <div class="p-6">
-              <div class="flex items-start gap-4">
-                {brand.logo_url ? (
-                  <img src={brand.logo_url} alt={brand.name} class="w-16 h-16 rounded-lg object-cover" />
-                ) : (
-                  <div class="w-16 h-16 bg-primary-100 rounded-lg flex items-center justify-center">
-                    <span class="text-2xl font-bold text-primary-600">{brand.name.charAt(0)}</span>
-                  </div>
-                )}
-                <div class="flex-1 min-w-0">
-                  <h3 class="font-semibold text-gray-900 truncate">{brand.name}</h3>
-                  <p class="text-sm text-gray-500 truncate">{brand.slug}</p>
-                  {brand.domain && (
-                    <a href={`https://${brand.domain}`} target="_blank" class="text-sm text-primary-600 hover:underline truncate block">
-                      {brand.domain}
-                    </a>
-                  )}
-                </div>
-                <span class={`px-2 py-1 text-xs font-medium rounded-full ${brand.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                  {brand.is_active ? '活跃' : '停用'}
-                </span>
-              </div>
-              
-              <div class="mt-4 pt-4 border-t border-gray-100">
-                <div class="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span class="text-gray-500">所有者</span>
-                    <p class="font-medium text-gray-900 truncate" title={brand.owner_email}>{brand.owner_email}</p>
-                  </div>
-                  <div>
-                    <span class="text-gray-500">创建时间</span>
-                    <p class="font-medium text-gray-900">{new Date(brand.created_at).toLocaleDateString()}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div class="px-6 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-              <button class="edit-brand-btn text-sm text-primary-600 hover:text-primary-700 font-medium" data-brand={JSON.stringify(brand)}>
-                编辑
-              </button>
-              <div class="flex items-center gap-3">
-                <a href={`/admin/brands/${brand.id}/settings`} class="text-sm text-gray-600 hover:text-gray-700">设置
-                </a>
-                <button class="delete-brand-btn text-sm text-red-600 hover:text-red-700" data-id={brand.id} data-name={brand.name}>删除
-                </button>
-              </div>
-            </div>
-          </div>
-        ))
-      ) : (
-        <div class="col-span-full bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-          <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
-          </div>
-          <h3 class="text-lg font-medium text-gray-900 mb-1">暂无品牌</h3>
-          <p class="text-gray-500 mb-4">创建您的第一个品牌开始</p>
-          <button id="add-brand-empty-btn" class="inline-flex items-center px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700">添加品牌
-          </button>
+      <div id="brands-grid" class="contents"></div>
+      <div id="brands-empty" class="col-span-full bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center hidden">
+        <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          </svg>
         </div>
-      )}
+        <h3 class="text-lg font-medium text-gray-900 mb-1">暂无品牌</h3>
+        <p class="text-gray-500 mb-4">创建您的第一个品牌开始</p>
+        <button id="add-brand-empty-btn" class="inline-flex items-center px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700">添加品牌
+        </button>
+      </div>
     </div>
   </div>
 
@@ -160,32 +95,36 @@ if (error) {
 
   <script>
     const API_URL = import.meta.env.PUBLIC_API_URL || '';
+    const apiBase = API_URL && API_URL.trim() ? API_URL.trim().replace(/\/$/, '') : '';
+    const api = (path) => (apiBase ? `${apiBase}${path}` : path);
+    const brandsGrid = document.getElementById('brands-grid');
+    const brandsEmpty = document.getElementById('brands-empty');
     const modal = document.getElementById('brand-modal');
     const modalTitle = document.getElementById('modal-title');
     const form = document.getElementById('brand-form');
-    const brandIdInput = document.getElementById('brand-id') as HTMLInputElement;
-    const brandNameInput = document.getElementById('brand-name') as HTMLInputElement;
-    const brandSlugInput = document.getElementById('brand-slug') as HTMLInputElement;
-    const brandDomainInput = document.getElementById('brand-domain') as HTMLInputElement;
-    const brandLogoInput = document.getElementById('brand-logo') as HTMLInputElement;
-    const brandOwnerInput = document.getElementById('brand-owner') as HTMLInputElement;
-    const brandActiveInput = document.getElementById('brand-active') as HTMLInputElement;
+    const brandIdInput = document.getElementById('brand-id');
+    const brandNameInput = document.getElementById('brand-name');
+    const brandSlugInput = document.getElementById('brand-slug');
+    const brandDomainInput = document.getElementById('brand-domain');
+    const brandLogoInput = document.getElementById('brand-logo');
+    const brandOwnerInput = document.getElementById('brand-owner');
+    const brandActiveInput = document.getElementById('brand-active');
 
-    function openModal(brand?: any) {
+    function openModal(brand) {
       if (brand) {
-        modalTitle!.textContent = '编辑品牌';
-        brandIdInput.value = brand.id;
-        brandNameInput.value = brand.name;
-        brandSlugInput.value = brand.slug;
-        brandDomainInput.value = brand.domain || '';
-        brandLogoInput.value = brand.logo_url || '';
-        brandOwnerInput.value = brand.owner_email;
-        brandActiveInput.checked = brand.is_active;
+        if (modalTitle) modalTitle.textContent = '编辑品牌';
+        if (brandIdInput) brandIdInput.value = brand.id;
+        if (brandNameInput) brandNameInput.value = brand.name;
+        if (brandSlugInput) brandSlugInput.value = brand.slug;
+        if (brandDomainInput) brandDomainInput.value = brand.domain || '';
+        if (brandLogoInput) brandLogoInput.value = brand.logo_url || '';
+        if (brandOwnerInput) brandOwnerInput.value = brand.owner_email;
+        if (brandActiveInput) brandActiveInput.checked = brand.is_active;
       } else {
-        modalTitle!.textContent = '添加品牌';
+        if (modalTitle) modalTitle.textContent = '添加品牌';
         form?.reset();
-        brandIdInput.value = '';
-        brandActiveInput.checked = true;
+        if (brandIdInput) brandIdInput.value = '';
+        if (brandActiveInput) brandActiveInput.checked = true;
       }
       modal?.classList.remove('hidden');
     }
@@ -194,7 +133,7 @@ if (error) {
       modal?.classList.add('hidden');
     }
 
-    function generateSlug(name: string): string {
+    function generateSlug(name) {
       return name
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
@@ -203,8 +142,8 @@ if (error) {
 
     // Auto-generate slug from name
     brandNameInput?.addEventListener('input', () => {
-      if (!brandIdInput.value) {
-        brandSlugInput.value = generateSlug(brandNameInput.value);
+      if (brandIdInput && !brandIdInput.value) {
+        if (brandSlugInput) brandSlugInput.value = generateSlug(brandNameInput.value);
       }
     });
 
@@ -214,59 +153,149 @@ if (error) {
     document.getElementById('cancel-btn')?.addEventListener('click', closeModal);
     document.getElementById('modal-backdrop')?.addEventListener('click', closeModal);
 
-    // Edit buttons
-    document.querySelectorAll('.edit-brand-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const brand = JSON.parse((btn as HTMLElement).dataset.brand || '{}');
-        openModal(brand);
+    function bindBrandRowEvents() {
+      document.querySelectorAll('.edit-brand-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const raw = btn.dataset.brand || '';
+          if (!raw) return;
+          try {
+            const brand = JSON.parse(decodeURIComponent(raw));
+            openModal(brand);
+          } catch {
+            openModal();
+          }
+        });
       });
-    });
 
-    // Delete buttons
-    document.querySelectorAll('.delete-brand-btn').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const id = (btn as HTMLElement).dataset.id;
-        const name = (btn as HTMLElement).dataset.name;
-        
-        if (!confirm(`确定要删除 "${name}" 吗？这将删除所有关联数据，包括产品、订单和设置。`)) {
+      document.querySelectorAll('.delete-brand-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.id;
+          const name = btn.dataset.name;
+          if (!id) return;
+
+          if (!confirm(`确定要删除 "${name || ''}" 吗？这将删除所有关联数据，包括产品、订单和设置。`)) {
+            return;
+          }
+
+          try {
+            const res = await fetch(api(`/api/admin/brands/${id}`), {
+              method: 'DELETE',
+            });
+
+            if (res.ok) {
+              window.location.reload();
+            } else {
+              const data = await res.json();
+              alert(data.error || '删除品牌失败');
+            }
+          } catch {
+            alert('删除品牌失败');
+          }
+        });
+      });
+    }
+
+    function renderBrands(brands) {
+      if (!brandsGrid) return;
+
+      if (!brands || brands.length === 0) {
+        brandsGrid.innerHTML = '';
+        brandsEmpty?.classList.remove('hidden');
+        return;
+      }
+
+      brandsEmpty?.classList.add('hidden');
+
+      brandsGrid.innerHTML = brands
+        .map((brand) => {
+          const safeBrand = encodeURIComponent(JSON.stringify(brand));
+          const logo = brand.logo_url
+            ? `<img src="${brand.logo_url}" alt="${brand.name}" class="w-16 h-16 rounded-lg object-cover" />`
+            : `<div class="w-16 h-16 bg-primary-100 rounded-lg flex items-center justify-center"><span class="text-2xl font-bold text-primary-600">${(brand.name || 'B').charAt(0)}</span></div>`;
+          const domain = brand.domain
+            ? `<a href="https://${brand.domain}" target="_blank" class="text-sm text-primary-600 hover:underline truncate block">${brand.domain}</a>`
+            : '';
+          const badge = brand.is_active
+            ? 'bg-green-100 text-green-700'
+            : 'bg-gray-100 text-gray-600';
+          const badgeText = brand.is_active ? '活跃' : '停用';
+
+          return `
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+              <div class="p-6">
+                <div class="flex items-start gap-4">
+                  ${logo}
+                  <div class="flex-1 min-w-0">
+                    <h3 class="font-semibold text-gray-900 truncate">${brand.name || ''}</h3>
+                    <p class="text-sm text-gray-500 truncate">${brand.slug || ''}</p>
+                    ${domain}
+                  </div>
+                  <span class="px-2 py-1 text-xs font-medium rounded-full ${badge}">${badgeText}</span>
+                </div>
+
+                <div class="mt-4 pt-4 border-t border-gray-100">
+                  <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span class="text-gray-500">所有者</span>
+                      <p class="font-medium text-gray-900 truncate" title="${brand.owner_email || ''}">${brand.owner_email || ''}</p>
+                    </div>
+                    <div>
+                      <span class="text-gray-500">创建时间</span>
+                      <p class="font-medium text-gray-900">${brand.created_at ? new Date(brand.created_at).toLocaleDateString() : ''}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="px-6 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                <button class="edit-brand-btn text-sm text-primary-600 hover:text-primary-700 font-medium" data-brand="${safeBrand}">编辑</button>
+                <div class="flex items-center gap-3">
+                  <a href="/admin/brands/${brand.id}/settings" class="text-sm text-gray-600 hover:text-gray-700">设置</a>
+                  <button class="delete-brand-btn text-sm text-red-600 hover:text-red-700" data-id="${brand.id}" data-name="${brand.name || ''}">删除</button>
+                </div>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+
+      bindBrandRowEvents();
+    }
+
+    async function loadBrands() {
+      try {
+        const res = await fetch(api('/api/admin/brands'), { method: 'GET' });
+        if (!res.ok) {
+          renderBrands([]);
           return;
         }
 
-        try {
-          const res = await fetch(`${API_URL}/api/admin/brands/${id}`, {
-            method: 'DELETE',
-          });
+        const data = await res.json();
+        const brands = Array.isArray(data) ? data : (data?.brands || data?.data || []);
+        renderBrands(brands);
+      } catch {
+        renderBrands([]);
+      }
+    }
 
-          if (res.ok) {
-            window.location.reload();
-          } else {
-            const data = await res.json();
-            alert(data.error || '删除品牌失败');
-          }
-        } catch (err) {
-          alert('删除品牌失败');
-        }
-      });
-    });
+    loadBrands();
 
     // Form submission
     form?.addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      const id = brandIdInput.value;
+      const id = brandIdInput ? brandIdInput.value : '';
       const data = {
-        name: brandNameInput.value.trim(),
-        slug: brandSlugInput.value.trim(),
-        domain: brandDomainInput.value.trim() || null,
-        logo_url: brandLogoInput.value.trim() || null,
-        owner_email: brandOwnerInput.value.trim(),
-        is_active: brandActiveInput.checked,
+        name: brandNameInput ? brandNameInput.value.trim() : '',
+        slug: brandSlugInput ? brandSlugInput.value.trim() : '',
+        domain: brandDomainInput ? (brandDomainInput.value.trim() || null) : null,
+        logo_url: brandLogoInput ? (brandLogoInput.value.trim() || null) : null,
+        owner_email: brandOwnerInput ? brandOwnerInput.value.trim() : '',
+        is_active: brandActiveInput ? brandActiveInput.checked : true,
       };
 
       try {
-        const url = id 
-          ? `${API_URL}/api/admin/brands/${id}`
-          : `${API_URL}/api/admin/brands`;
+        const url = id ? api(`/api/admin/brands/${id}`) : api('/api/admin/brands');
         
         const res = await fetch(url, {
           method: id ? 'PUT' : 'POST',

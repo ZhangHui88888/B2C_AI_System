@@ -2,77 +2,6 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
-
-// Get products with content for analysis
-const { data: products } = await supabase
-  .from('products')
-  .select('id, name, slug, description, short_description, meta_title, meta_description, images')
-  .eq('is_active', true)
-  .order('name');
-
-// Get content SEO cache if exists
-const { data: seoCache } = await supabase
-  .from('content_seo_cache')
-  .select('*');
-
-// Create a map for quick lookup
-const cacheMap = new Map();
-seoCache?.forEach(cache => {
-  cacheMap.set(`${cache.content_type}-${cache.content_id}`, cache);
-});
-
-// Analyze each product
-const analyzedProducts = products?.map(p => {
-  const cached = cacheMap.get(`product-${p.id}`);
-  const description = p.description || '';
-  const wordCount = description.split(/\s+/).filter(Boolean).length;
-  
-  // Calculate scores if not cached
-  const titleLength = (p.meta_title || '').length;
-  const descLength = (p.meta_description || '').length;
-  const hasImages = (p.images || []).length > 0;
-  const imagesWithAlt = (p.images || []).filter((img: any) => img.alt).length;
-  
-  // Simple scoring
-  let seoScore = 0;
-  if (p.meta_title && titleLength >= 30 && titleLength <= 60) seoScore += 25;
-  else if (p.meta_title) seoScore += 10;
-  if (p.meta_description && descLength >= 120 && descLength <= 160) seoScore += 25;
-  else if (p.meta_description) seoScore += 10;
-  if (wordCount >= 100) seoScore += 25;
-  else if (wordCount >= 50) seoScore += 15;
-  if (hasImages && imagesWithAlt === (p.images || []).length) seoScore += 25;
-  else if (hasImages) seoScore += 10;
-
-  return {
-    id: p.id,
-    name: p.name,
-    slug: p.slug,
-    type: 'product',
-    word_count: cached?.word_count || wordCount,
-    seo_score: cached?.seo_score || seoScore,
-    readability_score: cached?.readability_score || null,
-    title_length: titleLength,
-    desc_length: descLength,
-    image_count: (p.images || []).length,
-    images_with_alt: imagesWithAlt,
-    has_meta: !!(p.meta_title && p.meta_description),
-    analyzed_at: cached?.analyzed_at || null
-  };
-}) || [];
-
-// Sort by score ascending to show worst first
-const sortedProducts = [...analyzedProducts].sort((a, b) => a.seo_score - b.seo_score);
-
-// Calculate averages
-const avgScore = analyzedProducts.length > 0 
-  ? Math.round(analyzedProducts.reduce((sum, p) => sum + p.seo_score, 0) / analyzedProducts.length)
-  : 0;
-const lowScoreCount = analyzedProducts.filter(p => p.seo_score < 50).length;
-const highScoreCount = analyzedProducts.filter(p => p.seo_score >= 80).length;
-
-const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
 ---
 
 <AdminLayout title="内容分析" activePage="seo">
@@ -103,28 +32,25 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
       <p class="text-sm font-medium text-gray-500">平均 SEO 分数</p>
       <div class="flex items-end gap-2 mt-1">
-        <p class="text-2xl font-bold text-gray-900">{avgScore}</p>
+        <p class="text-2xl font-bold text-gray-900" id="avg-score">0</p>
         <p class="text-sm text-gray-500 pb-0.5">/100</p>
       </div>
       <div class="mt-2 w-full bg-gray-200 rounded-full h-2">
-        <div 
-          class={`h-2 rounded-full ${avgScore >= 80 ? 'bg-green-500' : avgScore >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
-          style={`width: ${avgScore}%`}
-        />
+        <div id="avg-score-bar" class="h-2 rounded-full bg-red-500" style="width: 0%" />
       </div>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
       <p class="text-sm font-medium text-gray-500">总页面数</p>
-      <p class="text-2xl font-bold text-gray-900 mt-1">{analyzedProducts.length}</p>
+      <p class="text-2xl font-bold text-gray-900 mt-1" id="total-pages">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
       <p class="text-sm font-medium text-gray-500">需要改进</p>
-      <p class="text-2xl font-bold text-red-600 mt-1">{lowScoreCount}</p>
+      <p class="text-2xl font-bold text-red-600 mt-1" id="low-score-count">0</p>
       <p class="text-xs text-gray-500 mt-1">分数低于 50</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
       <p class="text-sm font-medium text-gray-500">优化良好</p>
-      <p class="text-2xl font-bold text-green-600 mt-1">{highScoreCount}</p>
+      <p class="text-2xl font-bold text-green-600 mt-1" id="high-score-count">0</p>
       <p class="text-xs text-gray-500 mt-1">分数 80+</p>
     </div>
   </div>
@@ -162,103 +88,10 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
             <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
           </tr>
         </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
-          {sortedProducts.map((page) => (
-            <tr class="hover:bg-gray-50">
-              <td class="px-6 py-4">
-                <div>
-                  <p class="text-sm font-medium text-gray-900">{page.name}</p>
-                  <p class="text-xs text-gray-500">/products/{page.slug}</p>
-                </div>
-              </td>
-              <td class="px-6 py-4">
-                <div class="flex items-center gap-2">
-                  <div class="w-16 bg-gray-200 rounded-full h-2">
-                    <div 
-                      class={`h-2 rounded-full ${page.seo_score >= 80 ? 'bg-green-500' : page.seo_score >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`}
-                      style={`width: ${page.seo_score}%`}
-                    />
-                  </div>
-                  <span class={`text-sm font-medium ${page.seo_score >= 80 ? 'text-green-600' : page.seo_score >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
-                    {page.seo_score}
-                  </span>
-                </div>
-              </td>
-              <td class="px-6 py-4">
-                <span class={`text-sm ${page.word_count >= 100 ? 'text-green-600' : page.word_count >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
-                  {page.word_count} 字
-                </span>
-              </td>
-              <td class="px-6 py-4">
-                <div class="space-y-1">
-                  <div class="flex items-center gap-1">
-                    {page.title_length > 0 ? (
-                      <svg class={`w-4 h-4 ${page.title_length >= 30 && page.title_length <= 60 ? 'text-green-500' : 'text-yellow-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : (
-                      <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    )}
-                    <span class="text-xs text-gray-500">Title ({page.title_length}/60)</span>
-                  </div>
-                  <div class="flex items-center gap-1">
-                    {page.desc_length > 0 ? (
-                      <svg class={`w-4 h-4 ${page.desc_length >= 120 && page.desc_length <= 160 ? 'text-green-500' : 'text-yellow-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : (
-                      <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    )}
-                    <span class="text-xs text-gray-500">Desc ({page.desc_length}/160)</span>
-                  </div>
-                </div>
-              </td>
-              <td class="px-6 py-4">
-                <div class="flex items-center gap-1">
-                  {page.image_count > 0 ? (
-                    <>
-                      {page.images_with_alt === page.image_count ? (
-                        <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                        </svg>
-                      ) : (
-                        <svg class="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                      )}
-                      <span class="text-xs text-gray-500">{page.images_with_alt}/{page.image_count} with alt</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                      <span class="text-xs text-gray-500">无图片</span>
-                    </>
-                  )}
-                </div>
-              </td>
-              <td class="px-6 py-4 text-right">
-                <button 
-                  class="text-primary-600 hover:text-primary-700 text-sm font-medium mr-3 analyze-btn"
-                  data-id={page.id}
-                  data-type={page.type}
-                >
-                  分析
-                </button>
-                <a 
-                  href={`/admin/seo/meta?edit=${page.id}`}
-                  class="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
-                >
-                  编辑 Meta
-                </a>
-              </td>
-            </tr>
-          ))}
+        <tbody class="bg-white divide-y divide-gray-200" id="analysis-tbody">
+          <tr>
+            <td colspan="6" class="px-6 py-12 text-center text-gray-500">加载中...</td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -290,7 +123,14 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
   </div>
 </AdminLayout>
 
-<script define:vars={{ apiUrl }}>
+<script>
+  const tbody = document.getElementById('analysis-tbody');
+  const avgScoreEl = document.getElementById('avg-score');
+  const avgScoreBarEl = document.getElementById('avg-score-bar');
+  const totalPagesEl = document.getElementById('total-pages');
+  const lowScoreEl = document.getElementById('low-score-count');
+  const highScoreEl = document.getElementById('high-score-count');
+
   const modal = document.getElementById('analysis-modal');
   const modalBackdrop = document.getElementById('modal-backdrop');
   const closeBtn = document.getElementById('close-modal');
@@ -304,14 +144,150 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
   closeBtn?.addEventListener('click', closeModal);
   modalBackdrop?.addEventListener('click', closeModal);
 
-  // Analyze buttons
-  document.querySelectorAll('.analyze-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.dataset.id;
-      const type = btn.dataset.type;
-      
-      modal?.classList.remove('hidden');
-      modalTitle.textContent = '正在分析内容...';
+  function escapeHtml(s) {
+    return String(s ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  function scoreColorClass(score) {
+    const v = Number(score) || 0;
+    if (v >= 80) return { bar: 'bg-green-500', text: 'text-green-600' };
+    if (v >= 50) return { bar: 'bg-yellow-500', text: 'text-yellow-600' };
+    return { bar: 'bg-red-500', text: 'text-red-600' };
+  }
+
+  function computeRow(product, cacheMap) {
+    const cached = cacheMap.get(`product-${product.id}`);
+    const description = product.description || '';
+    const wordCount = description.split(/\s+/).filter(Boolean).length;
+
+    const titleLength = (product.meta_title || '').length;
+    const descLength = (product.meta_description || '').length;
+    const images = Array.isArray(product.images) ? product.images : [];
+    const imageCount = images.length;
+    const imagesWithAlt = images.filter((img) => img && img.alt).length;
+
+    let seoScore = 0;
+    if (product.meta_title && titleLength >= 30 && titleLength <= 60) seoScore += 25;
+    else if (product.meta_title) seoScore += 10;
+    if (product.meta_description && descLength >= 120 && descLength <= 160) seoScore += 25;
+    else if (product.meta_description) seoScore += 10;
+    if (wordCount >= 100) seoScore += 25;
+    else if (wordCount >= 50) seoScore += 15;
+    if (imageCount > 0 && imagesWithAlt === imageCount) seoScore += 25;
+    else if (imageCount > 0) seoScore += 10;
+
+    return {
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      type: 'product',
+      word_count: cached?.word_count || wordCount,
+      seo_score: cached?.seo_score || seoScore,
+      readability_score: cached?.readability_score || null,
+      title_length: titleLength,
+      desc_length: descLength,
+      image_count: cached?.image_count ?? imageCount,
+      images_with_alt: cached?.images_with_alt ?? imagesWithAlt,
+      has_meta: !!(product.meta_title && product.meta_description),
+      analyzed_at: cached?.analyzed_at || null,
+    };
+  }
+
+  function renderStats(rows) {
+    const avg = rows.length ? Math.round(rows.reduce((s, r) => s + (Number(r.seo_score) || 0), 0) / rows.length) : 0;
+    const low = rows.filter((r) => (Number(r.seo_score) || 0) < 50).length;
+    const high = rows.filter((r) => (Number(r.seo_score) || 0) >= 80).length;
+
+    if (avgScoreEl) avgScoreEl.textContent = String(avg);
+    if (totalPagesEl) totalPagesEl.textContent = String(rows.length);
+    if (lowScoreEl) lowScoreEl.textContent = String(low);
+    if (highScoreEl) highScoreEl.textContent = String(high);
+    if (avgScoreBarEl) {
+      avgScoreBarEl.style.width = `${avg}%`;
+      avgScoreBarEl.className = `h-2 rounded-full ${avg >= 80 ? 'bg-green-500' : avg >= 50 ? 'bg-yellow-500' : 'bg-red-500'}`;
+    }
+  }
+
+  function renderTable(rows) {
+    if (!tbody) return;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-gray-500">暂无数据</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = rows
+      .map((page) => {
+        const sc = scoreColorClass(page.seo_score);
+        const wordClass = page.word_count >= 100 ? 'text-green-600' : page.word_count >= 50 ? 'text-yellow-600' : 'text-red-600';
+        const titleIcon = page.title_length > 0
+          ? `<svg class="w-4 h-4 ${page.title_length >= 30 && page.title_length <= 60 ? 'text-green-500' : 'text-yellow-500'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>`
+          : `<svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>`;
+        const descIcon = page.desc_length > 0
+          ? `<svg class="w-4 h-4 ${page.desc_length >= 120 && page.desc_length <= 160 ? 'text-green-500' : 'text-yellow-500'}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>`
+          : `<svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>`;
+
+        const imgIcon = page.image_count > 0
+          ? (page.images_with_alt === page.image_count
+              ? `<svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>`
+              : `<svg class="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>`)
+          : `<svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>`;
+
+        const imgText = page.image_count > 0 ? `${escapeHtml(page.images_with_alt)}/${escapeHtml(page.image_count)} with alt` : '无图片';
+
+        return `
+          <tr class="hover:bg-gray-50">
+            <td class="px-6 py-4"><div><p class="text-sm font-medium text-gray-900">${escapeHtml(page.name)}</p><p class="text-xs text-gray-500">/products/${escapeHtml(page.slug)}</p></div></td>
+            <td class="px-6 py-4"><div class="flex items-center gap-2"><div class="w-16 bg-gray-200 rounded-full h-2"><div class="h-2 rounded-full ${sc.bar}" style="width:${escapeHtml(page.seo_score)}%"></div></div><span class="text-sm font-medium ${sc.text}">${escapeHtml(page.seo_score)}</span></div></td>
+            <td class="px-6 py-4"><span class="text-sm ${wordClass}">${escapeHtml(page.word_count)} 字</span></td>
+            <td class="px-6 py-4"><div class="space-y-1"><div class="flex items-center gap-1">${titleIcon}<span class="text-xs text-gray-500">Title (${escapeHtml(page.title_length)}/60)</span></div><div class="flex items-center gap-1">${descIcon}<span class="text-xs text-gray-500">Desc (${escapeHtml(page.desc_length)}/160)</span></div></div></td>
+            <td class="px-6 py-4"><div class="flex items-center gap-1">${imgIcon}<span class="text-xs text-gray-500">${imgText}</span></div></td>
+            <td class="px-6 py-4 text-right">
+              <button class="text-primary-600 hover:text-primary-700 text-sm font-medium mr-3 analyze-btn" data-id="${escapeHtml(page.id)}" data-type="${escapeHtml(page.type)}">分析</button>
+              <a href="/admin/seo/meta?edit=${encodeURIComponent(page.id)}" class="text-indigo-600 hover:text-indigo-700 text-sm font-medium">编辑 Meta</a>
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    document.querySelectorAll('.analyze-btn').forEach((btn) => {
+      btn.addEventListener('click', () => handleAnalyzeClick(btn));
+    });
+  }
+
+  async function loadPageData() {
+    try {
+      const response = await fetch('/api/admin/seo/analysis/page-data');
+      const data = await response.json().catch(() => null);
+      const products = Array.isArray(data?.products) ? data.products : [];
+      const seoCache = Array.isArray(data?.seoCache) ? data.seoCache : [];
+
+      const cacheMap = new Map();
+      seoCache.forEach((c) => {
+        if (c && c.content_type && c.content_id) cacheMap.set(`${c.content_type}-${c.content_id}`, c);
+      });
+
+      const rows = products.map((p) => computeRow(p, cacheMap)).sort((a, b) => (Number(a.seo_score) || 0) - (Number(b.seo_score) || 0));
+      renderStats(rows);
+      renderTable(rows);
+    } catch (e) {
+      console.error('Failed to load analysis page data:', e);
+      if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-red-600">加载失败</td></tr>`;
+    }
+  }
+
+  async function handleAnalyzeClick(btn) {
+    const id = btn.dataset.id;
+    const type = btn.dataset.type;
+
+    modal?.classList.remove('hidden');
+    if (modalTitle) modalTitle.textContent = '正在分析内容...';
+    if (modalContent) {
       modalContent.innerHTML = `
         <div class="flex items-center justify-center py-12">
           <svg class="animate-spin w-8 h-8 text-primary-600" fill="none" viewBox="0 0 24 24">
@@ -320,26 +296,26 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
           </svg>
         </div>
       `;
+    }
 
-      try {
-        const response = await fetch(`${apiUrl}/api/seo/analyze`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content_id: id, content_type: type })
-        });
+    try {
+      const response = await fetch('/api/admin/seo/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content_id: id, content_type: type }),
+      });
 
-        if (response.ok) {
-          const data = await response.json();
-          renderAnalysis(data);
-        } else {
-          modalContent.innerHTML = `<p class="text-red-600">分析内容失败</p>`;
-        }
-      } catch (error) {
-        console.error('Error:', error);
-        modalContent.innerHTML = `<p class="text-red-600">分析内容失败</p>`;
+      if (response.ok) {
+        const data = await response.json();
+        renderAnalysis(data);
+      } else {
+        if (modalContent) modalContent.innerHTML = `<p class="text-red-600">分析内容失败</p>`;
       }
-    });
-  });
+    } catch (error) {
+      console.error('Error:', error);
+      if (modalContent) modalContent.innerHTML = `<p class="text-red-600">分析内容失败</p>`;
+    }
+  }
 
   function renderAnalysis(data) {
     modalTitle.textContent = `Analysis: ${data.name || 'Content'}`;
@@ -409,12 +385,13 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
   document.getElementById('analyze-all-btn')?.addEventListener('click', async () => {
     if (!confirm('这将分析所有内容。可能需要一段时间。继续？')) return;
 
-    const btn = document.getElementById('analyze-all-btn');
+    const btn = document.getElementById('analyze-all-btn') as HTMLButtonElement | null;
+    if (!btn) return;
     btn.disabled = true;
     btn.innerHTML = '<svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Analyzing...';
 
     try {
-      const response = await fetch(`${apiUrl}/api/seo/analyze-all`, {
+      const response = await fetch('/api/admin/seo/analyze-all', {
         method: 'POST'
       });
 
@@ -427,10 +404,11 @@ const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('分析所有内容失败');
     } finally {
-      btn.disabled = false;
-      btn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg> Analyze All Content';
+      btn.removeAttribute('disabled');
+      btn.textContent = '分析所有内容';
     }
   });
+
+  loadPageData();
 </script>

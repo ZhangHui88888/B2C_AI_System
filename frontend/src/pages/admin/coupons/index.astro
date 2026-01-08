@@ -2,25 +2,13 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
 
+// Data loaded dynamically via client-side API call
 const page = parseInt(Astro.url.searchParams.get('page') || '1');
 const status = Astro.url.searchParams.get('status') || '';
-const limit = 20;
-const offset = (page - 1) * limit;
-
-let query = supabase
-  .from('coupons')
-  .select('*', { count: 'exact' })
-  .order('created_at', { ascending: false })
-  .range(offset, offset + limit - 1);
-
-if (status) {
-  query = query.eq('status', status);
-}
-
-const { data: coupons, count } = await query;
-const totalPages = Math.ceil((count || 0) / limit);
+const coupons: any[] = [];
+const count = 0;
+const totalPages = 1;
 
 const statusOptions = [
   { value: '', label: '所有状态' },
@@ -247,6 +235,113 @@ const typeLabels: Record<string, string> = {
     const modalTitle = document.getElementById('modal-title');
     const toast = document.getElementById('toast');
 
+    // Load coupons on init and render dynamically
+    async function loadCoupons() {
+      const url = new URL(window.location.href);
+      const status = url.searchParams.get('status') || '';
+      const page = url.searchParams.get('page') || '1';
+      
+      try {
+        const params = new URLSearchParams({ page, limit: '20' });
+        if (status) params.set('status', status);
+        
+        const res = await fetch(`/api/admin/coupons?${params}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        
+        if (json.data) {
+          renderCoupons(json.data, json.pagination);
+        }
+      } catch (e) {
+        console.error('Failed to load coupons:', e);
+      }
+    }
+    
+    function renderCoupons(coupons: any[], pagination: any) {
+      const tbody = document.querySelector('tbody');
+      const countEl = document.querySelector('.text-sm.text-gray-500');
+      if (!tbody) return;
+      
+      if (countEl) countEl.textContent = `共 ${pagination?.total || coupons.length} 个优惠券`;
+      
+      if (coupons.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-10 text-center text-gray-500">暂无优惠券</td></tr>`;
+        return;
+      }
+      
+      tbody.innerHTML = coupons.map(coupon => {
+        const isExpired = coupon.expires_at && new Date(coupon.expires_at) < new Date();
+        const statusClass = coupon.status === 'active' && !isExpired 
+          ? 'bg-green-100 text-green-800' 
+          : 'bg-gray-100 text-gray-800';
+        const statusText = isExpired ? '已过期' : (coupon.status === 'active' ? '有效' : '无效');
+        
+        return `
+          <tr class="hover:bg-gray-50">
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="font-mono text-sm font-medium text-gray-900 bg-gray-100 px-2 py-1 rounded inline-block">${coupon.code}</div>
+              ${coupon.description ? `<div class="text-xs text-gray-500 mt-1">${coupon.description}</div>` : ''}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm font-medium text-gray-900">
+                ${coupon.type === 'percentage' ? `${coupon.value}% 折扣` : ''}
+                ${coupon.type === 'fixed_amount' ? `$${coupon.value} 优惠` : ''}
+                ${coupon.type === 'free_shipping' ? '免运费' : ''}
+              </div>
+              ${coupon.min_order_amount > 0 ? `<div class="text-xs text-gray-500">最低消费 $${coupon.min_order_amount}</div>` : ''}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              ${coupon.usage_count}${coupon.usage_limit ? ` / ${coupon.usage_limit}` : ' / ∞'}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              ${coupon.expires_at ? new Date(coupon.expires_at).toLocaleDateString() : '永久有效'}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <span class="px-2 py-1 text-xs font-medium rounded-full ${statusClass}">${statusText}</span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
+              <button class="edit-btn text-primary-600 hover:text-primary-900 mr-3" data-coupon='${JSON.stringify(coupon)}'>编辑</button>
+              <button class="delete-btn text-red-600 hover:text-red-900" data-id="${coupon.id}">删除</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+      
+      // Re-attach event listeners
+      attachCouponEventListeners();
+    }
+    
+    function attachCouponEventListeners() {
+      document.querySelectorAll('.edit-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const coupon = JSON.parse((btn as HTMLElement).dataset.coupon || '{}');
+          openModal(coupon);
+        });
+      });
+      
+      document.querySelectorAll('.delete-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const id = (btn as HTMLElement).dataset.id;
+          if (!confirm('删除这个优惠券？')) return;
+          
+          try {
+            const res = await fetch(`/api/admin/coupons/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+              showToast('优惠券已删除');
+              loadCoupons();
+            } else {
+              showToast('删除优惠券失败', 'error');
+            }
+          } catch {
+            showToast('删除优惠券失败', 'error');
+          }
+        });
+      });
+    }
+    
+    // Load on init
+    loadCoupons();
+
     function showToast(message: string, type = 'success') {
       if (!toast) return;
       toast.textContent = message;
@@ -304,34 +399,6 @@ const typeLabels: Record<string, string> = {
       window.location.href = `/admin/coupons${value ? `?status=${value}` : ''}`;
     });
 
-    // Edit buttons
-    document.querySelectorAll('.edit-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const coupon = JSON.parse((btn as HTMLElement).dataset.coupon || '{}');
-        openModal(coupon);
-      });
-    });
-
-    // Delete buttons
-    document.querySelectorAll('.delete-btn').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const id = (btn as HTMLElement).dataset.id;
-        if (!confirm('删除这个优惠券？')) return;
-        
-        try {
-          const res = await fetch(`${API_URL}/api/admin/coupons/${id}`, { method: 'DELETE' });
-          if (res.ok) {
-            showToast('优惠券已删除');
-            setTimeout(() => window.location.reload(), 500);
-          } else {
-            showToast('删除优惠券失败', 'error');
-          }
-        } catch {
-          showToast('删除优惠券失败', 'error');
-        }
-      });
-    });
-
     // Form submission
     form?.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -367,7 +434,7 @@ const typeLabels: Record<string, string> = {
         if (res.ok && result.success) {
           showToast(id ? '优惠券已更新！' : '优惠券已创建！');
           closeModal();
-          setTimeout(() => window.location.reload(), 500);
+          loadCoupons();
         } else {
           showToast(result.error || '保存优惠券失败', 'error');
         }

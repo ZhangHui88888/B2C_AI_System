@@ -2,33 +2,26 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
 
-// Get current settings
-const { data: settings } = await supabase
-  .from('settings')
-  .select('key, value');
-
-const settingsMap = new Map();
-settings?.forEach((s) => settingsMap.set(s.key, s.value));
-
-const aiEnabled = settingsMap.get('ai_enabled') === true || settingsMap.get('ai_enabled') === 'true';
-const aiSystemPrompt = settingsMap.get('ai_system_prompt') || '';
-const aiWelcomeMessage = settingsMap.get('ai_welcome_message') || 'Hello! How can I help you today?';
-const aiHandoffKeywords = settingsMap.get('ai_handoff_keywords') || ['complaint', 'refund', 'human'];
-const storeName = settingsMap.get('store_name') || '';
-const notifyEmail = settingsMap.get('notify_email') || '';
+// Settings loaded dynamically via client-side API call
+// Default values used for initial render
+const aiEnabled = false;
+const aiSystemPrompt = '';
+const aiWelcomeMessage = 'Hello! How can I help you today?';
+const aiHandoffKeywords = ['complaint', 'refund', 'human'];
+const storeName = '';
+const notifyEmail = '';
 
 // Payment settings
-const currency = settingsMap.get('currency') || 'usd';
-const stripePublicKey = settingsMap.get('stripe_public_key') || '';
-const paymentMethods = settingsMap.get('payment_methods') || ['card'];
+const currency = 'usd';
+const stripePublicKey = '';
+const paymentMethods = ['card'];
 
 // Shipping settings
-const shippingDefaultCost = settingsMap.get('shipping_default_cost') ?? 5.99;
-const shippingFreeThreshold = settingsMap.get('shipping_free_threshold') ?? 50;
-const shippingEstimate = settingsMap.get('shipping_estimate') || '3-7 business days';
-const shippingCountries = settingsMap.get('shipping_countries') || ['US', 'CA', 'GB', 'AU'];
+const shippingDefaultCost = 5.99;
+const shippingFreeThreshold = 50;
+const shippingEstimate = '3-7 business days';
+const shippingCountries = ['US', 'CA', 'GB', 'AU'];
 
 const currencyOptions = [
   { value: 'usd', label: 'USD ($)' },
@@ -357,6 +350,60 @@ Thanks!</textarea>
 
   <script>
     const API_URL = import.meta.env.PUBLIC_API_URL || '';
+
+    // Load settings on page init
+    async function loadSettings() {
+      try {
+        const res = await fetch(`/api/admin/settings`);
+        if (!res.ok) return;
+        const json = await res.json();
+        const data = json.data || {};
+        
+        // Store settings
+        const storeNameEl = document.querySelector('input[name="store_name"]') as HTMLInputElement;
+        const notifyEmailEl = document.querySelector('input[name="notify_email"]') as HTMLInputElement;
+        if (storeNameEl) storeNameEl.value = data.store_name || '';
+        if (notifyEmailEl) notifyEmailEl.value = data.notify_email || '';
+        
+        // AI settings
+        const aiToggle = document.getElementById('ai-toggle') as HTMLInputElement;
+        const aiWelcome = document.querySelector('input[name="ai_welcome_message"]') as HTMLInputElement;
+        const aiPrompt = document.querySelector('textarea[name="ai_system_prompt"]') as HTMLTextAreaElement;
+        const aiKeywords = document.querySelector('input[name="ai_handoff_keywords"]') as HTMLInputElement;
+        if (aiToggle) aiToggle.checked = data.ai_enabled === true || data.ai_enabled === 'true';
+        if (aiWelcome) aiWelcome.value = data.ai_welcome_message || 'Hello! How can I help you today?';
+        if (aiPrompt) aiPrompt.value = data.ai_system_prompt || '';
+        if (aiKeywords) aiKeywords.value = Array.isArray(data.ai_handoff_keywords) ? data.ai_handoff_keywords.join(', ') : '';
+        
+        // Payment settings
+        const currencyEl = document.querySelector('select[name="currency"]') as HTMLSelectElement;
+        const stripeKeyEl = document.querySelector('input[name="stripe_public_key"]') as HTMLInputElement;
+        if (currencyEl) currencyEl.value = data.currency || 'usd';
+        if (stripeKeyEl) stripeKeyEl.value = data.stripe_public_key || '';
+        const paymentMethods = Array.isArray(data.payment_methods) ? data.payment_methods : ['card'];
+        document.querySelectorAll('input[name="payment_methods"]').forEach((el) => {
+          const cb = el as HTMLInputElement;
+          cb.checked = paymentMethods.includes(cb.value);
+        });
+        
+        // Shipping settings
+        const shippingCostEl = document.querySelector('input[name="shipping_default_cost"]') as HTMLInputElement;
+        const freeThresholdEl = document.querySelector('input[name="shipping_free_threshold"]') as HTMLInputElement;
+        const estimateEl = document.querySelector('input[name="shipping_estimate"]') as HTMLInputElement;
+        if (shippingCostEl) shippingCostEl.value = String(data.shipping_default_cost ?? 5.99);
+        if (freeThresholdEl) freeThresholdEl.value = String(data.shipping_free_threshold ?? 50);
+        if (estimateEl) estimateEl.value = data.shipping_estimate || '3-7 business days';
+        const shippingCountries = Array.isArray(data.shipping_countries) ? data.shipping_countries : ['US', 'CA', 'GB', 'AU'];
+        document.querySelectorAll('input[name="shipping_countries"]').forEach((el) => {
+          const cb = el as HTMLInputElement;
+          cb.checked = shippingCountries.includes(cb.value);
+        });
+      } catch (e) {
+        console.error('Failed to load settings:', e);
+      }
+    }
+    
+    loadSettings();
 
     async function updateSetting(key: string, value: any) {
       const res = await fetch(`${API_URL}/api/settings`, {

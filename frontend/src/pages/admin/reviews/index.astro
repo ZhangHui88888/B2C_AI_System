@@ -2,43 +2,10 @@
 export const prerender = false;
 
 import AdminLayout from '../../../layouts/AdminLayout.astro';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-// Get brand_id (in real app, from auth context)
-const brandId = Astro.cookies.get('brand_id')?.value || '00000000-0000-0000-0000-000000000001';
-
-// Fetch reviews with product info
-const { data: reviews, error } = await supabase
-  .from('reviews')
-  .select(`
-    *,
-    products:product_id (id, name, slug, images)
-  `)
-  .eq('brand_id', brandId)
-  .order('created_at', { ascending: false })
-  .limit(50);
-
-// Get stats
-const { data: pendingCount } = await supabase
-  .from('reviews')
-  .select('id', { count: 'exact', head: true })
-  .eq('brand_id', brandId)
-  .eq('status', 'pending');
-
-const { data: approvedCount } = await supabase
-  .from('reviews')
-  .select('id', { count: 'exact', head: true })
-  .eq('brand_id', brandId)
-  .eq('status', 'approved');
-
 const stats = {
-  pending: pendingCount || 0,
-  approved: approvedCount || 0,
-  total: (reviews || []).length,
+  pending: 0,
+  approved: 0,
+  total: 0,
 };
 ---
 
@@ -76,7 +43,7 @@ const stats = {
           </div>
           <div>
             <p class="text-sm text-gray-500">已通过</p>
-            <p class="text-xl font-bold text-gray-900">{stats.approved}</p>
+            <p class="text-xl font-bold text-gray-900" id="approved-count">{stats.approved}</p>
           </div>
         </div>
       </div>
@@ -89,7 +56,7 @@ const stats = {
           </div>
           <div>
             <p class="text-sm text-gray-500">总评价</p>
-            <p class="text-xl font-bold text-gray-900">{stats.total}</p>
+            <p class="text-xl font-bold text-gray-900" id="total-count">{stats.total}</p>
           </div>
         </div>
       </div>
@@ -102,7 +69,7 @@ const stats = {
           </div>
           <div>
             <p class="text-sm text-gray-500">已认证</p>
-            <p class="text-xl font-bold text-gray-900">{(reviews || []).filter(r => r.is_verified_purchase).length}</p>
+            <p class="text-xl font-bold text-gray-900" id="verified-count">0</p>
           </div>
         </div>
       </div>
@@ -150,103 +117,9 @@ const stats = {
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200" id="reviews-table">
-            {reviews && reviews.length > 0 ? (
-              reviews.map((review) => (
-                <tr class="hover:bg-gray-50 review-row" data-id={review.id} data-status={review.status} data-rating={review.rating}>
-                  <td class="px-6 py-4">
-                    <div class="flex items-start gap-3">
-                      <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2">
-                          <p class="text-sm font-medium text-gray-900">{review.reviewer_name || '匿名'}</p>
-                          {review.is_verified_purchase && (
-                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                              已认证
-                            </span>
-                          )}
-                        </div>
-                        {review.title && <p class="text-sm font-medium text-gray-700 mt-1">{review.title}</p>}
-                        <p class="text-sm text-gray-500 mt-1 line-clamp-2">{review.content || '无内容'}</p>
-                        {review.merchant_reply && (
-                          <div class="mt-2 p-2 bg-gray-50 rounded text-sm">
-                            <p class="text-xs text-gray-500 mb-1">您的回复：</p>
-                            <p class="text-gray-700">{review.merchant_reply}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                  <td class="px-6 py-4">
-                    <div class="flex items-center gap-2">
-                      {review.products?.images?.[0] && (
-                        <img src={review.products.images[0]} alt="" class="w-10 h-10 rounded object-cover" />
-                      )}
-                      <span class="text-sm text-gray-900">{review.products?.name || '未知'}</span>
-                    </div>
-                  </td>
-                  <td class="px-6 py-4">
-                    <div class="flex items-center gap-1">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <svg class={`w-4 h-4 ${star <= review.rating ? 'text-yellow-400' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                      ))}
-                    </div>
-                  </td>
-                  <td class="px-6 py-4">
-                    <select 
-                      class="status-select px-2 py-1 text-xs rounded-full border-0 font-medium cursor-pointer"
-                      data-id={review.id}
-                      style={`background-color: ${
-                        review.status === 'approved' ? '#DEF7EC' : 
-                        review.status === 'pending' ? '#FEF3C7' : 
-                        review.status === 'rejected' ? '#FEE2E2' : '#E5E7EB'
-                      }; color: ${
-                        review.status === 'approved' ? '#03543F' : 
-                        review.status === 'pending' ? '#92400E' : 
-                        review.status === 'rejected' ? '#991B1B' : '#374151'
-                      }`}
-                    >
-                      <option value="pending" selected={review.status === 'pending'}>待审核</option>
-                      <option value="approved" selected={review.status === 'approved'}>已通过</option>
-                      <option value="rejected" selected={review.status === 'rejected'}>已拒绝</option>
-                      <option value="spam" selected={review.status === 'spam'}>垃圾</option>
-                    </select>
-                  </td>
-                  <td class="px-6 py-4 text-sm text-gray-500">
-                    {new Date(review.created_at).toLocaleDateString()}
-                  </td>
-                  <td class="px-6 py-4 text-right">
-                    <div class="flex items-center justify-end gap-2">
-                      <button
-                        class="reply-btn p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                        data-id={review.id}
-                        data-name={review.reviewer_name || 'Anonymous'}
-                        title="回复"
-                      >
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                        </svg>
-                      </button>
-                      <button
-                        class="delete-btn p-1 text-gray-400 hover:text-red-600 transition-colors"
-                        data-id={review.id}
-                        title="删除"
-                      >
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colspan="6" class="px-6 py-12 text-center text-gray-500">
-                  暂无评价
-                </td>
-              </tr>
-            )}
+            <tr>
+              <td colspan="6" class="px-6 py-8 text-center text-gray-500">加载中...</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -281,144 +154,291 @@ const stats = {
 </AdminLayout>
 
 <script>
-  const API_BASE = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
+  const filterStatus = document.getElementById('filter-status');
+  const filterRating = document.getElementById('filter-rating');
+  const reviewsTable = document.getElementById('reviews-table');
 
-  // Filter functionality
-  const filterStatus = document.getElementById('filter-status') as HTMLSelectElement;
-  const filterRating = document.getElementById('filter-rating') as HTMLSelectElement;
+  const pendingCountEl = document.getElementById('pending-count');
+  const approvedCountEl = document.getElementById('approved-count');
+  const totalCountEl = document.getElementById('total-count');
+  const verifiedCountEl = document.getElementById('verified-count');
+
+  const replyModal = document.getElementById('reply-modal');
+  const replyContent = document.getElementById('reply-content');
+  const replyReviewerName = document.getElementById('reply-reviewer-name');
+  const cancelReplyBtn = document.getElementById('cancel-reply');
+  const submitReplyBtn = document.getElementById('submit-reply');
+
+  let currentReplyId = null;
+  let currentReplyName = '匿名';
+  let reviews = [];
+
+  function getStatusColors(status) {
+    const colors = {
+      approved: { bg: '#DEF7EC', text: '#03543F' },
+      pending: { bg: '#FEF3C7', text: '#92400E' },
+      rejected: { bg: '#FEE2E2', text: '#991B1B' },
+      spam: { bg: '#E5E7EB', text: '#374151' },
+    };
+    return colors[status] || colors.spam;
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  function formatDate(dateStr) {
+    try {
+      return new Date(dateStr).toLocaleDateString();
+    } catch {
+      return '';
+    }
+  }
+
+  function renderStars(rating) {
+    const r = Number(rating) || 0;
+    let html = '';
+    for (let star = 1; star <= 5; star++) {
+      html += `<svg class="w-4 h-4 ${star <= r ? 'text-yellow-400' : 'text-gray-300'}" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>`;
+    }
+    return html;
+  }
 
   function applyFilters() {
-    const status = filterStatus?.value;
-    const rating = filterRating?.value;
-    const rows = document.querySelectorAll('.review-row');
-
-    rows.forEach((row) => {
+    const status = filterStatus?.value || '';
+    const rating = filterRating?.value || '';
+    document.querySelectorAll('.review-row').forEach((row) => {
       const rowStatus = row.getAttribute('data-status');
       const rowRating = row.getAttribute('data-rating');
-      
+
       let show = true;
       if (status && rowStatus !== status) show = false;
       if (rating && rowRating !== rating) show = false;
-      
-      (row as HTMLElement).style.display = show ? '' : 'none';
+
+      row.style.display = show ? '' : 'none';
     });
+  }
+
+  function updateStats() {
+    const pending = reviews.filter((r) => r.status === 'pending').length;
+    const approved = reviews.filter((r) => r.status === 'approved').length;
+    const verified = reviews.filter((r) => r.is_verified_purchase).length;
+
+    if (pendingCountEl) pendingCountEl.textContent = String(pending);
+    if (approvedCountEl) approvedCountEl.textContent = String(approved);
+    if (totalCountEl) totalCountEl.textContent = String(reviews.length);
+    if (verifiedCountEl) verifiedCountEl.textContent = String(verified);
+  }
+
+  function openReplyModal(id, name) {
+    currentReplyId = id;
+    currentReplyName = name || '匿名';
+    if (replyReviewerName) replyReviewerName.textContent = currentReplyName;
+    if (replyContent) replyContent.value = '';
+    replyModal?.classList.remove('hidden');
+    replyModal?.classList.add('flex');
+  }
+
+  function closeReplyModal() {
+    replyModal?.classList.add('hidden');
+    replyModal?.classList.remove('flex');
+    currentReplyId = null;
+  }
+
+  function bindRowHandlers() {
+    document.querySelectorAll('.status-select').forEach((el) => {
+      el.addEventListener('change', async (e) => {
+        const target = e.target;
+        const id = target.getAttribute('data-id');
+        const newStatus = target.value;
+        if (!id) return;
+
+        try {
+          const res = await fetch(`/api/admin/reviews/${encodeURIComponent(id)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus }),
+          });
+          const json = await res.json().catch(() => null);
+          if (!res.ok || !json?.success) throw new Error('Failed to update');
+
+          const colors = getStatusColors(newStatus);
+          target.style.backgroundColor = colors.bg;
+          target.style.color = colors.text;
+          target.closest('.review-row')?.setAttribute('data-status', newStatus);
+
+          const idx = reviews.findIndex((r) => r.id === id);
+          if (idx >= 0) reviews[idx].status = newStatus;
+          updateStats();
+          applyFilters();
+        } catch (err) {
+          console.error('Error updating status:', err);
+          alert('更新评价状态失败');
+        }
+      });
+    });
+
+    document.querySelectorAll('.delete-btn').forEach((el) => {
+      el.addEventListener('click', async (e) => {
+        const target = e.currentTarget;
+        const id = target.getAttribute('data-id');
+        if (!id) return;
+        if (!confirm('确定要删除这条评价吗？')) return;
+
+        try {
+          const res = await fetch(`/api/admin/reviews/${encodeURIComponent(id)}`, { method: 'DELETE' });
+          const json = await res.json().catch(() => null);
+          if (!res.ok || !json?.success) throw new Error('Failed to delete');
+
+          target.closest('.review-row')?.remove();
+          reviews = reviews.filter((r) => r.id !== id);
+          updateStats();
+        } catch (err) {
+          console.error('Error deleting review:', err);
+          alert('删除评价失败');
+        }
+      });
+    });
+
+    document.querySelectorAll('.reply-btn').forEach((el) => {
+      el.addEventListener('click', (e) => {
+        const target = e.currentTarget;
+        const id = target.getAttribute('data-id');
+        const name = target.getAttribute('data-name');
+        if (!id) return;
+        openReplyModal(id, name);
+      });
+    });
+  }
+
+  function renderRows() {
+    if (!reviewsTable) return;
+    if (!reviews || reviews.length === 0) {
+      reviewsTable.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center text-gray-500">暂无评价</td></tr>`;
+      return;
+    }
+
+    const rowsHtml = reviews
+      .map((review) => {
+        const reviewerName = review.reviewer_name || '匿名';
+        const title = review.title ? `<p class="text-sm font-medium text-gray-700 mt-1">${escapeHtml(review.title)}</p>` : '';
+        const content = `<p class="text-sm text-gray-500 mt-1 line-clamp-2">${escapeHtml(review.content || '无内容')}</p>`;
+        const verifiedBadge = review.is_verified_purchase
+          ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">已认证</span>`
+          : '';
+        const merchantReply = review.merchant_reply
+          ? `<div class="mt-2 p-2 bg-gray-50 rounded text-sm"><p class="text-xs text-gray-500 mb-1">您的回复：</p><p class="text-gray-700">${escapeHtml(review.merchant_reply)}</p></div>`
+          : '';
+
+        const productImage = review.products?.images?.[0]
+          ? `<img src="${escapeHtml(review.products.images[0])}" alt="" class="w-10 h-10 rounded object-cover" />`
+          : '';
+        const productName = escapeHtml(review.products?.name || '未知');
+
+        const colors = getStatusColors(review.status);
+        const dateStr = formatDate(review.created_at);
+
+        return `
+          <tr class="hover:bg-gray-50 review-row" data-id="${escapeHtml(review.id)}" data-status="${escapeHtml(review.status)}" data-rating="${escapeHtml(review.rating)}">
+            <td class="px-6 py-4">
+              <div class="flex items-start gap-3">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <p class="text-sm font-medium text-gray-900">${escapeHtml(reviewerName)}</p>
+                    ${verifiedBadge}
+                  </div>
+                  ${title}
+                  ${content}
+                  ${merchantReply}
+                </div>
+              </div>
+            </td>
+            <td class="px-6 py-4">
+              <div class="flex items-center gap-2">
+                ${productImage}
+                <span class="text-sm text-gray-900">${productName}</span>
+              </div>
+            </td>
+            <td class="px-6 py-4"><div class="flex items-center gap-1">${renderStars(review.rating)}</div></td>
+            <td class="px-6 py-4">
+              <select class="status-select px-2 py-1 text-xs rounded-full border-0 font-medium cursor-pointer" data-id="${escapeHtml(review.id)}" style="background-color:${colors.bg};color:${colors.text}">
+                <option value="pending" ${review.status === 'pending' ? 'selected' : ''}>待审核</option>
+                <option value="approved" ${review.status === 'approved' ? 'selected' : ''}>已通过</option>
+                <option value="rejected" ${review.status === 'rejected' ? 'selected' : ''}>已拒绝</option>
+                <option value="spam" ${review.status === 'spam' ? 'selected' : ''}>垃圾</option>
+              </select>
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-500">${escapeHtml(dateStr)}</td>
+            <td class="px-6 py-4 text-right">
+              <div class="flex items-center justify-end gap-2">
+                <button class="reply-btn p-1 text-gray-400 hover:text-blue-600 transition-colors" data-id="${escapeHtml(review.id)}" data-name="${escapeHtml(reviewerName)}" title="回复">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+                </button>
+                <button class="delete-btn p-1 text-gray-400 hover:text-red-600 transition-colors" data-id="${escapeHtml(review.id)}" title="删除">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    reviewsTable.innerHTML = rowsHtml;
+    bindRowHandlers();
+    applyFilters();
+  }
+
+  async function loadReviews() {
+    if (!reviewsTable) return;
+    reviewsTable.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">加载中...</td></tr>`;
+
+    try {
+      const res = await fetch('/api/admin/reviews?limit=50');
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) throw new Error('Failed to load');
+      reviews = Array.isArray(json.data) ? json.data : [];
+      updateStats();
+      renderRows();
+    } catch (err) {
+      console.error('Failed to load reviews:', err);
+      reviewsTable.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-red-600">加载失败</td></tr>`;
+    }
   }
 
   filterStatus?.addEventListener('change', applyFilters);
   filterRating?.addEventListener('change', applyFilters);
 
-  // Status change
-  document.querySelectorAll('.status-select').forEach((select) => {
-    select.addEventListener('change', async (e) => {
-      const target = e.target as HTMLSelectElement;
-      const id = target.getAttribute('data-id');
-      const newStatus = target.value;
-
-      try {
-        const res = await fetch(`${API_BASE}/api/reviews/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: newStatus }),
-        });
-
-        if (!res.ok) throw new Error('Failed to update');
-
-        // Update styling
-        const colors = {
-          approved: { bg: '#DEF7EC', text: '#03543F' },
-          pending: { bg: '#FEF3C7', text: '#92400E' },
-          rejected: { bg: '#FEE2E2', text: '#991B1B' },
-          spam: { bg: '#E5E7EB', text: '#374151' },
-        };
-        const color = colors[newStatus as keyof typeof colors];
-        target.style.backgroundColor = color.bg;
-        target.style.color = color.text;
-
-        // Update row data attribute
-        target.closest('.review-row')?.setAttribute('data-status', newStatus);
-      } catch (err) {
-        console.error('Error updating status:', err);
-        alert('更新评价状态失败');
-      }
-    });
-  });
-
-  // Delete review
-  document.querySelectorAll('.delete-btn').forEach((btn) => {
-    btn.addEventListener('click', async (e) => {
-      const target = e.currentTarget as HTMLElement;
-      const id = target.getAttribute('data-id');
-
-      if (!confirm('确定要删除这条评价吗？')) return;
-
-      try {
-        const res = await fetch(`${API_BASE}/api/reviews/${id}`, {
-          method: 'DELETE',
-        });
-
-        if (!res.ok) throw new Error('Failed to delete');
-
-        target.closest('.review-row')?.remove();
-      } catch (err) {
-        console.error('Error deleting review:', err);
-        alert('删除评价失败');
-      }
-    });
-  });
-
-  // Reply modal
-  const replyModal = document.getElementById('reply-modal');
-  const replyContent = document.getElementById('reply-content') as HTMLTextAreaElement;
-  const replyReviewerName = document.getElementById('reply-reviewer-name');
-  let currentReplyId: string | null = null;
-
-  document.querySelectorAll('.reply-btn').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      const target = e.currentTarget as HTMLElement;
-      currentReplyId = target.getAttribute('data-id');
-      const name = target.getAttribute('data-name');
-
-      if (replyReviewerName) replyReviewerName.textContent = name || '匿名';
-      if (replyContent) replyContent.value = '';
-      replyModal?.classList.remove('hidden');
-      replyModal?.classList.add('flex');
-    });
-  });
-
-  document.getElementById('cancel-reply')?.addEventListener('click', () => {
-    replyModal?.classList.add('hidden');
-    replyModal?.classList.remove('flex');
-    currentReplyId = null;
-  });
-
-  document.getElementById('submit-reply')?.addEventListener('click', async () => {
-    if (!currentReplyId || !replyContent?.value.trim()) return;
+  cancelReplyBtn?.addEventListener('click', closeReplyModal);
+  submitReplyBtn?.addEventListener('click', async () => {
+    if (!currentReplyId || !replyContent?.value?.trim()) return;
 
     try {
-      const res = await fetch(`${API_BASE}/api/reviews/${currentReplyId}/reply`, {
+      const res = await fetch(`/api/admin/reviews/${encodeURIComponent(currentReplyId)}/reply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reply: replyContent.value.trim() }),
       });
-
-      if (!res.ok) throw new Error('Failed to send reply');
-
-      replyModal?.classList.add('hidden');
-      replyModal?.classList.remove('flex');
-      window.location.reload();
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) throw new Error('Failed to send reply');
+      closeReplyModal();
+      await loadReviews();
     } catch (err) {
       console.error('Error sending reply:', err);
       alert('发送回复失败');
     }
   });
 
-  // Close modal on backdrop click
   replyModal?.addEventListener('click', (e) => {
-    if (e.target === replyModal) {
-      replyModal.classList.add('hidden');
-      replyModal.classList.remove('flex');
-    }
+    if (e.target === replyModal) closeReplyModal();
   });
+
+  loadReviews();
 </script>
 
 <style>

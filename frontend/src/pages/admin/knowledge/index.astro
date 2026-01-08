@@ -2,25 +2,13 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
 
+// Data loaded dynamically via client-side API calls
 const page = parseInt(Astro.url.searchParams.get('page') || '1');
 const sourceType = Astro.url.searchParams.get('source_type') || '';
-const limit = 20;
-const offset = (page - 1) * limit;
-
-let query = supabase
-  .from('knowledge_base')
-  .select('id, title, content, source_type, created_at', { count: 'exact' })
-  .order('created_at', { ascending: false });
-
-if (sourceType) {
-  query = query.eq('source_type', sourceType);
-}
-
-const { data: entries, count } = await query.range(offset, offset + limit - 1);
-const totalPages = Math.ceil((count || 0) / limit);
-
+const entries: any[] = [];
+const count = 0;
+const totalPages = 1;
 const sourceTypes = ['manual', 'product', 'faq', 'policy', 'blog'];
 ---
 
@@ -140,6 +128,64 @@ const sourceTypes = ['manual', 'product', 'faq', 'policy', 'blog'];
     const addBtn = document.getElementById('add-btn') as HTMLButtonElement;
     const sourceFilter = document.getElementById('source-filter') as HTMLSelectElement;
     const syncBtn = document.getElementById('sync-products-btn') as HTMLButtonElement;
+    const entriesList = document.querySelector('.space-y-4');
+
+    // Load knowledge entries on init
+    async function loadKnowledge() {
+      const url = new URL(window.location.href);
+      const sourceType = url.searchParams.get('source_type') || '';
+      const page = url.searchParams.get('page') || '1';
+      
+      try {
+        const params = new URLSearchParams({ page, limit: '20' });
+        if (sourceType) params.set('source_type', sourceType);
+        
+        const res = await fetch(`/api/knowledge?${params}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.data) renderEntries(json.data);
+      } catch (e) {
+        console.error('Failed to load knowledge:', e);
+      }
+    }
+
+    function renderEntries(entries: any[]) {
+      if (!entriesList) return;
+      if (entries.length === 0) {
+        entriesList.innerHTML = '<div class="text-center py-8 text-gray-500">暂无知识条目</div>';
+        return;
+      }
+      entriesList.innerHTML = entries.map(entry => `
+        <div class="bg-white rounded-lg border border-gray-100 p-4" data-entry-id="${entry.id}">
+          <div class="flex items-start justify-between">
+            <div class="flex-1 min-w-0">
+              ${entry.title ? `<h3 class="font-medium text-gray-900">${entry.title}</h3>` : ''}
+              <p class="text-sm text-gray-600 mt-1 line-clamp-3">${entry.content}</p>
+            </div>
+            <button class="delete-entry text-gray-400 hover:text-red-600 ml-2" data-id="${entry.id}">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
+          <div class="mt-2 flex items-center gap-2 text-xs text-gray-500">
+            <span class="px-2 py-0.5 bg-gray-100 rounded">${entry.source_type}</span>
+            <span>${new Date(entry.created_at).toLocaleDateString()}</span>
+          </div>
+        </div>
+      `).join('');
+      
+      document.querySelectorAll('.delete-entry').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = (btn as HTMLElement).dataset.id;
+          if (!confirm('删除此条目？')) return;
+          const result = await api.deleteKnowledge(id!);
+          if (result.success) loadKnowledge();
+        });
+      });
+    }
+
+    loadKnowledge();
 
     sourceFilter?.addEventListener('change', () => {
       const val = sourceFilter.value;

@@ -2,24 +2,6 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
-
-const { data: densityData } = await supabase
-  .from('link_density_analysis')
-  .select('*')
-  .order('analyzed_at', { ascending: false });
-
-const allPages = densityData || [];
-
-const summary = {
-  total: allPages.length,
-  optimal: allPages.filter((d: any) => d.density_status === 'optimal').length,
-  tooLow: allPages.filter((d: any) => d.density_status === 'too_low').length,
-  tooHigh: allPages.filter((d: any) => d.density_status === 'too_high').length,
-  avgDensity: allPages.length 
-    ? Math.round(allPages.reduce((sum: number, d: any) => sum + (d.link_density || 0), 0) / allPages.length * 100) / 100 
-    : 0,
-};
 ---
 
 <AdminLayout title="内链密度分析" activePage="seo">
@@ -41,25 +23,23 @@ const summary = {
   <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">总页面数</p>
-      <p class="text-2xl font-bold text-gray-900">{summary.total}</p>
+      <p class="text-2xl font-bold text-gray-900" id="stat-total">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">平均密度</p>
-      <p class={`text-2xl font-bold ${summary.avgDensity >= 1 && summary.avgDensity <= 3 ? 'text-green-600' : 'text-yellow-600'}`}>
-        {summary.avgDensity}%
-      </p>
+      <p class="text-2xl font-bold text-gray-900" id="stat-avg">0%</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">链接过少</p>
-      <p class="text-2xl font-bold text-red-600">{summary.tooLow}</p>
+      <p class="text-2xl font-bold text-red-600" id="stat-too-low">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">链接适中</p>
-      <p class="text-2xl font-bold text-green-600">{summary.optimal}</p>
+      <p class="text-2xl font-bold text-green-600" id="stat-optimal">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">链接过多</p>
-      <p class="text-2xl font-bold text-orange-600">{summary.tooHigh}</p>
+      <p class="text-2xl font-bold text-orange-600" id="stat-too-high">0</p>
     </div>
   </div>
 
@@ -81,16 +61,16 @@ const summary = {
   <!-- Filter Tabs -->
   <div class="flex gap-2 mb-4">
     <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-primary-600 text-white" data-filter="all">
-      全部 ({summary.total})
+      全部 (<span id="tab-total">0</span>)
     </button>
     <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200" data-filter="too_low">
-      链接过少 ({summary.tooLow})
+      链接过少 (<span id="tab-too-low">0</span>)
     </button>
     <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200" data-filter="optimal">
-      链接适中 ({summary.optimal})
+      链接适中 (<span id="tab-optimal">0</span>)
     </button>
     <button class="filter-btn px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200" data-filter="too_high">
-      链接过多 ({summary.tooHigh})
+      链接过多 (<span id="tab-too-high">0</span>)
     </button>
   </div>
 
@@ -111,71 +91,18 @@ const summary = {
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100" id="density-table">
-          {allPages.map((page: any) => (
-            <tr class="density-row hover:bg-gray-50" data-status={page.density_status}>
-              <td class="px-6 py-4">
-                <a href={page.page_url} target="_blank" class="text-primary-600 hover:underline truncate block max-w-xs">
-                  {page.page_url}
-                </a>
-              </td>
-              <td class="px-6 py-4">
-                <span class={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                  page.page_type === 'product' ? 'bg-blue-100 text-blue-700' :
-                  page.page_type === 'category' ? 'bg-purple-100 text-purple-700' :
-                  'bg-indigo-100 text-indigo-700'
-                }`}>
-                  {page.page_type === 'product' ? '产品' : page.page_type === 'category' ? '分类' : '博客'}
-                </span>
-              </td>
-              <td class="px-6 py-4 text-center text-gray-600">
-                {page.word_count?.toLocaleString()}
-              </td>
-              <td class="px-6 py-4 text-center">
-                <span class="font-medium text-blue-600">{page.internal_links_count}</span>
-              </td>
-              <td class="px-6 py-4 text-center">
-                <span class="text-gray-600">{page.external_links_count}</span>
-              </td>
-              <td class="px-6 py-4 text-center">
-                <span class={`font-bold ${
-                  page.density_status === 'optimal' ? 'text-green-600' :
-                  page.density_status === 'too_low' ? 'text-red-600' :
-                  'text-orange-600'
-                }`}>
-                  {page.link_density}%
-                </span>
-              </td>
-              <td class="px-6 py-4 text-center">
-                {page.density_status === 'optimal' ? (
-                  <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
-                    ✓ 适中
-                  </span>
-                ) : page.density_status === 'too_low' ? (
-                  <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">
-                    ↓ 过少
-                  </span>
-                ) : (
-                  <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-700">
-                    ↑ 过多
-                  </span>
-                )}
-              </td>
-              <td class="px-6 py-4 text-sm text-gray-500">
-                {new Date(page.analyzed_at).toLocaleDateString('zh-CN')}
-              </td>
-            </tr>
-          ))}
+          <tr>
+            <td colspan="8" class="px-6 py-12 text-center text-gray-500">加载中...</td>
+          </tr>
         </tbody>
       </table>
     </div>
 
-    {allPages.length === 0 && (
-      <div class="px-6 py-12 text-center">
-        <div class="text-4xl mb-4">📊</div>
-        <p class="text-gray-500">暂无分析数据</p>
-        <p class="text-sm text-gray-400 mt-1">点击"爬取链接图谱"按钮开始分析</p>
-      </div>
-    )}
+    <div id="empty-state" class="px-6 py-12 text-center hidden">
+      <div class="text-4xl mb-4">📊</div>
+      <p class="text-gray-500">暂无分析数据</p>
+      <p class="text-sm text-gray-400 mt-1">点击"爬取链接图谱"按钮开始分析</p>
+    </div>
   </div>
 
   <!-- Link Suggestions Section -->
@@ -204,8 +131,6 @@ const summary = {
 </AdminLayout>
 
 <script>
-  const API_URL = import.meta.env.PUBLIC_API_URL || '';
-
   function showToast(message: string, isSuccess = true) {
     const toast = document.getElementById('toast');
     const icon = document.getElementById('toast-icon');
@@ -225,7 +150,7 @@ const summary = {
     btn.innerHTML = '<span class="animate-spin">⏳</span> 爬取中...';
 
     try {
-      const res = await fetch(`${API_URL}/api/seo/links/graph/crawl`, {
+      const res = await fetch(`/api/admin/seo/links/graph/crawl`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -253,7 +178,7 @@ const summary = {
     container.innerHTML = '<p class="text-gray-400">加载中...</p>';
 
     try {
-      const res = await fetch(`${API_URL}/api/seo/links/suggestions`);
+      const res = await fetch(`/api/admin/seo/links/suggestions`);
       const data = await res.json();
 
       if (data.suggestions && data.suggestions.length > 0) {
@@ -304,4 +229,74 @@ const summary = {
       });
     });
   });
+
+  async function loadDensity() {
+    const tbody = document.getElementById('density-table');
+    const empty = document.getElementById('empty-state');
+    try {
+      const res = await fetch('/api/admin/seo/links/density');
+      const data = await res.json().catch(() => null);
+      const pages = Array.isArray(data?.pages) ? data.pages : [];
+      const summary = data?.summary || {
+        total: pages.length,
+        optimal: pages.filter((d: any) => d.density_status === 'optimal').length,
+        too_low: pages.filter((d: any) => d.density_status === 'too_low').length,
+        too_high: pages.filter((d: any) => d.density_status === 'too_high').length,
+        avg_density: pages.length ? Math.round(pages.reduce((s: number, d: any) => s + (d.link_density || 0), 0) / pages.length * 100) / 100 : 0,
+      };
+
+      document.getElementById('stat-total')!.textContent = String(summary.total || 0);
+      document.getElementById('stat-optimal')!.textContent = String(summary.optimal || 0);
+      document.getElementById('stat-too-low')!.textContent = String(summary.too_low || 0);
+      document.getElementById('stat-too-high')!.textContent = String(summary.too_high || 0);
+      const avgEl = document.getElementById('stat-avg');
+      if (avgEl) {
+        avgEl.textContent = `${summary.avg_density || 0}%`;
+        avgEl.className = `text-2xl font-bold ${(summary.avg_density || 0) >= 1 && (summary.avg_density || 0) <= 3 ? 'text-green-600' : 'text-yellow-600'}`;
+      }
+      document.getElementById('tab-total')!.textContent = String(summary.total || 0);
+      document.getElementById('tab-optimal')!.textContent = String(summary.optimal || 0);
+      document.getElementById('tab-too-low')!.textContent = String(summary.too_low || 0);
+      document.getElementById('tab-too-high')!.textContent = String(summary.too_high || 0);
+
+      if (!tbody) return;
+      if (pages.length === 0) {
+        tbody.innerHTML = '';
+        empty?.classList.remove('hidden');
+        return;
+      }
+      empty?.classList.add('hidden');
+      tbody.innerHTML = pages.map((page: any) => {
+        const typeClass = page.page_type === 'product'
+          ? 'bg-blue-100 text-blue-700'
+          : page.page_type === 'category'
+            ? 'bg-purple-100 text-purple-700'
+            : 'bg-indigo-100 text-indigo-700';
+        const typeLabel = page.page_type === 'product' ? '产品' : page.page_type === 'category' ? '分类' : '博客';
+        const densityClass = page.density_status === 'optimal' ? 'text-green-600' : page.density_status === 'too_low' ? 'text-red-600' : 'text-orange-600';
+        const statusBadge = page.density_status === 'optimal'
+          ? '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">✓ 适中</span>'
+          : page.density_status === 'too_low'
+            ? '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-700">↓ 过少</span>'
+            : '<span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-700">↑ 过多</span>';
+        return `
+          <tr class="density-row hover:bg-gray-50" data-status="${page.density_status}">
+            <td class="px-6 py-4"><a href="${page.page_url}" target="_blank" class="text-primary-600 hover:underline truncate block max-w-xs">${page.page_url}</a></td>
+            <td class="px-6 py-4"><span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ${typeClass}">${typeLabel}</span></td>
+            <td class="px-6 py-4 text-center text-gray-600">${(page.word_count || 0).toLocaleString()}</td>
+            <td class="px-6 py-4 text-center"><span class="font-medium text-blue-600">${page.internal_links_count}</span></td>
+            <td class="px-6 py-4 text-center"><span class="text-gray-600">${page.external_links_count}</span></td>
+            <td class="px-6 py-4 text-center"><span class="font-bold ${densityClass}">${page.link_density}%</span></td>
+            <td class="px-6 py-4 text-center">${statusBadge}</td>
+            <td class="px-6 py-4 text-sm text-gray-500">${new Date(page.analyzed_at).toLocaleDateString('zh-CN')}</td>
+          </tr>
+        `;
+      }).join('');
+    } catch (e) {
+      console.error('Failed to load density:', e);
+      if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="px-6 py-12 text-center text-red-600">加载失败</td></tr>`;
+    }
+  }
+
+  loadDensity();
 </script>

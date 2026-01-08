@@ -2,22 +2,7 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
-
-const { data: keywords } = await supabase
-  .from('keyword_research')
-  .select('*')
-  .order('search_volume_monthly', { ascending: false, nullsFirst: false });
-
-const trackedKeywords = keywords?.filter((k: any) => k.is_tracked) || [];
-const allKeywords = keywords || [];
-
-const intentColors: Record<string, string> = {
-  informational: 'bg-blue-100 text-blue-700',
-  navigational: 'bg-purple-100 text-purple-700',
-  transactional: 'bg-green-100 text-green-700',
-  commercial: 'bg-yellow-100 text-yellow-700',
-};
+const allKeywords: any[] = [];
 ---
 
 <AdminLayout title="关键词研究" activePage="seo">
@@ -61,22 +46,22 @@ const intentColors: Record<string, string> = {
   <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">总关键词数</p>
-      <p class="text-2xl font-bold text-gray-900">{allKeywords.length}</p>
+      <p class="text-2xl font-bold text-gray-900" id="stat-total">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">跟踪中</p>
-      <p class="text-2xl font-bold text-blue-600">{trackedKeywords.length}</p>
+      <p class="text-2xl font-bold text-blue-600" id="stat-tracked">0</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">前 10 排名</p>
       <p class="text-2xl font-bold text-green-600">
-        {allKeywords.filter((k: any) => k.current_ranking && k.current_ranking <= 10).length}
+        <span id="stat-top10">0</span>
       </p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
       <p class="text-sm text-gray-500">未排名</p>
       <p class="text-2xl font-bold text-gray-600">
-        {allKeywords.filter((k: any) => !k.current_ranking).length}
+        <span id="stat-unranked">0</span>
       </p>
     </div>
   </div>
@@ -99,85 +84,10 @@ const intentColors: Record<string, string> = {
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-gray-100">
-          {allKeywords.length > 0 ? (
-            allKeywords.map((kw: any) => (
-              <tr class="hover:bg-gray-50">
-                <td class="px-6 py-4">
-                  <p class="text-sm font-medium text-gray-900">{kw.keyword}</p>
-                </td>
-                <td class="px-6 py-4">
-                  <span class={`text-xs px-2 py-1 rounded ${intentColors[kw.search_intent] || 'bg-gray-100 text-gray-700'}`}>
-                    {kw.search_intent || 'Unknown'}
-                  </span>
-                </td>
-                <td class="px-6 py-4 text-sm text-gray-600">
-                  {kw.search_volume_monthly?.toLocaleString() || '-'}
-                </td>
-                <td class="px-6 py-4">
-                  <div class="flex items-center gap-2">
-                    <div class="w-16 bg-gray-200 rounded-full h-2">
-                      <div
-                        class={`h-2 rounded-full ${
-                          kw.keyword_difficulty < 30 ? 'bg-green-500' :
-                          kw.keyword_difficulty < 60 ? 'bg-yellow-500' : 'bg-red-500'
-                        }`}
-                        style={`width: ${kw.keyword_difficulty || 0}%`}
-                      />
-                    </div>
-                    <span class="text-xs text-gray-500">{kw.keyword_difficulty || '-'}</span>
-                  </div>
-                </td>
-                <td class="px-6 py-4">
-                  {kw.current_ranking ? (
-                    <div class="flex items-center gap-2">
-                      <span class={`text-sm font-medium ${
-                        kw.current_ranking <= 10 ? 'text-green-600' :
-                        kw.current_ranking <= 20 ? 'text-yellow-600' : 'text-gray-600'
-                      }`}>
-                        #{kw.current_ranking}
-                      </span>
-                      {kw.previous_position && kw.current_ranking !== kw.previous_position && (
-                        <span class={`text-xs ${
-                          kw.current_ranking < kw.previous_position ? 'text-green-500' : 'text-red-500'
-                        }`}>
-                          {kw.current_ranking < kw.previous_position ? '↑' : '↓'}
-                          {Math.abs(kw.previous_position - kw.current_ranking)}
-                        </span>
-                      )}
-                    </div>
-                  ) : (
-                    <span class="text-xs text-gray-400">未排名</span>
-                  )}
-                </td>
-                <td class="px-6 py-4">
-                  <button
-                    class={`w-10 h-6 rounded-full transition-colors ${kw.is_tracked ? 'bg-primary-600' : 'bg-gray-300'}`}
-                    data-id={kw.id}
-                    data-tracked={kw.is_tracked}
-                    onclick="toggleTracking(this)"
-                  >
-                    <span class={`block w-4 h-4 bg-white rounded-full shadow transform transition-transform ${kw.is_tracked ? 'translate-x-5' : 'translate-x-1'}`} />
-                  </button>
-                </td>
-                <td class="px-6 py-4">
-                  <button
-                    class="text-red-600 hover:text-red-700 text-sm"
-                    data-id={kw.id}
-                    onclick="deleteKeyword(this)"
-                  >
-                    删除
-                  </button>
-                </td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colspan="7" class="px-6 py-12 text-center text-gray-500">
-                暂无关键词。从上方开始研究关键词。
-              </td>
-            </tr>
-          )}
+        <tbody class="divide-y divide-gray-100" id="keywords-tbody">
+          <tr>
+            <td colspan="7" class="px-6 py-12 text-center text-gray-500">加载中...</td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -185,6 +95,156 @@ const intentColors: Record<string, string> = {
 </AdminLayout>
 
 <script>
+  const intentColors = {
+    informational: 'bg-blue-100 text-blue-700',
+    navigational: 'bg-purple-100 text-purple-700',
+    transactional: 'bg-green-100 text-green-700',
+    commercial: 'bg-yellow-100 text-yellow-700',
+  };
+
+  const tbody = document.getElementById('keywords-tbody');
+  const statTotal = document.getElementById('stat-total');
+  const statTracked = document.getElementById('stat-tracked');
+  const statTop10 = document.getElementById('stat-top10');
+  const statUnranked = document.getElementById('stat-unranked');
+
+  function escapeHtml(s) {
+    return String(s ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  function renderRows(allKeywords) {
+    if (!tbody) return;
+
+    if (!Array.isArray(allKeywords) || allKeywords.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="px-6 py-12 text-center text-gray-500">暂无关键词。从上方开始研究关键词。</td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = allKeywords
+      .map((kw) => {
+        const intentClass = intentColors[kw.search_intent] || 'bg-gray-100 text-gray-700';
+        const volume = kw.search_volume_monthly ? Number(kw.search_volume_monthly).toLocaleString() : '-';
+        const diff = Number(kw.keyword_difficulty) || 0;
+        const diffClass = diff < 30 ? 'bg-green-500' : diff < 60 ? 'bg-yellow-500' : 'bg-red-500';
+
+        let rankingHtml = '<span class="text-xs text-gray-400">未排名</span>';
+        if (kw.current_ranking) {
+          const r = Number(kw.current_ranking);
+          const prev = kw.previous_position ? Number(kw.previous_position) : null;
+          const rankClass = r <= 10 ? 'text-green-600' : r <= 20 ? 'text-yellow-600' : 'text-gray-600';
+          const delta = prev && r !== prev ? (r < prev ? `
+              <span class="text-xs text-green-500">↑${Math.abs(prev - r)}</span>
+            ` : `
+              <span class="text-xs text-red-500">↓${Math.abs(prev - r)}</span>
+            `) : '';
+          rankingHtml = `
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-medium ${rankClass}">#${escapeHtml(r)}</span>
+              ${delta}
+            </div>
+          `;
+        }
+
+        const isTracked = !!kw.is_tracked;
+        const trackBtnClass = `w-10 h-6 rounded-full transition-colors ${isTracked ? 'bg-primary-600' : 'bg-gray-300'}`;
+        const knobClass = `block w-4 h-4 bg-white rounded-full shadow transform transition-transform ${isTracked ? 'translate-x-5' : 'translate-x-1'}`;
+
+        return `
+          <tr class="hover:bg-gray-50">
+            <td class="px-6 py-4"><p class="text-sm font-medium text-gray-900">${escapeHtml(kw.keyword)}</p></td>
+            <td class="px-6 py-4"><span class="text-xs px-2 py-1 rounded ${intentClass}">${escapeHtml(kw.search_intent || 'Unknown')}</span></td>
+            <td class="px-6 py-4 text-sm text-gray-600">${escapeHtml(volume)}</td>
+            <td class="px-6 py-4">
+              <div class="flex items-center gap-2">
+                <div class="w-16 bg-gray-200 rounded-full h-2">
+                  <div class="h-2 rounded-full ${diffClass}" style="width: ${escapeHtml(diff)}%"></div>
+                </div>
+                <span class="text-xs text-gray-500">${escapeHtml(kw.keyword_difficulty || '-')}</span>
+              </div>
+            </td>
+            <td class="px-6 py-4">${rankingHtml}</td>
+            <td class="px-6 py-4">
+              <button class="${trackBtnClass}" data-id="${escapeHtml(kw.id)}" data-tracked="${isTracked ? 'true' : 'false'}" data-action="toggle-tracking">
+                <span class="${knobClass}"></span>
+              </button>
+            </td>
+            <td class="px-6 py-4">
+              <button class="text-red-600 hover:text-red-700 text-sm" data-id="${escapeHtml(kw.id)}" data-action="delete">删除</button>
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+  }
+
+  function bindRowHandlers() {
+    document.querySelectorAll('[data-action="toggle-tracking"]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const isTracked = btn.dataset.tracked === 'true';
+        if (!id) return;
+
+        try {
+          const response = await fetch(`/api/admin/keywords/${encodeURIComponent(id)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_tracked: !isTracked }),
+          });
+          if (response.ok) window.location.reload();
+        } catch (e) {
+          console.error('Failed to toggle tracking:', e);
+        }
+      });
+    });
+
+    document.querySelectorAll('[data-action="delete"]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        if (!id) return;
+        if (!confirm('删除此关键词？')) return;
+
+        try {
+          const response = await fetch(`/api/admin/keywords/${encodeURIComponent(id)}`, { method: 'DELETE' });
+          if (response.ok) window.location.reload();
+        } catch (e) {
+          console.error('Failed to delete keyword:', e);
+        }
+      });
+    });
+  }
+
+  async function loadKeywords() {
+    try {
+      const response = await fetch('/api/admin/keywords');
+      const data = await response.json().catch(() => null);
+      const allKeywords = Array.isArray(data?.keywords) ? data.keywords : [];
+
+      const tracked = allKeywords.filter((k) => !!k.is_tracked);
+      const top10 = allKeywords.filter((k) => k.current_ranking && Number(k.current_ranking) <= 10);
+      const unranked = allKeywords.filter((k) => !k.current_ranking);
+
+      if (statTotal) statTotal.textContent = String(allKeywords.length);
+      if (statTracked) statTracked.textContent = String(tracked.length);
+      if (statTop10) statTop10.textContent = String(top10.length);
+      if (statUnranked) statUnranked.textContent = String(unranked.length);
+
+      renderRows(allKeywords);
+      bindRowHandlers();
+    } catch (e) {
+      console.error('Failed to load keywords:', e);
+      if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-red-600">加载失败</td></tr>`;
+    }
+  }
+
   document.getElementById('research-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const input = document.getElementById('keyword-input') as HTMLInputElement;
@@ -197,7 +257,7 @@ const intentColors: Record<string, string> = {
     resultDiv.classList.remove('hidden');
 
     try {
-      const response = await fetch('/api/keywords/research', {
+      const response = await fetch('/api/admin/keywords/research', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ keyword }),
@@ -228,7 +288,7 @@ const intentColors: Record<string, string> = {
     btn.textContent = '检查中...';
 
     try {
-      const response = await fetch('/api/keywords/rankings/check', { method: 'POST' });
+      const response = await fetch('/api/admin/keywords/rankings/check', { method: 'POST' });
       const data = await response.json();
 
       if (response.ok) {
@@ -245,39 +305,5 @@ const intentColors: Record<string, string> = {
     }
   });
 
-  async function toggleTracking(btn: HTMLElement) {
-    const id = btn.dataset.id;
-    const isTracked = btn.dataset.tracked === 'true';
-
-    try {
-      const response = await fetch(`/api/keywords/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_tracked: !isTracked }),
-      });
-
-      if (response.ok) {
-        window.location.reload();
-      }
-    } catch (error) {
-      console.error('Failed to toggle tracking:', error);
-    }
-  }
-
-  async function deleteKeyword(btn: HTMLElement) {
-    const id = btn.dataset.id;
-    if (!confirm('删除此关键词？')) return;
-
-    try {
-      const response = await fetch(`/api/keywords/${id}`, { method: 'DELETE' });
-      if (response.ok) {
-        window.location.reload();
-      }
-    } catch (error) {
-      console.error('Failed to delete keyword:', error);
-    }
-  }
-
-  (window as any).toggleTracking = toggleTracking;
-  (window as any).deleteKeyword = deleteKeyword;
+  loadKeywords();
 </script>

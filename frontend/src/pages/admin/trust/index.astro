@@ -2,24 +2,12 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
 
-// Get current settings for trust elements
-const { data: settings } = await supabase
-  .from('settings')
-  .select('key, value');
-
-const settingsMap = new Map();
-settings?.forEach((s) => settingsMap.set(s.key, s.value));
-
-// Media coverage items
-const mediaCoverage = settingsMap.get('media_coverage') || [];
-
-// Certifications
-const certifications = settingsMap.get('certifications') || [];
-
-// Social links
-const socialLinks = settingsMap.get('social_links') || {
+// Settings loaded dynamically via client-side API call
+// Default values used for initial render
+const mediaCoverage: any[] = [];
+const certifications: any[] = [];
+const socialLinks = {
   instagram: '',
   facebook: '',
   twitter: '',
@@ -28,9 +16,7 @@ const socialLinks = settingsMap.get('social_links') || {
   pinterest: '',
   linkedin: '',
 };
-
-// Third-party reviews
-const thirdPartyReviews = settingsMap.get('third_party_reviews') || {
+const thirdPartyReviews = {
   trustpilot_url: '',
   google_reviews_url: '',
   bbb_url: '',
@@ -286,14 +272,53 @@ const thirdPartyReviews = settingsMap.get('third_party_reviews') || {
   <!-- Toast -->
   <div id="toast" class="fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg transform translate-y-full opacity-0 transition-all duration-300 z-50"></div>
 
-  <script define:vars={{ initialMedia: mediaCoverage, initialCerts: certifications }}>
+  <script>
     const API_URL = import.meta.env.PUBLIC_API_URL || '';
-    let mediaItems = [...initialMedia];
-    let certItems = [...initialCerts];
+    let mediaItems: any[] = [];
+    let certItems: any[] = [];
 
     const toast = document.getElementById('toast');
     const mediaModal = document.getElementById('media-modal');
     const certModal = document.getElementById('cert-modal');
+
+    // Load settings on init
+    async function loadTrustSettings() {
+      try {
+        const res = await fetch(`/api/admin/settings`);
+        if (!res.ok) return;
+        const json = await res.json();
+        const data = json.data || {};
+        
+        mediaItems = Array.isArray(data.media_coverage) ? data.media_coverage : [];
+        certItems = Array.isArray(data.certifications) ? data.certifications : [];
+        
+        // Re-render lists (page reload is simpler for this pattern)
+        if (mediaItems.length > 0 || certItems.length > 0) {
+          window.location.reload();
+        }
+        
+        // Fill social links form
+        const socialLinks = data.social_links || {};
+        Object.entries(socialLinks).forEach(([key, value]) => {
+          const el = document.querySelector(`input[name="${key}"]`) as HTMLInputElement;
+          if (el) el.value = String(value || '');
+        });
+        
+        // Fill reviews form
+        const reviews = data.third_party_reviews || {};
+        Object.entries(reviews).forEach(([key, value]) => {
+          const el = document.querySelector(`input[name="${key}"]`) as HTMLInputElement;
+          if (el) el.value = String(value || '');
+        });
+      } catch (e) {
+        console.error('Failed to load trust settings:', e);
+      }
+    }
+    
+    // Only load if lists are empty (first load)
+    if (mediaItems.length === 0 && certItems.length === 0) {
+      loadTrustSettings();
+    }
 
     function showToast(message, type = 'success') {
       if (!toast) return;

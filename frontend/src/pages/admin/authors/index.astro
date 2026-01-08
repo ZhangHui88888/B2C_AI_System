@@ -2,13 +2,9 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
 
-// Get authors
-const { data: authors } = await supabase
-  .from('authors')
-  .select('id, name, slug, avatar_url, bio, credentials, social_links, is_active, article_count, created_at')
-  .order('name');
+// Data loaded dynamically via client-side API calls
+const authors: any[] = [];
 ---
 
 <AdminLayout title="作者" activePage="authors">
@@ -186,8 +182,74 @@ const { data: authors } = await supabase
     const closeBtn = document.getElementById('close-modal');
     const cancelBtn = document.getElementById('cancel-btn');
     const backdrop = document.getElementById('modal-backdrop');
+    const authorsGrid = document.querySelector('.grid.grid-cols-1.md\\:grid-cols-2');
 
     let editingId: string | null = null;
+
+    // Load authors on init
+    async function loadAuthors() {
+      try {
+        const res = await fetch('/api/authors');
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.data) renderAuthors(json.data);
+      } catch (e) {
+        console.error('Failed to load authors:', e);
+      }
+    }
+
+    function renderAuthors(authors: any[]) {
+      if (!authorsGrid) return;
+      if (authors.length === 0) {
+        authorsGrid.innerHTML = `<div class="col-span-full text-center py-12 text-gray-500">暂无作者，点击添加作者按钮创建</div>`;
+        return;
+      }
+      authorsGrid.innerHTML = authors.map(author => `
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 group" data-author-id="${author.id}">
+          <div class="flex items-start gap-4">
+            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+              ${author.avatar_url 
+                ? `<img src="${author.avatar_url}" alt="${author.name}" class="w-full h-full object-cover" />`
+                : `<span class="text-2xl font-bold text-gray-400">${author.name.charAt(0)}</span>`}
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <h3 class="font-semibold text-gray-900 truncate">${author.name}</h3>
+                ${author.is_active 
+                  ? '<span class="px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">活跃</span>'
+                  : '<span class="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">不活跃</span>'}
+              </div>
+              <p class="text-sm text-gray-500 mt-1">@${author.slug}</p>
+              ${author.bio ? `<p class="text-sm text-gray-600 mt-2 line-clamp-2">${author.bio}</p>` : ''}
+            </div>
+          </div>
+          <div class="mt-4 flex justify-end gap-2">
+            <button class="edit-author text-sm text-primary-600 hover:underline" data-author='${JSON.stringify(author)}'>编辑</button>
+            <button class="delete-author text-sm text-red-600 hover:underline" data-id="${author.id}">删除</button>
+          </div>
+        </div>
+      `).join('');
+      attachAuthorEventListeners();
+    }
+
+    function attachAuthorEventListeners() {
+      document.querySelectorAll('.edit-author').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const author = JSON.parse((btn as HTMLElement).dataset.author || '{}');
+          openModal(author);
+        });
+      });
+      document.querySelectorAll('.delete-author').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = (btn as HTMLElement).dataset.id;
+          if (!confirm('删除此作者？')) return;
+          const result = await api.deleteAuthor(id!);
+          if (result.success) loadAuthors();
+        });
+      });
+    }
+
+    loadAuthors();
 
     function openModal(author?: any) {
       editingId = author?.id || null;

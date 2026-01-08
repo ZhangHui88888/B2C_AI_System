@@ -2,27 +2,10 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
+const configs: any[] = [];
+const history: any[] = [];
 
-const { data: reportConfigs } = await supabase
-  .from('automated_reports')
-  .select('*')
-  .order('created_at', { ascending: false });
-
-const { data: reportHistory } = await supabase
-  .from('report_history')
-  .select('*')
-  .order('generated_at', { ascending: false })
-  .limit(20);
-
-const configs = reportConfigs || [];
-const history = reportHistory || [];
-
-const frequencyLabels: Record<string, string> = {
-  daily: 'Daily',
-  weekly: 'Weekly',
-  monthly: 'Monthly',
-};
+const frequencyLabels: Record<string, string> = {};
 ---
 
 <AdminLayout title="SEO 报告" activePage="seo">
@@ -52,42 +35,8 @@ const frequencyLabels: Record<string, string> = {
     <div class="px-6 py-4 border-b border-gray-100">
       <h3 class="font-semibold text-gray-900">报告配置</h3>
     </div>
-    <div class="divide-y divide-gray-100">
-      {configs.length > 0 ? (
-        configs.map((config: any) => (
-          <div class="px-6 py-4 flex items-center justify-between">
-            <div>
-              <p class="font-medium text-gray-900">{config.report_name}</p>
-              <p class="text-sm text-gray-500">
-                {frequencyLabels[config.schedule_frequency] || config.schedule_frequency} • 
-                {config.recipients?.length || 0} 个收件人
-              </p>
-            </div>
-            <div class="flex items-center gap-4">
-              <span class={`text-xs px-2 py-1 rounded ${config.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
-                {config.is_active ? '活跃' : '暂停'}
-              </span>
-              <button
-                class="text-sm text-primary-600 hover:text-primary-700"
-                data-id={config.id}
-                onclick="editConfig(this)"
-              >
-                编辑
-              </button>
-              <button
-                class="text-sm text-red-600 hover:text-red-700"
-                data-id={config.id}
-                onclick="deleteConfig(this)"
-              >删除
-              </button>
-            </div>
-          </div>
-        ))
-      ) : (
-        <div class="px-6 py-12 text-center text-gray-500">
-          暂无报告配置。创建一个开始。
-        </div>
-      )}
+    <div class="divide-y divide-gray-100" id="configs-list">
+      <div class="px-6 py-12 text-center text-gray-500">加载中...</div>
     </div>
   </div>
 
@@ -108,55 +57,10 @@ const frequencyLabels: Record<string, string> = {
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-gray-100">
-          {history.length > 0 ? (
-            history.map((report: any) => (
-              <tr class="hover:bg-gray-50">
-                <td class="px-6 py-4">
-                  <p class="text-sm text-gray-900">{new Date(report.generated_at).toLocaleDateString()}</p>
-                  <p class="text-xs text-gray-500">{new Date(report.generated_at).toLocaleTimeString()}</p>
-                </td>
-                <td class="px-6 py-4">
-                  <span class={`text-lg font-bold ${
-                    report.overall_seo_score >= 80 ? 'text-green-600' :
-                    report.overall_seo_score >= 60 ? 'text-blue-600' :
-                    report.overall_seo_score >= 40 ? 'text-yellow-600' : 'text-red-600'
-                  }`}>
-                    {report.overall_seo_score}
-                  </span>
-                </td>
-                <td class="px-6 py-4 text-sm text-gray-600">{report.total_pages_analyzed}</td>
-                <td class="px-6 py-4">
-                  <span class={`text-sm ${report.issues_found > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    {report.issues_found}
-                  </span>
-                </td>
-                <td class="px-6 py-4">
-                  <span class={`text-xs px-2 py-1 rounded ${
-                    report.delivery_status === 'sent' ? 'bg-green-100 text-green-700' :
-                    report.delivery_status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'
-                  }`}>
-                    {report.delivery_status}
-                  </span>
-                </td>
-                <td class="px-6 py-4">
-                  <button
-                    class="text-sm text-primary-600 hover:text-primary-700"
-                    data-id={report.id}
-                    onclick="viewReport(this)"
-                  >
-                    查看
-                  </button>
-                </td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colspan="6" class="px-6 py-12 text-center text-gray-500">
-                暂无生成的报告。
-              </td>
-            </tr>
-          )}
+        <tbody class="divide-y divide-gray-100" id="history-tbody">
+          <tr>
+            <td colspan="6" class="px-6 py-12 text-center text-gray-500">加载中...</td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -228,6 +132,125 @@ const frequencyLabels: Record<string, string> = {
 </AdminLayout>
 
 <script>
+  const configsList = document.getElementById('configs-list');
+  const historyTbody = document.getElementById('history-tbody');
+
+  const frequencyLabels = {
+    daily: '每日',
+    weekly: '每周',
+    monthly: '每月',
+  };
+
+  function escapeHtml(s) {
+    return String(s ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  function renderConfigs(configs) {
+    if (!configsList) return;
+    if (!Array.isArray(configs) || configs.length === 0) {
+      configsList.innerHTML = '<div class="px-6 py-12 text-center text-gray-500">暂无报告配置。创建一个开始。</div>';
+      return;
+    }
+
+    configsList.innerHTML = configs
+      .map((config) => {
+        const statusClass = config.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700';
+        const statusText = config.is_active ? '活跃' : '暂停';
+        const freq = frequencyLabels[config.schedule_frequency] || config.schedule_frequency;
+        const recipientsCount = Array.isArray(config.recipients) ? config.recipients.length : 0;
+        return `
+          <div class="px-6 py-4 flex items-center justify-between">
+            <div>
+              <p class="font-medium text-gray-900">${escapeHtml(config.report_name)}</p>
+              <p class="text-sm text-gray-500">${escapeHtml(freq)} • ${escapeHtml(recipientsCount)} 个收件人</p>
+            </div>
+            <div class="flex items-center gap-4">
+              <span class="text-xs px-2 py-1 rounded ${statusClass}">${statusText}</span>
+              <button class="text-sm text-primary-600 hover:text-primary-700" data-id="${escapeHtml(config.id)}" data-action="edit">编辑</button>
+              <button class="text-sm text-red-600 hover:text-red-700" data-id="${escapeHtml(config.id)}" data-action="delete">删除</button>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+
+    configsList.querySelectorAll('[data-action="delete"]').forEach((btn) => {
+      btn.addEventListener('click', () => deleteConfig(btn));
+    });
+    configsList.querySelectorAll('[data-action="edit"]').forEach((btn) => {
+      btn.addEventListener('click', () => editConfig(btn));
+    });
+  }
+
+  function scoreColor(score) {
+    const v = Number(score) || 0;
+    if (v >= 80) return 'text-green-600';
+    if (v >= 60) return 'text-blue-600';
+    if (v >= 40) return 'text-yellow-600';
+    return 'text-red-600';
+  }
+
+  function renderHistory(history) {
+    if (!historyTbody) return;
+    if (!Array.isArray(history) || history.length === 0) {
+      historyTbody.innerHTML = '<tr><td colspan="6" class="px-6 py-12 text-center text-gray-500">暂无生成的报告。</td></tr>';
+      return;
+    }
+
+    historyTbody.innerHTML = history
+      .map((report) => {
+        const dt = report.generated_at ? new Date(report.generated_at) : null;
+        const dateStr = dt ? dt.toLocaleDateString() : '-';
+        const timeStr = dt ? dt.toLocaleTimeString() : '';
+
+        const deliveryClass = report.delivery_status === 'sent'
+          ? 'bg-green-100 text-green-700'
+          : report.delivery_status === 'pending'
+            ? 'bg-yellow-100 text-yellow-700'
+            : 'bg-gray-100 text-gray-700';
+
+        return `
+          <tr class="hover:bg-gray-50">
+            <td class="px-6 py-4"><p class="text-sm text-gray-900">${escapeHtml(dateStr)}</p><p class="text-xs text-gray-500">${escapeHtml(timeStr)}</p></td>
+            <td class="px-6 py-4"><span class="text-lg font-bold ${scoreColor(report.overall_seo_score)}">${escapeHtml(report.overall_seo_score)}</span></td>
+            <td class="px-6 py-4 text-sm text-gray-600">${escapeHtml(report.total_pages_analyzed)}</td>
+            <td class="px-6 py-4"><span class="text-sm ${Number(report.issues_found) > 0 ? 'text-red-600' : 'text-green-600'}">${escapeHtml(report.issues_found)}</span></td>
+            <td class="px-6 py-4"><span class="text-xs px-2 py-1 rounded ${deliveryClass}">${escapeHtml(report.delivery_status)}</span></td>
+            <td class="px-6 py-4"><button class="text-sm text-primary-600 hover:text-primary-700" data-id="${escapeHtml(report.id)}" data-action="view">查看</button></td>
+          </tr>
+        `;
+      })
+      .join('');
+
+    historyTbody.querySelectorAll('[data-action="view"]').forEach((btn) => {
+      btn.addEventListener('click', () => viewReport(btn));
+    });
+  }
+
+  async function loadPageData() {
+    try {
+      const [cfgRes, histRes] = await Promise.all([
+        fetch('/api/admin/seo-reports/config'),
+        fetch('/api/admin/seo-reports/history?limit=20'),
+      ]);
+
+      const cfgJson = await cfgRes.json().catch(() => null);
+      const histJson = await histRes.json().catch(() => null);
+
+      renderConfigs(Array.isArray(cfgJson?.configs) ? cfgJson.configs : []);
+      renderHistory(Array.isArray(histJson?.history) ? histJson.history : []);
+    } catch (e) {
+      console.error('Failed to load report page data:', e);
+      if (configsList) configsList.innerHTML = '<div class="px-6 py-12 text-center text-red-600">加载失败</div>';
+      if (historyTbody) historyTbody.innerHTML = '<tr><td colspan="6" class="px-6 py-12 text-center text-red-600">加载失败</td></tr>';
+    }
+  }
+
   document.getElementById('new-report-btn')?.addEventListener('click', () => {
     const modal = document.getElementById('new-report-modal');
     if (modal) {
@@ -247,7 +270,7 @@ const frequencyLabels: Record<string, string> = {
       .filter(e => e);
 
     try {
-      const response = await fetch('/api/seo-reports/config', {
+      const response = await fetch('/api/admin/seo-reports/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -275,7 +298,7 @@ const frequencyLabels: Record<string, string> = {
     btn.textContent = '生成中...';
 
     try {
-      const response = await fetch('/api/seo-reports/generate', {
+      const response = await fetch('/api/admin/seo-reports/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -311,7 +334,7 @@ const frequencyLabels: Record<string, string> = {
     content.innerHTML = '<div class="text-center py-8">加载报告中...</div>';
 
     try {
-      const response = await fetch(`/api/seo-reports/${id}`);
+      const response = await fetch(`/api/admin/seo-reports/${id}`);
       const data = await response.json();
 
       if (response.ok && data.report_data) {
@@ -370,7 +393,7 @@ const frequencyLabels: Record<string, string> = {
     if (!confirm('删除此报告配置？')) return;
 
     try {
-      const response = await fetch(`/api/seo-reports/config/${id}`, { method: 'DELETE' });
+      const response = await fetch(`/api/admin/seo-reports/config/${id}`, { method: 'DELETE' });
       if (response.ok) {
         window.location.reload();
       }
@@ -395,4 +418,6 @@ const frequencyLabels: Record<string, string> = {
   (window as any).deleteConfig = deleteConfig;
   (window as any).editConfig = editConfig;
   (window as any).closeModal = closeModal;
+
+  loadPageData();
 </script>

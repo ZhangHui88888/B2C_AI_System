@@ -2,41 +2,13 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
 
 const { id } = Astro.params;
 
-// Fetch brand details
-const { data: brand, error: brandError } = await supabase
-  .from('brands')
-  .select('*')
-  .eq('id', id)
-  .single();
-
-if (brandError || !brand) {
-  return Astro.redirect('/admin/brands');
-}
-
-// Fetch brand user assignments with admin user details
-const { data: assignments } = await supabase
-  .from('brand_user_assignments')
-  .select(`
-    *,
-    admin_user:admin_users(id, email, name, avatar_url, role, is_active)
-  `)
-  .eq('brand_id', id)
-  .order('created_at', { ascending: false });
-
-// Fetch all admin users for adding new assignments
-const { data: adminUsers } = await supabase
-  .from('admin_users')
-  .select('id, email, name, avatar_url, role, is_active')
-  .eq('is_active', true)
-  .order('email');
-
-// Get already assigned user IDs
-const assignedUserIds = new Set((assignments || []).map(a => a.admin_user_id));
-const availableUsers = (adminUsers || []).filter(u => !assignedUserIds.has(u.id));
+// Client-side load via /api/admin/* (avoid SSR direct Supabase access; required after RLS hardening)
+const brand: any = { id, name: 'Loading...', owner_email: '', is_active: true };
+const assignments: any[] = [];
+const availableUsers: any[] = [];
 
 const roleLabels: Record<string, string> = {
   brand_admin: '品牌管理员',
@@ -62,7 +34,7 @@ const roleBadgeColors: Record<string, string> = {
           </svg>
         </a>
         <div>
-          <h2 class="text-lg font-semibold text-gray-900">{brand.name} - 团队成员</h2>
+          <h2 id="brand-name-header" class="text-lg font-semibold text-gray-900">{brand.name} - 团队成员</h2>
           <p class="text-sm text-gray-600">管理谁有权访问此品牌</p>
         </div>
       </div>
@@ -172,7 +144,7 @@ const roleBadgeColors: Record<string, string> = {
         </svg>
         <div>
           <p class="text-sm font-medium text-blue-900">品牌所有者</p>
-          <p class="text-sm text-blue-700">品牌所有者（{brand.owner_email}）始终拥有完全访问权限，不受团队分配影响。超级管理员也可以访问所有品牌。
+          <p class="text-sm text-blue-700">品牌所有者（<span id="brand-owner-email">{brand.owner_email}</span>）始终拥有完全访问权限，不受团队分配影响。超级管理员也可以访问所有品牌。
           </p>
         </div>
       </div>
@@ -259,6 +231,143 @@ const roleBadgeColors: Record<string, string> = {
 
   <script define:vars={{ brandId: id }}>
     const API_URL = import.meta.env.PUBLIC_API_URL || '';
+    const apiBase = API_URL && API_URL.trim() ? API_URL.trim().replace(/\/$/, '') : '';
+    const api = (path) => (apiBase ? `${apiBase}${path}` : path);
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function renderTeam(assignments) {
+      const list = document.getElementById('team-list');
+      const countEl = document.getElementById('team-count');
+      if (countEl) countEl.textContent = String(Array.isArray(assignments) ? assignments.length : 0);
+      if (!list) return;
+      if (!Array.isArray(assignments) || assignments.length === 0) {
+        list.innerHTML = `
+          <div class="p-8 text-center text-gray-500">
+            <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <p class="font-medium">暂无团队成员</p>
+            <p class="text-sm">添加团队成员以授予他们访问此品牌的权限</p>
+          </div>
+        `;
+        bindRowActions();
+        return;
+      }
+
+      const roleLabels = {
+        brand_admin: '品牌管理员',
+        editor: '编辑',
+        read_only: '只读'
+      };
+
+      const roleBadgeColors = {
+        brand_admin: 'bg-purple-100 text-purple-700',
+        editor: 'bg-blue-100 text-blue-700',
+        read_only: 'bg-gray-100 text-gray-600'
+      };
+
+      list.innerHTML = assignments
+        .map((assignment) => {
+          const user = assignment?.admin_user || {};
+          const email = user?.email || '';
+          const name = user?.name || email;
+          const avatar = user?.avatar_url;
+          const initial = (email || '?').charAt(0).toUpperCase();
+          const role = assignment?.role || '';
+          const roleLabel = roleLabels[role] || role;
+          const roleClass = roleBadgeColors[role] || 'bg-gray-100 text-gray-600';
+
+          const avatarHtml = avatar
+            ? `<img src="${escapeHtml(avatar)}" alt="" class="w-10 h-10 rounded-full" />`
+            : `<div class="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center text-primary-600 font-medium">${escapeHtml(initial)}</div>`;
+
+          return `
+            <div class="p-4 flex items-center justify-between hover:bg-gray-50" data-assignment-id="${escapeHtml(assignment?.id)}">
+              <div class="flex items-center gap-4">
+                ${avatarHtml}
+                <div>
+                  <p class="font-medium text-gray-900">${escapeHtml(name)}</p>
+                  <p class="text-sm text-gray-500">${escapeHtml(email)}</p>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-4">
+                <span class="px-2 py-1 text-xs font-medium rounded-full ${roleClass}">${escapeHtml(roleLabel)}</span>
+
+                <div class="flex items-center gap-2">
+                  <button class="edit-role-btn text-sm text-primary-600 hover:text-primary-700" data-id="${escapeHtml(assignment?.id)}" data-role="${escapeHtml(role)}" data-user-email="${escapeHtml(email)}">编辑</button>
+                  <button class="remove-user-btn text-sm text-red-600 hover:text-red-700" data-id="${escapeHtml(assignment?.id)}" data-user-email="${escapeHtml(email)}">移除</button>
+                </div>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+
+      bindRowActions();
+    }
+
+    function renderAvailableUsers(adminUsers, assignments) {
+      const select = document.getElementById('user-select');
+      const info = document.getElementById('all-assigned-info');
+      const submitBtn = document.querySelector('#add-user-form button[type="submit"]');
+      if (!select || !submitBtn) return;
+
+      const assigned = new Set((Array.isArray(assignments) ? assignments : []).map((a) => a?.admin_user_id));
+      const available = (Array.isArray(adminUsers) ? adminUsers : []).filter((u) => !assigned.has(u?.id));
+
+      if (available.length === 0) {
+        select.innerHTML = `<option value="">选择用户...</option>`;
+        submitBtn.disabled = true;
+        if (info) info.classList.remove('hidden');
+        return;
+      }
+
+      if (info) info.classList.add('hidden');
+      submitBtn.disabled = false;
+      select.innerHTML = `
+        <option value="">选择用户...</option>
+        ${available
+          .map((u) => `<option value="${escapeHtml(u?.id)}">${escapeHtml(u?.email)}${u?.name ? ` (${escapeHtml(u?.name)})` : ''}</option>`)
+          .join('')}
+      `;
+    }
+
+    async function loadPageData() {
+      try {
+        const res = await fetch(api(`/api/admin/brands/${brandId}/users/page-data`));
+        if (!res.ok) {
+          window.location.href = '/admin/brands';
+          return;
+        }
+
+        const payload = await res.json();
+        const brand = payload?.brand || {};
+        const assignments = payload?.assignments || [];
+        const adminUsers = payload?.adminUsers || [];
+
+        const header = document.getElementById('brand-name-header');
+        if (header) header.textContent = `${brand?.name || 'Brand'} - 团队成员`;
+        const ownerEmail = document.getElementById('brand-owner-email');
+        if (ownerEmail) ownerEmail.textContent = brand?.owner_email || '';
+        if (brand?.name) document.title = `${brand.name} - Team`;
+
+        renderTeam(assignments);
+        renderAvailableUsers(adminUsers, assignments);
+      } catch {
+        // ignore
+      }
+    }
     
     // Add user modal
     const addModal = document.getElementById('add-user-modal');
@@ -303,7 +412,7 @@ const roleBadgeColors: Record<string, string> = {
       if (!adminUserId || !role) return;
       
       try {
-        const res = await fetch(`${API_URL}/api/admin/brands/${brandId}/users`, {
+        const res = await fetch(api(`/api/admin/brands/${brandId}/users`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ admin_user_id: adminUserId, role }),
@@ -330,7 +439,7 @@ const roleBadgeColors: Record<string, string> = {
       if (!assignmentId || !role) return;
       
       try {
-        const res = await fetch(`${API_URL}/api/admin/brands/${brandId}/users/${assignmentId}`, {
+        const res = await fetch(api(`/api/admin/brands/${brandId}/users/${assignmentId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ role }),
@@ -348,28 +457,48 @@ const roleBadgeColors: Record<string, string> = {
     });
 
     // Remove user
-    document.querySelectorAll('.remove-user-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const assignmentId = btn.dataset.id;
-        const userEmail = btn.dataset.userEmail;
-        
-        if (!confirm(`确定要从此品牌移除 ${userEmail} 吗？`)) return;
-        
-        try {
-          const res = await fetch(`${API_URL}/api/admin/brands/${brandId}/users/${assignmentId}`, {
-            method: 'DELETE',
-          });
-          
-          if (res.ok) {
-            window.location.reload();
-          } else {
-            const err = await res.json();
-            alert(err.error || '移除团队成员失败');
-          }
-        } catch (err) {
-          alert('移除团队成员失败');
-        }
+    function bindRowActions() {
+      // Edit role modal
+      const editModal = document.getElementById('edit-role-modal');
+      document.querySelectorAll('.edit-role-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const assignmentId = btn.dataset.id;
+          const currentRole = btn.dataset.role;
+          const userEmail = btn.dataset.userEmail;
+
+          document.getElementById('edit-assignment-id').value = assignmentId;
+          document.getElementById('edit-role-select').value = currentRole;
+          document.getElementById('edit-user-email').textContent = userEmail;
+          editModal?.classList.remove('hidden');
+        });
       });
-    });
+
+      document.querySelectorAll('.remove-user-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const assignmentId = btn.dataset.id;
+          const userEmail = btn.dataset.userEmail;
+
+          if (!confirm(`确定要从此品牌移除 ${userEmail} 吗？`)) return;
+
+          try {
+            const res = await fetch(api(`/api/admin/brands/${brandId}/users/${assignmentId}`), {
+              method: 'DELETE',
+            });
+
+            if (res.ok) {
+              window.location.reload();
+            } else {
+              const err = await res.json();
+              alert(err.error || '移除团队成员失败');
+            }
+          } catch (err) {
+            alert('移除团队成员失败');
+          }
+        });
+      });
+    }
+
+    // Load initial data after AdminLayout fetch wrapper is installed
+    setTimeout(loadPageData, 0);
   </script>
 </AdminLayout>

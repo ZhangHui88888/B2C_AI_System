@@ -2,36 +2,12 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
 
-// Get current brand from cookie
-const currentBrandId = Astro.cookies.get('brand_id')?.value;
+// Data loaded dynamically via client-side API calls
+const currentBrandId = Astro.cookies.get('brand_id')?.value || '';
 const isAllBrandsView = currentBrandId === 'all' || !currentBrandId;
-
-// Get all brands for reference
-const { data: brands } = await supabase
-  .from('brands')
-  .select('id, name, slug, logo_url')
-  .eq('is_active', true);
-
-// Get shared templates
-let templatesQuery = supabase
-  .from('shared_templates')
-  .select('*')
-  .order('created_at', { ascending: false });
-
-if (!isAllBrandsView && currentBrandId) {
-  // Show templates owned by this brand OR public templates OR templates shared with this brand
-  templatesQuery = templatesQuery.or(`owner_brand_id.eq.${currentBrandId},is_public.eq.true,allowed_brand_ids.cs.{${currentBrandId}}`);
-}
-
-const { data: templates } = await templatesQuery;
-
-// Enrich templates with brand info
-const enrichedTemplates = (templates || []).map(t => ({
-  ...t,
-  ownerBrand: brands?.find(b => b.id === t.owner_brand_id)
-}));
+const brands: any[] = [];
+const enrichedTemplates: any[] = [];
 
 const templateTypes: Record<string, { label: string; icon: string; color: string }> = {
   email: { label: 'Email', icon: 'mail', color: 'bg-blue-100 text-blue-700' },
@@ -222,6 +198,67 @@ const templateTypes: Record<string, { label: string; icon: string; color: string
     const modal = document.getElementById('template-modal');
     const modalTitle = document.getElementById('modal-title');
     const form = document.getElementById('template-form');
+    const templatesGrid = document.getElementById('templates-grid');
+
+    // Load templates on init
+    async function loadTemplates() {
+      try {
+        const res = await fetch(`/api/admin/templates`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.data) renderTemplates(json.data);
+      } catch (e) {
+        console.error('Failed to load templates:', e);
+      }
+    }
+
+    function renderTemplates(templates: any[]) {
+      if (!templatesGrid) return;
+      if (templates.length === 0) {
+        templatesGrid.innerHTML = `<div class="col-span-full text-center py-12 text-gray-500">暂无模板</div>`;
+        return;
+      }
+      const typeColors: Record<string, string> = {
+        email: 'bg-blue-100 text-blue-700',
+        page: 'bg-purple-100 text-purple-700',
+        content: 'bg-green-100 text-green-700',
+        script: 'bg-orange-100 text-orange-700'
+      };
+      templatesGrid.innerHTML = templates.map(t => `
+        <div class="template-card bg-white rounded-xl shadow-sm border border-gray-100 p-6" data-type="${t.template_type}" data-id="${t.id}">
+          <div class="flex items-start justify-between mb-3">
+            <span class="px-2 py-1 text-xs font-medium rounded ${typeColors[t.template_type] || 'bg-gray-100 text-gray-700'}">${t.template_type}</span>
+            ${t.is_public ? '<span class="px-2 py-1 text-xs bg-green-50 text-green-600 rounded">公开</span>' : ''}
+          </div>
+          <h3 class="font-semibold text-gray-900 mb-2">${t.name}</h3>
+          ${t.description ? `<p class="text-sm text-gray-600 line-clamp-2 mb-4">${t.description}</p>` : ''}
+          <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+            <button class="edit-template text-sm text-primary-600 hover:underline" data-template='${JSON.stringify(t)}'>编辑</button>
+            <button class="delete-template text-sm text-red-600 hover:underline" data-id="${t.id}">删除</button>
+          </div>
+        </div>
+      `).join('');
+      attachTemplateEventListeners();
+    }
+
+    function attachTemplateEventListeners() {
+      document.querySelectorAll('.edit-template').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const template = JSON.parse((btn as HTMLElement).dataset.template || '{}');
+          openModal(template);
+        });
+      });
+      document.querySelectorAll('.delete-template').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = (btn as HTMLElement).dataset.id;
+          if (!confirm('删除此模板？')) return;
+          const res = await fetch(`/api/admin/templates/${id}`, { method: 'DELETE' });
+          if (res.ok) loadTemplates();
+        });
+      });
+    }
+
+    loadTemplates();
 
     // Filter tabs
     document.querySelectorAll('.filter-tab').forEach(tab => {

@@ -2,25 +2,14 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
 
 const page = parseInt(Astro.url.searchParams.get('page') || '1');
-const limit = 20;
-const offset = (page - 1) * limit;
-
-const { data: products, count } = await supabase
-  .from('products')
-  .select('id, name, slug, price, compare_price, is_active, is_featured, stock_quantity, created_at, images', { count: 'exact' })
-  .order('created_at', { ascending: false })
-  .range(offset, offset + limit - 1);
-
-const totalPages = Math.ceil((count || 0) / limit);
 ---
 
 <AdminLayout title="商品管理" activePage="products">
   <div class="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
     <div>
-      <p class="text-sm text-gray-500">共 {count || 0} 个商品</p>
+      <p id="products-count" class="text-sm text-gray-500">加载中...</p>
     </div>
     <div class="flex items-center gap-3">
       <!-- Batch Actions (hidden by default) -->
@@ -65,58 +54,10 @@ const totalPages = Math.ceil((count || 0) / limit);
           <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
         </tr>
       </thead>
-      <tbody class="bg-white divide-y divide-gray-200">
-        {products && products.length > 0 ? (
-          products.map((product) => {
-            const images = product.images as string[] | null;
-            const thumbnail = images?.[0] || '/placeholder.jpg';
-            return (
-              <tr class="hover:bg-gray-50 product-row" data-id={product.id}>
-                <td class="px-4 py-4">
-                  <input type="checkbox" class="product-checkbox h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" data-id={product.id} />
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="flex items-center">
-                    <div class="flex-shrink-0 h-10 w-10">
-                      <img class="h-10 w-10 rounded-lg object-cover" src={thumbnail} alt={product.name} />
-                    </div>
-                    <div class="ml-4">
-                      <div class="text-sm font-medium text-gray-900">{product.name}</div>
-                      <div class="text-sm text-gray-500">{product.slug}</div>
-                    </div>
-                  </div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm text-gray-900">${product.price?.toFixed(2)}</div>
-                  {product.compare_price && (
-                    <div class="text-sm text-gray-500 line-through">${product.compare_price.toFixed(2)}</div>
-                  )}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {product.stock_quantity === null ? '∞' : product.stock_quantity}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <span class={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${product.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                    {product.is_active ? '已上架' : '草稿'}
-                  </span>
-                  {product.is_featured && (
-                    <span class="ml-1 inline-flex px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
-                      精选
-                    </span>
-                  )}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <a href={`/admin/products/${product.id}`} class="text-primary-600 hover:text-primary-900 mr-3">编辑</a>
-                  <button class="text-red-600 hover:text-red-900 delete-btn" data-id={product.id}>删除</button>
-                </td>
-              </tr>
-            );
-          })
-        ) : (
-          <tr>
-            <td colspan="6" class="px-6 py-8 text-center text-gray-500">暂无商品</td>
-          </tr>
-        )}
+      <tbody id="products-tbody" class="bg-white divide-y divide-gray-200">
+        <tr>
+          <td colspan="6" class="px-6 py-8 text-center text-gray-500">加载中...</td>
+        </tr>
       </tbody>
     </table>
   </div>
@@ -124,35 +65,26 @@ const totalPages = Math.ceil((count || 0) / limit);
   <!-- Toast -->
   <div id="toast" class="fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg transform translate-y-full opacity-0 transition-all duration-300 z-50"></div>
 
-  {totalPages > 1 && (
-    <div class="mt-6 flex items-center justify-between">
-      <div class="text-sm text-gray-500">
-        第 {page} 页，共 {totalPages} 页
-      </div>
-      <div class="flex gap-2">
-        {page > 1 && (
-          <a href={`/admin/products?page=${page - 1}`} class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
-            上一页
-          </a>
-        )}
-        {page < totalPages && (
-          <a href={`/admin/products?page=${page + 1}`} class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
-            下一页
-          </a>
-        )}
-      </div>
-    </div>
-  )}
+  <div id="products-pagination" class="mt-6 flex items-center justify-between hidden">
+    <div id="products-pagination-text" class="text-sm text-gray-500"></div>
+    <div id="products-pagination-actions" class="flex gap-2"></div>
+  </div>
 
   <script>
     const API_URL = import.meta.env.PUBLIC_API_URL || '';
     const toast = document.getElementById('toast');
     const batchActions = document.getElementById('batch-actions');
     const selectedCountEl = document.getElementById('selected-count');
-    const selectAllCheckbox = document.getElementById('select-all') as HTMLInputElement;
-    const productCheckboxes = document.querySelectorAll('.product-checkbox') as NodeListOf<HTMLInputElement>;
+    const selectAllCheckbox = document.getElementById('select-all');
+    const productsTbody = document.getElementById('products-tbody');
+    const productsCount = document.getElementById('products-count');
+    const pagination = document.getElementById('products-pagination');
+    const paginationText = document.getElementById('products-pagination-text');
+    const paginationActions = document.getElementById('products-pagination-actions');
 
-    function showToast(message: string, type = 'success') {
+    const currentPage = parseInt(new URLSearchParams(window.location.search).get('page') || '1');
+
+    function showToast(message, type = 'success') {
       if (!toast) return;
       toast.textContent = message;
       toast.className = `fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 z-50 ${
@@ -166,9 +98,14 @@ const totalPages = Math.ceil((count || 0) / limit);
       }, 3000);
     }
 
-    function getSelectedIds(): string[] {
-      const ids: string[] = [];
-      productCheckboxes.forEach((cb) => {
+    function getCookie(name) {
+      const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()\[\]\\\/\+^])/g, '\\$1') + '=([^;]*)'));
+      return m ? decodeURIComponent(m[1]) : null;
+    }
+
+    function getSelectedIds() {
+      const ids = [];
+      document.querySelectorAll('.product-checkbox').forEach((cb) => {
         if (cb.checked && cb.dataset.id) ids.push(cb.dataset.id);
       });
       return ids;
@@ -184,27 +121,162 @@ const totalPages = Math.ceil((count || 0) / limit);
         batchActions?.classList.add('hidden');
         batchActions?.classList.remove('flex');
       }
-      
-      // Update select-all state
-      const allChecked = selected.length === productCheckboxes.length && productCheckboxes.length > 0;
-      const someChecked = selected.length > 0 && selected.length < productCheckboxes.length;
+
+      const checkboxes = document.querySelectorAll('.product-checkbox');
+      const allChecked = selected.length === checkboxes.length && checkboxes.length > 0;
+      const someChecked = selected.length > 0 && selected.length < checkboxes.length;
       if (selectAllCheckbox) {
         selectAllCheckbox.checked = allChecked;
         selectAllCheckbox.indeterminate = someChecked;
       }
     }
 
+    function bindRowEvents() {
+      document.querySelectorAll('.product-checkbox').forEach((cb) => {
+        cb.addEventListener('change', updateBatchUI);
+      });
+
+      document.querySelectorAll('.delete-btn').forEach((btn) => {
+        btn.addEventListener('click', async (e) => {
+          const id = e.target?.dataset?.id;
+          if (!id || !confirm('确定要删除这个商品吗？')) return;
+
+          try {
+            const res = await fetch(`${API_URL}/api/admin/products/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+              showToast('商品已删除');
+              setTimeout(() => window.location.reload(), 500);
+            } else {
+              showToast('删除商品失败', 'error');
+            }
+          } catch {
+            showToast('删除商品失败', 'error');
+          }
+        });
+      });
+    }
+
+    function renderProducts(products, paginationData) {
+      if (!productsTbody) return;
+
+      if (!products || products.length === 0) {
+        productsTbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">暂无商品</td></tr>';
+      } else {
+        productsTbody.innerHTML = products
+          .map((product) => {
+            const images = Array.isArray(product.images) ? product.images : [];
+            const thumbnail = images?.[0] || '/placeholder.jpg';
+            const badge = product.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
+            const badgeText = product.is_active ? '已上架' : '草稿';
+            const featured = product.is_featured
+              ? '<span class="ml-1 inline-flex px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">精选</span>'
+              : '';
+            const compare = product.compare_price
+              ? `<div class="text-sm text-gray-500 line-through">$${Number(product.compare_price).toFixed(2)}</div>`
+              : '';
+            const stock = product.stock_quantity === null ? '∞' : (product.stock_quantity ?? '');
+
+            return `
+              <tr class="hover:bg-gray-50 product-row" data-id="${product.id}">
+                <td class="px-4 py-4">
+                  <input type="checkbox" class="product-checkbox h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" data-id="${product.id}" />
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="flex items-center">
+                    <div class="flex-shrink-0 h-10 w-10">
+                      <img class="h-10 w-10 rounded-lg object-cover" src="${thumbnail}" alt="${product.name || ''}" />
+                    </div>
+                    <div class="ml-4">
+                      <div class="text-sm font-medium text-gray-900">${product.name || ''}</div>
+                      <div class="text-sm text-gray-500">${product.slug || ''}</div>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-900">$${Number(product.price || 0).toFixed(2)}</div>
+                  ${compare}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${stock}</td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full ${badge}">${badgeText}</span>
+                  ${featured}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <a href="/admin/products/${product.id}" class="text-primary-600 hover:text-primary-900 mr-3">编辑</a>
+                  <button class="text-red-600 hover:text-red-900 delete-btn" data-id="${product.id}">删除</button>
+                </td>
+              </tr>
+            `;
+          })
+          .join('');
+      }
+
+      if (productsCount && paginationData) {
+        productsCount.textContent = `共 ${paginationData.total || 0} 个商品`;
+      }
+
+      if (pagination && paginationText && paginationActions && paginationData) {
+        if ((paginationData.totalPages || 0) <= 1) {
+          pagination.classList.add('hidden');
+        } else {
+          pagination.classList.remove('hidden');
+          paginationText.textContent = `第 ${paginationData.page} 页，共 ${paginationData.totalPages} 页`;
+          const params = new URLSearchParams(window.location.search);
+          const page = paginationData.page;
+          paginationActions.innerHTML = '';
+          if (page > 1) {
+            params.set('page', String(page - 1));
+            const href = `/admin/products?${params.toString()}`;
+            paginationActions.insertAdjacentHTML('beforeend', `<a href="${href}" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">上一页</a>`);
+          }
+          if (page < paginationData.totalPages) {
+            params.set('page', String(page + 1));
+            const href = `/admin/products?${params.toString()}`;
+            paginationActions.insertAdjacentHTML('beforeend', `<a href="${href}" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">下一页</a>`);
+          }
+        }
+      }
+
+      bindRowEvents();
+      updateBatchUI();
+    }
+
+    async function loadProducts() {
+      const brandId = getCookie('brand_id');
+      if (brandId === 'all') {
+        if (productsTbody) productsTbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">请先在右上角选择一个品牌</td></tr>';
+        if (productsCount) productsCount.textContent = '请选择品牌';
+        return;
+      }
+
+      try {
+        const qs = new URLSearchParams();
+        qs.set('page', String(currentPage));
+        const res = await fetch(`${API_URL}/api/admin/products?${qs.toString()}`);
+        if (!res.ok) {
+          renderProducts([], { page: currentPage, totalPages: 1, total: 0 });
+          return;
+        }
+
+        const data = await res.json();
+        const products = data?.products || data?.data || [];
+        const paginationData = data?.pagination || { page: currentPage, totalPages: 1, total: products.length };
+        renderProducts(products, paginationData);
+      } catch {
+        renderProducts([], { page: currentPage, totalPages: 1, total: 0 });
+      }
+    }
+
     // Select all
     selectAllCheckbox?.addEventListener('change', () => {
       const checked = selectAllCheckbox.checked;
-      productCheckboxes.forEach((cb) => { cb.checked = checked; });
+      document.querySelectorAll('.product-checkbox').forEach((cb) => {
+        cb.checked = checked;
+      });
       updateBatchUI();
     });
 
-    // Individual checkboxes
-    productCheckboxes.forEach((cb) => {
-      cb.addEventListener('change', updateBatchUI);
-    });
+    loadProducts();
 
     // Batch activate
     document.getElementById('batch-activate')?.addEventListener('click', async () => {

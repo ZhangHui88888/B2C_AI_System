@@ -2,28 +2,11 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
 
-// Get sitemap config
-const { data: sitemapConfig } = await supabase
-  .from('sitemap_config')
-  .select('*');
-
-// Get counts for each page type
-const { count: productCount } = await supabase
-  .from('products')
-  .select('*', { count: 'exact', head: true })
-  .eq('is_active', true);
-
-const { count: categoryCount } = await supabase
-  .from('categories')
-  .select('*', { count: 'exact', head: true });
-
-const { count: blogCount } = await supabase
-  .from('content_library')
-  .select('*', { count: 'exact', head: true })
-  .eq('content_type', 'blog')
-  .eq('status', 'published');
+const sitemapConfig: any[] = [];
+const productCount = 0;
+const categoryCount = 0;
+const blogCount = 0;
 
 // Default config for page types
 const defaultConfig = [
@@ -42,7 +25,6 @@ const pageTypes = defaultConfig.map(d => ({
 
 const totalUrls = pageTypes.reduce((sum, p) => sum + (p.is_included ? p.url_count : 0), 0);
 
-const apiUrl = import.meta.env.PUBLIC_API_URL || 'http://localhost:8787';
 const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
 ---
 
@@ -85,7 +67,7 @@ const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
       <p class="text-sm font-medium text-gray-500">总 URL 数</p>
-      <p class="text-2xl font-bold text-gray-900 mt-1">{totalUrls}</p>
+      <p class="text-2xl font-bold text-gray-900 mt-1" id="total-urls">{totalUrls}</p>
     </div>
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
       <p class="text-sm font-medium text-gray-500">站点地图 URL</p>
@@ -117,7 +99,7 @@ const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
               />
               <span class="text-sm font-medium text-gray-900 capitalize">{config.page_type}</span>
             </label>
-            <span class="text-sm text-gray-500">({config.url_count} URLs)</span>
+            <span class="text-sm text-gray-500">(<span id={`url-count-${config.page_type}`}>{config.url_count}</span> URLs)</span>
           </div>
 
           <div class="flex items-center gap-4">
@@ -199,7 +181,7 @@ const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
   </div>
 </AdminLayout>
 
-<script define:vars={{ apiUrl }}>
+<script>
   const form = document.getElementById('sitemap-form');
 
   form?.addEventListener('submit', async (e) => {
@@ -216,7 +198,7 @@ const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
     }));
 
     try {
-      const response = await fetch(`${apiUrl}/api/seo/sitemap/config`, {
+      const response = await fetch(`/api/admin/seo/sitemap/config`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ configs })
@@ -239,7 +221,7 @@ const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
     btn.innerHTML = '<svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Regenerating...';
 
     try {
-      const response = await fetch(`${apiUrl}/api/seo/sitemap/regenerate`, {
+      const response = await fetch(`/api/admin/seo/sitemap/regenerate`, {
         method: 'POST'
       });
 
@@ -257,4 +239,53 @@ const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
       btn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg> Regenerate Sitemap';
     }
   });
+
+  async function loadPageData() {
+    try {
+      const res = await fetch('/api/admin/seo/sitemap/page-data');
+      const json = await res.json().catch(() => null);
+      if (!json?.success) return;
+
+      const cfgRows = Array.isArray(json.sitemapConfig) ? json.sitemapConfig : [];
+      const counts = json.counts || {};
+
+      const defaults = {
+        products: { page_type: 'products', is_included: true, changefreq: 'weekly', priority: 0.8, url_count: Number(counts.products) || 0 },
+        categories: { page_type: 'categories', is_included: true, changefreq: 'weekly', priority: 0.7, url_count: Number(counts.categories) || 0 },
+        blogs: { page_type: 'blogs', is_included: true, changefreq: 'daily', priority: 0.6, url_count: Number(counts.blogs) || 0 },
+        pages: { page_type: 'pages', is_included: true, changefreq: 'monthly', priority: 0.5, url_count: Number(counts.pages) || 0 },
+      };
+
+      const cfgMap = new Map(cfgRows.map((c) => [c.page_type, c]));
+      const merged = ['products', 'categories', 'blogs', 'pages'].map((t) => ({ ...defaults[t], ...(cfgMap.get(t) || {}) }));
+
+      // Update UI
+      let total = 0;
+      merged.forEach((c) => {
+        const row = document.querySelector(`[data-page-type="${c.page_type}"]`);
+        if (!row) return;
+
+        const cb = row.querySelector(`input[name="${c.page_type}_included"]`);
+        if (cb) cb.checked = !!c.is_included;
+
+        const changefreq = row.querySelector(`select[name="${c.page_type}_changefreq"]`);
+        if (changefreq) changefreq.value = c.changefreq || 'weekly';
+
+        const priority = row.querySelector(`select[name="${c.page_type}_priority"]`);
+        if (priority) priority.value = String(c.priority ?? '0.5');
+
+        const countEl = document.getElementById(`url-count-${c.page_type}`);
+        if (countEl) countEl.textContent = String(c.url_count || 0);
+
+        if (c.is_included) total += Number(c.url_count) || 0;
+      });
+
+      const totalEl = document.getElementById('total-urls');
+      if (totalEl) totalEl.textContent = String(total);
+    } catch {
+      // ignore
+    }
+  }
+
+  loadPageData();
 </script>

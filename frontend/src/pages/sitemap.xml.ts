@@ -1,5 +1,4 @@
 import type { APIRoute } from 'astro';
-import { createClient } from '@supabase/supabase-js';
 import { blogPosts, authors } from '@lib/content';
 import { fetchSiteConfig } from '@lib/site-config';
 
@@ -23,9 +22,6 @@ export const GET: APIRoute = async ({ site, request }) => {
   if (!brand) {
     return new Response('Site not found', { status: 404 });
   }
-
-  const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
 
   const urls: { loc: string; lastmod?: string; changefreq?: string; priority?: string }[] = [];
 
@@ -67,15 +63,57 @@ export const GET: APIRoute = async ({ site, request }) => {
     });
   }
 
-  if (supabaseUrl && supabaseAnonKey) {
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false } });
+  async function fetchJson(url: string, init?: RequestInit): Promise<any | null> {
+    try {
+      const res = await fetch(url, init);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
 
-    const [{ data: products }, { data: categories }] = await Promise.all([
-      supabase.from('products').select('slug, updated_at').eq('brand_id', brand.id).eq('is_active', true),
-      supabase.from('categories').select('slug, updated_at').eq('brand_id', brand.id).eq('is_active', true),
-    ]);
+  function flattenCategories(nodes: any[]): any[] {
+    const result: any[] = [];
+    const stack: any[] = Array.isArray(nodes) ? [...nodes] : [];
+    while (stack.length) {
+      const node = stack.shift();
+      if (!node) continue;
+      result.push(node);
+      if (Array.isArray(node.children) && node.children.length) {
+        stack.push(...node.children);
+      }
+    }
+    return result;
+  }
 
-    for (const p of products || []) {
+  const apiOrigin = new URL(request.url).origin;
+  const categoriesData = await fetchJson(new URL('/api/categories', apiOrigin).toString());
+  const categories = flattenCategories(categoriesData?.categories || []);
+
+  for (const c of categories || []) {
+    if (!c?.slug) continue;
+    urls.push({
+      loc: `${siteUrl}/category/${encodeURIComponent(c.slug)}`,
+      lastmod: c.updated_at,
+      changefreq: 'weekly',
+      priority: '0.7',
+    });
+  }
+
+  const limit = 500;
+  let page = 1;
+
+  while (true) {
+    const productsData = await fetchJson(new URL('/api/products/list', apiOrigin).toString(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page, limit, sort: 'newest' }),
+    });
+
+    const products = productsData?.products || [];
+    for (const p of products) {
+      if (!p?.slug) continue;
       urls.push({
         loc: `${siteUrl}/products/${encodeURIComponent(p.slug)}`,
         lastmod: p.updated_at,
@@ -84,14 +122,9 @@ export const GET: APIRoute = async ({ site, request }) => {
       });
     }
 
-    for (const c of categories || []) {
-      urls.push({
-        loc: `${siteUrl}/category/${encodeURIComponent(c.slug)}`,
-        lastmod: c.updated_at,
-        changefreq: 'weekly',
-        priority: '0.7',
-      });
-    }
+    const totalPages = productsData?.pagination?.totalPages;
+    if (!totalPages || page >= totalPages || products.length === 0) break;
+    page += 1;
   }
 
   const body = `<?xml version="1.0" encoding="UTF-8"?>

@@ -16,29 +16,40 @@ const envVars = {
   PUBLIC_STRIPE_PUBLISHABLE_KEY: import.meta.env.PUBLIC_STRIPE_PUBLISHABLE_KEY ? 'SET (hidden)' : 'NOT SET',
 };
 
-let supabaseStatus = 'Not tested';
-let supabaseError = '';
+let workerStatus = 'Not tested';
+let workerError = '';
+
+async function fetchJson(url: string, init?: RequestInit): Promise<any | null> {
+  try {
+    const res = await fetch(url, init);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
 
 try {
-  const { createClient } = await import('@supabase/supabase-js');
-  const url = import.meta.env.PUBLIC_SUPABASE_URL;
-  const key = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
-  
-  if (url && key) {
-    const client = createClient(url, key);
-    const { data, error } = await client.from('products').select('id').eq('brand_id', brand.id).limit(1);
-    if (error) {
-      supabaseStatus = 'Error';
-      supabaseError = error.message;
-    } else {
-      supabaseStatus = 'Connected';
-    }
+  const apiOrigin = new URL(Astro.request.url).origin;
+
+  const [categoriesData, productsData] = await Promise.all([
+    fetchJson(new URL('/api/categories', apiOrigin).toString()),
+    fetchJson(new URL('/api/products/list', apiOrigin).toString(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page: 1, limit: 1, sort: 'newest' }),
+    }),
+  ]);
+
+  if (!categoriesData || !productsData) {
+    workerStatus = 'Error';
+    workerError = 'Failed to fetch Worker public APIs.';
   } else {
-    supabaseStatus = 'Missing credentials';
+    workerStatus = 'Connected';
   }
 } catch (e) {
-  supabaseStatus = 'Exception';
-  supabaseError = e instanceof Error ? e.message : String(e);
+  workerStatus = 'Exception';
+  workerError = e instanceof Error ? e.message : String(e);
 }
 ---
 
@@ -70,14 +81,14 @@ try {
   </div>
   
   <div class="card">
-    <h2>Supabase Connection</h2>
+    <h2>Worker API Connection</h2>
     <p>
       Status: 
-      <span class={`status ${supabaseStatus === 'Connected' ? 'ok' : supabaseStatus === 'Missing credentials' ? 'warn' : 'error'}`}>
-        {supabaseStatus}
+      <span class={`status ${workerStatus === 'Connected' ? 'ok' : workerStatus === 'Missing credentials' ? 'warn' : 'error'}`}>
+        {workerStatus}
       </span>
     </p>
-    {supabaseError && <pre>Error: {supabaseError}</pre>}
+    {workerError && <pre>Error: {workerError}</pre>}
   </div>
   
   <div class="card">

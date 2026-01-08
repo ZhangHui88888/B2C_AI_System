@@ -38,9 +38,9 @@ export async function handleReviews(
     return errorResponse('Brand context missing', 400);
   }
 
-  // GET /api/reviews - List reviews (admin)
+  // Admin moderation routes are only available under /api/admin/reviews
   if (request.method === 'GET' && path === '/api/reviews') {
-    return await listReviews(supabase, brandId, request);
+    return errorResponse('Not found', 404);
   }
 
   // GET /api/reviews/product/:productId - Get product reviews (public)
@@ -60,22 +60,16 @@ export async function handleReviews(
     return await createReview(supabase, brandId, request);
   }
 
-  // PUT /api/reviews/:id - Update review (admin)
   if (request.method === 'PUT' && path.startsWith('/api/reviews/')) {
-    const id = path.replace('/api/reviews/', '');
-    return await updateReview(supabase, brandId, id, request);
+    return errorResponse('Not found', 404);
   }
 
-  // DELETE /api/reviews/:id - Delete review (admin)
   if (request.method === 'DELETE' && path.startsWith('/api/reviews/')) {
-    const id = path.replace('/api/reviews/', '');
-    return await deleteReview(supabase, brandId, id);
+    return errorResponse('Not found', 404);
   }
 
-  // POST /api/reviews/:id/reply - Add merchant reply
   if (request.method === 'POST' && path.match(/\/api\/reviews\/[^/]+\/reply$/)) {
-    const id = path.replace('/api/reviews/', '').replace('/reply', '');
-    return await addMerchantReply(supabase, brandId, id, request);
+    return errorResponse('Not found', 404);
   }
 
   // POST /api/reviews/:id/vote - Vote on review

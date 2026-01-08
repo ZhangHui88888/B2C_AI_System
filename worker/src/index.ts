@@ -19,8 +19,11 @@ import { handleAdminOrders } from './routes/admin-orders';
 import { handleAdminCoupons, handleCouponValidation } from './routes/admin-coupons';
 import { handleAdminBrands } from './routes/admin-brands';
 import { handleAdminTemplates } from './routes/admin-templates';
+import { handleAdminReviews } from './routes/admin-reviews';
+import { handleAdminSeo } from './routes/admin-seo';
 import { handleSeo } from './routes/seo';
 import { handleMonitoring } from './routes/monitoring';
+import { handleAdminOverview } from './routes/admin-overview';
 import { handleTracking } from './routes/tracking';
 import { handleEmailSequences } from './routes/email-sequences';
 import { handleWebVitals } from './routes/web-vitals';
@@ -29,11 +32,17 @@ import { handleImages } from './routes/images';
 import { handleSearchConsole } from './routes/search-console';
 import { handleSeoLinks } from './routes/seo-links';
 import { handleSitemap } from './routes/sitemap';
+import { handleAdminSitemap } from './routes/admin-sitemap';
 import { handleKeywords } from './routes/keywords';
 import { handleEeat } from './routes/eeat';
 import { handleIndexStatus } from './routes/index-status';
 import { handleSeoReports } from './routes/seo-reports';
+import { handleAdminAnalytics } from './routes/admin-analytics';
+import { handleAdminMarketing } from './routes/admin-marketing';
+import { handleAdminSettings } from './routes/admin-settings';
 import { handleRelatedContent } from './routes/related-content';
+import { handleAdminAdvancedSeo, isAdvancedSeoPublicPath, isAllowedSeoReportsCronPath } from './routes/admin-advanced-seo';
+import { validateCronSecret } from './utils/cron';
 import { handlePoints } from './routes/points';
 import { handleMembership } from './routes/membership';
 import { handleReferrals } from './routes/referrals';
@@ -175,6 +184,8 @@ export interface Env {
   
   // Environment
   ENVIRONMENT: string;
+
+  CRON_SECRET?: string;
   
   // Vectorize (optional)
   KNOWLEDGE_VECTORIZE?: VectorizeIndex;
@@ -231,13 +242,66 @@ export default {
         return await handleAdminBrands(routedRequest, env, path);
       }
 
+      if (path.startsWith('/api/admin/overview') || path.startsWith('/api/admin/dashboard')) {
+        return await handleAdminOverview(routedRequest, env, path);
+      }
+
+      if (path.startsWith('/api/admin/analytics')) {
+        return await handleAdminAnalytics(routedRequest, env, path);
+      }
+
+      if (path.startsWith('/api/admin/marketing')) {
+        return await handleAdminMarketing(routedRequest, env, path);
+      }
+
+      if (path.startsWith('/api/admin/settings')) {
+        return await handleAdminSettings(routedRequest, env, path);
+      }
+
       if (path.startsWith('/api/admin/templates')) {
         return await handleAdminTemplates(routedRequest, env, path);
       }
 
+      if (path.startsWith('/api/admin/reviews')) {
+        return await handleAdminReviews(routedRequest, env, path);
+      }
+
+      if (path.startsWith('/api/admin/sitemap')) {
+        return await handleAdminSitemap(routedRequest, env, path);
+      }
+
+      if (
+        path.startsWith('/api/admin/keywords') ||
+        path.startsWith('/api/admin/eeat') ||
+        path.startsWith('/api/admin/index-status') ||
+        path.startsWith('/api/admin/seo-reports') ||
+        path.startsWith('/api/admin/related-content') ||
+        path.startsWith('/api/admin/seo/links')
+      ) {
+        return await handleAdminAdvancedSeo(routedRequest, env, path);
+      }
+
+      if (path.startsWith('/api/admin/seo')) {
+        return await handleAdminSeo(routedRequest, env, path);
+      }
+
       // SEO Tools Routes
       if (path.startsWith('/api/seo')) {
-        return await handleSeo(routedRequest, env, path);
+        return jsonResponse({ error: 'Not found' }, 404);
+      }
+
+      // Advanced SEO/Analysis routes are admin-only
+      if (isAllowedSeoReportsCronPath(path, request.method)) {
+        const cron = validateCronSecret(request, env);
+        if (!cron.ok) return cron.response;
+      }
+
+      if (
+        isAdvancedSeoPublicPath(path) &&
+        path !== '/api/related-content/for-display' &&
+        !isAllowedSeoReportsCronPath(path, request.method)
+      ) {
+        return jsonResponse({ error: 'Not found' }, 404);
       }
 
       // Marketing & Tracking Routes
@@ -276,6 +340,14 @@ export default {
       }
 
       // Sitemap Sharding Routes
+      if (
+        (path === '/api/sitemap/regenerate' && request.method === 'POST') ||
+        (path === '/api/sitemap/stats' && request.method === 'GET') ||
+        (path === '/api/sitemap/shards' && request.method === 'GET')
+      ) {
+        return jsonResponse({ error: 'Not found' }, 404);
+      }
+
       if (path.startsWith('/api/sitemap')) {
         return await handleSitemap(routedRequest, env, path);
       }

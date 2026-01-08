@@ -2,28 +2,11 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
 
-// Get products for the generator
-const { data: products } = await supabase
-  .from('products')
-  .select('id, name')
-  .eq('is_active', true)
-  .order('name');
-
-// Get authors for assignment
-const { data: authors } = await supabase
-  .from('authors')
-  .select('id, name')
-  .eq('is_active', true)
-  .order('name');
-
-// Get saved content with author info
-const { data: content } = await supabase
-  .from('content_library')
-  .select('id, type, product_id, content, platform, status, is_ai_generated, author_id, title, created_at, author:authors(id, name)')
-  .order('created_at', { ascending: false })
-  .limit(20);
+// Data loaded dynamically via client-side API calls
+const products: any[] = [];
+const authors: any[] = [];
+const content: any[] = [];
 ---
 
 <AdminLayout title="内容生成器" activePage="content">
@@ -210,8 +193,28 @@ const { data: content } = await supabase
     const resultContent = document.getElementById('result-content');
     const copyBtn = document.getElementById('copy-btn');
     const saveBtn = document.getElementById('save-btn');
+    const productSelect = document.getElementById('product-select') as HTMLSelectElement;
 
     let currentResult = { content: '', type: '', productId: '', platform: '' };
+
+    // Load products and authors on init
+    async function loadFormData() {
+      try {
+        // Load products
+        const productsRes = await fetch('/api/admin/products?limit=100&is_active=true');
+        if (productsRes.ok) {
+          const json = await productsRes.json();
+          if (json.data && productSelect) {
+            productSelect.innerHTML = '<option value="">选择一个产品...</option>' + 
+              json.data.map((p: any) => `<option value="${p.id}">${p.name}</option>`).join('');
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load form data:', e);
+      }
+    }
+    
+    loadFormData();
 
     form?.addEventListener('submit', async (e) => {
       e.preventDefault();

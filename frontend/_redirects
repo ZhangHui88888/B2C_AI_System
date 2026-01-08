@@ -2,7 +2,7 @@
 # https://developers.cloudflare.com/pages/configuration/redirects/
 
 # API proxy to Worker (uncomment and configure domain)
-# /api/*  https://api.yourdomain.com/:splat  200
+/api/*  https://dtc-ecommerce-api.harry-zhang592802.workers.dev/:splat  200
 
 # Redirect www to non-www (configure in Cloudflare DNS instead for better performance)
 # https://www.example.com/*  https://example.com/:splat  301

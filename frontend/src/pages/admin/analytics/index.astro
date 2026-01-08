@@ -2,7 +2,7 @@
 export const prerender = false;
 
 import AdminLayout from '@layouts/AdminLayout.astro';
-import { supabase } from '@lib/supabase';
+const chartData: any[] = [];
 
 // Get date ranges
 const now = new Date();
@@ -11,46 +11,29 @@ const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
 const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
 
 // Fetch orders for the last 30 days
-const { data: orders } = await supabase
-  .from('orders')
-  .select('id, total, status, created_at, items, customer_email')
-  .gte('created_at', thirtyDaysAgo.toISOString())
-  .not('status', 'in', '("cancelled","refunded")')
-  .order('created_at', { ascending: true });
+const orders: any[] = [];
 
 // Calculate stats
-const totalRevenue = orders?.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0) || 0;
-const totalOrders = orders?.length || 0;
-const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+const totalRevenue = 0;
+const totalOrders = 0;
+const avgOrderValue = 0;
 
 // Today's stats
-const todayOrders = orders?.filter(o => new Date(o.created_at) >= today) || [];
-const todayRevenue = todayOrders.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0);
+const todayOrders: any[] = [];
+const todayRevenue = 0;
 
 // Last 7 days stats
-const last7DaysOrders = orders?.filter(o => new Date(o.created_at) >= sevenDaysAgo) || [];
-const last7DaysRevenue = last7DaysOrders.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0);
+const last7DaysOrders: any[] = [];
+const last7DaysRevenue = 0;
 
 // Customer count
-const { count: customerCount } = await supabase
-  .from('customers')
-  .select('*', { count: 'exact', head: true });
+const customerCount = 0;
 
 // Product count
-const { count: productCount } = await supabase
-  .from('products')
-  .select('*', { count: 'exact', head: true })
-  .eq('is_active', true);
+const productCount = 0;
 
 // Group orders by date for chart
 const dailyData = new Map();
-orders?.forEach(order => {
-  const date = order.created_at.split('T')[0];
-  const existing = dailyData.get(date) || { revenue: 0, orders: 0 };
-  existing.revenue += parseFloat(order.total) || 0;
-  existing.orders += 1;
-  dailyData.set(date, existing);
-});
 
 // Fill missing dates
 const current = new Date(thirtyDaysAgo);
@@ -62,34 +45,15 @@ while (current <= now) {
   current.setDate(current.getDate() + 1);
 }
 
-const chartData = Array.from(dailyData.entries())
-  .sort((a, b) => a[0].localeCompare(b[0]))
-  .map(([date, data]) => ({ date, ...data }));
+// chartData is client-loaded
 
 // Product rankings from order items
 const productSales = new Map();
-orders?.forEach(order => {
-  const items = order.items || [];
-  items.forEach((item: any) => {
-    const id = item.product_id || item.id || 'unknown';
-    const existing = productSales.get(id) || { name: item.name || '', quantity: 0, revenue: 0 };
-    existing.quantity += item.quantity || 1;
-    existing.revenue += (item.price || 0) * (item.quantity || 1);
-    existing.name = item.name || existing.name;
-    productSales.set(id, existing);
-  });
-});
 
-const topProducts = Array.from(productSales.entries())
-  .map(([id, data]) => ({ id, ...data }))
-  .sort((a, b) => b.revenue - a.revenue)
-  .slice(0, 10);
+const topProducts: any[] = [];
 
 // Order status breakdown
-const statusCounts = orders?.reduce((acc, o) => {
-  acc[o.status] = (acc[o.status] || 0) + 1;
-  return acc;
-}, {} as Record<string, number>) || {};
+const statusCounts: Record<string, number> = {};
 
 function formatCurrency(value: number): string {
   return `$${value.toFixed(2)}`;
@@ -122,7 +86,7 @@ function formatChange(current: number, previous: number): { value: string; posit
       <div class="flex items-center justify-between">
         <div>
           <p class="text-sm font-medium text-gray-500">总收入</p>
-          <p class="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(totalRevenue)}</p>
+          <p class="text-2xl font-bold text-gray-900 mt-1" id="stat-total-revenue">{formatCurrency(totalRevenue)}</p>
           <p class="text-sm text-gray-500 mt-1">最近 30 天</p>
         </div>
         <div class="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
@@ -137,7 +101,7 @@ function formatChange(current: number, previous: number): { value: string; posit
       <div class="flex items-center justify-between">
         <div>
           <p class="text-sm font-medium text-gray-500">总订单</p>
-          <p class="text-2xl font-bold text-gray-900 mt-1">{totalOrders}</p>
+          <p class="text-2xl font-bold text-gray-900 mt-1" id="stat-total-orders">{totalOrders}</p>
           <p class="text-sm text-gray-500 mt-1">最近 30 天</p>
         </div>
         <div class="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
@@ -152,7 +116,7 @@ function formatChange(current: number, previous: number): { value: string; posit
       <div class="flex items-center justify-between">
         <div>
           <p class="text-sm font-medium text-gray-500">平均订单金额</p>
-          <p class="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(avgOrderValue)}</p>
+          <p class="text-2xl font-bold text-gray-900 mt-1" id="stat-avg-order">{formatCurrency(avgOrderValue)}</p>
           <p class="text-sm text-gray-500 mt-1">最近 30 天</p>
         </div>
         <div class="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
@@ -167,8 +131,8 @@ function formatChange(current: number, previous: number): { value: string; posit
       <div class="flex items-center justify-between">
         <div>
           <p class="text-sm font-medium text-gray-500">今日</p>
-          <p class="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(todayRevenue)}</p>
-          <p class="text-sm text-gray-500 mt-1">{todayOrders.length} 笔订单</p>
+          <p class="text-2xl font-bold text-gray-900 mt-1" id="stat-today-revenue">{formatCurrency(todayRevenue)}</p>
+          <p class="text-sm text-gray-500 mt-1"><span id="stat-today-orders">{todayOrders.length}</span> 笔订单</p>
         </div>
         <div class="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
           <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -197,31 +161,8 @@ function formatChange(current: number, previous: number): { value: string; posit
     <!-- Order Status Breakdown -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <h2 class="text-lg font-semibold text-gray-900 mb-4">订单状态</h2>
-      <div class="space-y-3">
-        {Object.entries(statusCounts).map(([status, count]) => {
-          const percentage = totalOrders > 0 ? (count / totalOrders * 100) : 0;
-          const colors = {
-            pending: 'bg-yellow-500',
-            paid: 'bg-blue-500',
-            shipped: 'bg-purple-500',
-            delivered: 'bg-green-500',
-          };
-          return (
-            <div>
-              <div class="flex items-center justify-between text-sm mb-1">
-                <span class="capitalize text-gray-600">{status}</span>
-                <span class="font-medium">{count} ({percentage.toFixed(1)}%)</span>
-              </div>
-              <div class="w-full bg-gray-100 rounded-full h-2">
-                <div class={`${colors[status] || 'bg-gray-500'} h-2 rounded-full`} style={`width: ${percentage}%`}></div>
-              </div>
-            </div>
-          );
-        })}
-        {Object.keys(statusCounts).length === 0 && (
-          <p class="text-sm text-gray-500 text-center py-4">暂无订单</p>
-        )}
-      </div>
+      <div class="space-y-3" id="status-breakdown"></div>
+      <p class="text-sm text-gray-500 text-center py-4" id="status-empty">暂无订单</p>
     </div>
   </div>
 
@@ -242,24 +183,9 @@ function formatChange(current: number, previous: number): { value: string; posit
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
-            {topProducts.length > 0 ? topProducts.map((product, index) => (
-              <tr>
-                <td class="py-3">
-                  <div class="flex items-center gap-2">
-                    <span class="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-xs font-medium text-gray-600">
-                      {index + 1}
-                    </span>
-                    <span class="text-sm font-medium text-gray-900 truncate max-w-[200px]">{product.name || '未知商品'}</span>
-                  </div>
-                </td>
-                <td class="py-3 text-sm text-right text-gray-600">{product.quantity}</td>
-                <td class="py-3 text-sm text-right font-medium text-gray-900">{formatCurrency(product.revenue)}</td>
-              </tr>
-            )) : (
-              <tr>
-                <td colspan="3" class="py-8 text-center text-sm text-gray-500">暂无销售数据</td>
-              </tr>
-            )}
+            <tr>
+              <td colspan="3" class="py-8 text-center text-sm text-gray-500" id="top-products-loading">Loading...</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -271,117 +197,287 @@ function formatChange(current: number, previous: number): { value: string; posit
       <div class="grid grid-cols-2 gap-4">
         <div class="p-4 bg-gray-50 rounded-lg">
           <p class="text-sm text-gray-500">总客户数</p>
-          <p class="text-xl font-bold text-gray-900">{customerCount || 0}</p>
+          <p class="text-xl font-bold text-gray-900" id="count-customers">{customerCount || 0}</p>
         </div>
         <div class="p-4 bg-gray-50 rounded-lg">
           <p class="text-sm text-gray-500">上架商品</p>
-          <p class="text-xl font-bold text-gray-900">{productCount || 0}</p>
+          <p class="text-xl font-bold text-gray-900" id="count-products">{productCount || 0}</p>
         </div>
         <div class="p-4 bg-gray-50 rounded-lg">
           <p class="text-sm text-gray-500">7日收入</p>
-          <p class="text-xl font-bold text-gray-900">{formatCurrency(last7DaysRevenue)}</p>
+          <p class="text-xl font-bold text-gray-900" id="stat-7d-revenue">{formatCurrency(last7DaysRevenue)}</p>
         </div>
         <div class="p-4 bg-gray-50 rounded-lg">
           <p class="text-sm text-gray-500">7日订单</p>
-          <p class="text-xl font-bold text-gray-900">{last7DaysOrders.length}</p>
+          <p class="text-xl font-bold text-gray-900" id="stat-7d-orders">{last7DaysOrders.length}</p>
         </div>
       </div>
 
       <!-- Conversion Funnel Preview -->
       <div class="mt-6 pt-6 border-t border-gray-100">
         <h3 class="text-sm font-medium text-gray-900 mb-3">转化漏斗</h3>
-        <div class="space-y-2">
-          {[
-            { stage: '已下单', count: totalOrders },
-            { stage: '已支付', count: statusCounts['paid'] || 0 + (statusCounts['shipped'] || 0) + (statusCounts['delivered'] || 0) },
-            { stage: '已发货', count: (statusCounts['shipped'] || 0) + (statusCounts['delivered'] || 0) },
-            { stage: '已送达', count: statusCounts['delivered'] || 0 },
-          ].map((step, i) => (
-            <div class="flex items-center gap-3">
-              <div class="w-24 text-xs text-gray-500">{step.stage}</div>
-              <div class="flex-1 bg-gray-100 rounded-full h-2">
-                <div 
-                  class="bg-primary-500 h-2 rounded-full transition-all" 
-                  style={`width: ${totalOrders > 0 ? (step.count / totalOrders * 100) : 0}%`}
-                ></div>
-              </div>
-              <div class="w-12 text-xs text-right font-medium">{step.count}</div>
-            </div>
-          ))}
-        </div>
+        <div class="space-y-2" id="funnel-steps"></div>
       </div>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script define:vars={{ chartData }}>
-    // Initialize chart
-    const ctx = document.getElementById('sales-chart');
-    if (ctx) {
-      const chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: chartData.map(d => {
-            const date = new Date(d.date);
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-          }),
-          datasets: [{
-            label: 'Revenue',
-            data: chartData.map(d => d.revenue),
-            borderColor: 'rgb(79, 70, 229)',
-            backgroundColor: 'rgba(79, 70, 229, 0.1)',
-            fill: true,
-            tension: 0.4,
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: (context) => {
-                  const value = context.raw;
-                  return `$${value.toFixed(2)}`;
-                }
-              }
-            }
-          },
-          scales: {
-            x: {
-              grid: { display: false },
-              ticks: { maxTicksLimit: 10 }
-            },
-            y: {
-              beginAtZero: true,
-              ticks: {
-                callback: (value) => `$${value}`
-              }
-            }
-          }
-        }
+  <script>
+    const API_URL = import.meta.env.PUBLIC_API_URL || '';
+    const apiBase = API_URL && API_URL.trim() ? API_URL.trim().replace(/\/$/, '') : '';
+    const api = (path) => (apiBase ? `${apiBase}${path}` : path);
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatCurrency(value) {
+      const n = typeof value === 'number' ? value : Number(value);
+      const v = Number.isFinite(n) ? n : 0;
+      return `$${v.toFixed(2)}`;
+    }
+
+    function setText(id, value) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = String(value ?? '');
+    }
+
+    function renderStatusBreakdown(statusCounts, totalOrders) {
+      const list = document.getElementById('status-breakdown');
+      const empty = document.getElementById('status-empty');
+      if (!list || !empty) return;
+
+      const entries = statusCounts && typeof statusCounts === 'object' ? Object.entries(statusCounts) : [];
+      if (!entries.length) {
+        list.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+
+      empty.classList.add('hidden');
+
+      const colors = {
+        pending: 'bg-yellow-500',
+        paid: 'bg-blue-500',
+        shipped: 'bg-purple-500',
+        delivered: 'bg-green-500',
+      };
+
+      list.innerHTML = entries
+        .map(([status, count]) => {
+          const c = typeof count === 'number' ? count : Number(count) || 0;
+          const pct = totalOrders > 0 ? (c / totalOrders) * 100 : 0;
+          const barClass = colors[status] || 'bg-gray-500';
+          return `
+            <div>
+              <div class="flex items-center justify-between text-sm mb-1">
+                <span class="capitalize text-gray-600">${escapeHtml(status)}</span>
+                <span class="font-medium">${escapeHtml(c)} (${escapeHtml(pct.toFixed(1))}%)</span>
+              </div>
+              <div class="w-full bg-gray-100 rounded-full h-2">
+                <div class="${escapeHtml(barClass)} h-2 rounded-full" style="width: ${pct}%"></div>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    function renderTopProducts(topProducts) {
+      const tbody = document.querySelector('table.w-full tbody.divide-y.divide-gray-100');
+      if (!tbody) return;
+
+      if (!Array.isArray(topProducts) || topProducts.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="3" class="py-8 text-center text-sm text-gray-500">暂无销售数据</td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = topProducts
+        .map((product, index) => {
+          const name = product?.name || '未知商品';
+          const quantity = product?.quantity || 0;
+          const revenue = product?.revenue || 0;
+          return `
+            <tr>
+              <td class="py-3">
+                <div class="flex items-center gap-2">
+                  <span class="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-xs font-medium text-gray-600">${index + 1}</span>
+                  <span class="text-sm font-medium text-gray-900 truncate max-w-[200px]">${escapeHtml(name)}</span>
+                </div>
+              </td>
+              <td class="py-3 text-sm text-right text-gray-600">${escapeHtml(quantity)}</td>
+              <td class="py-3 text-sm text-right font-medium text-gray-900">${escapeHtml(formatCurrency(revenue))}</td>
+            </tr>
+          `;
+        })
+        .join('');
+    }
+
+    function renderFunnel(totalOrders, statusCounts) {
+      const el = document.getElementById('funnel-steps');
+      if (!el) return;
+      const counts = statusCounts && typeof statusCounts === 'object' ? statusCounts : {};
+      const paid = (counts['paid'] || 0) + (counts['shipped'] || 0) + (counts['delivered'] || 0);
+      const shipped = (counts['shipped'] || 0) + (counts['delivered'] || 0);
+      const delivered = counts['delivered'] || 0;
+
+      const steps = [
+        { stage: '已下单', count: totalOrders },
+        { stage: '已支付', count: paid },
+        { stage: '已发货', count: shipped },
+        { stage: '已送达', count: delivered },
+      ];
+
+      el.innerHTML = steps
+        .map((step) => {
+          const pct = totalOrders > 0 ? (step.count / totalOrders) * 100 : 0;
+          return `
+            <div class="flex items-center gap-3">
+              <div class="w-24 text-xs text-gray-500">${escapeHtml(step.stage)}</div>
+              <div class="flex-1 bg-gray-100 rounded-full h-2">
+                <div class="bg-primary-500 h-2 rounded-full transition-all" style="width: ${pct}%"></div>
+              </div>
+              <div class="w-12 text-xs text-right font-medium">${escapeHtml(step.count)}</div>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    let chart = null;
+    let currentMetric = 'revenue';
+    let currentChartData = [];
+
+    function initOrUpdateChart(chartData) {
+      const ctx = document.getElementById('sales-chart');
+      if (!ctx || typeof Chart === 'undefined') return;
+
+      currentChartData = Array.isArray(chartData) ? chartData : [];
+
+      const labels = currentChartData.map((d) => {
+        const date = new Date(d.date);
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       });
 
-      // Toggle between revenue and orders
-      document.querySelectorAll('.chart-toggle').forEach(btn => {
+      const series = currentChartData.map((d) => (currentMetric === 'orders' ? d.orders : d.revenue));
+
+      if (!chart) {
+        chart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [
+              {
+                label: currentMetric === 'orders' ? 'Orders' : 'Revenue',
+                data: series,
+                borderColor: 'rgb(79, 70, 229)',
+                backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                fill: true,
+                tension: 0.4,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: (context) => {
+                    const value = context.raw;
+                    if (currentMetric === 'orders') return `${value}`;
+                    return `$${Number(value || 0).toFixed(2)}`;
+                  },
+                },
+              },
+            },
+            scales: {
+              x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } },
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  callback: (value) => (currentMetric === 'orders' ? value : `$${value}`),
+                },
+              },
+            },
+          },
+        });
+        return;
+      }
+
+      chart.data.labels = labels;
+      chart.data.datasets[0].data = series;
+      chart.data.datasets[0].label = currentMetric === 'orders' ? 'Orders' : 'Revenue';
+      chart.update();
+    }
+
+    function bindChartToggles() {
+      document.querySelectorAll('.chart-toggle').forEach((btn) => {
         btn.addEventListener('click', (e) => {
-          document.querySelectorAll('.chart-toggle').forEach(b => {
+          document.querySelectorAll('.chart-toggle').forEach((b) => {
             b.classList.remove('bg-primary-100', 'text-primary-700');
             b.classList.add('text-gray-600');
           });
-          e.target.classList.add('bg-primary-100', 'text-primary-700');
-          e.target.classList.remove('text-gray-600');
 
-          const metric = e.target.dataset.metric;
-          chart.data.datasets[0].data = chartData.map(d => metric === 'orders' ? d.orders : d.revenue);
-          chart.data.datasets[0].label = metric === 'orders' ? 'Orders' : 'Revenue';
-          chart.options.scales.y.ticks.callback = metric === 'orders' 
-            ? (value) => value 
-            : (value) => `$${value}`;
-          chart.update();
+          const t = e.currentTarget;
+          t.classList.add('bg-primary-100', 'text-primary-700');
+          t.classList.remove('text-gray-600');
+
+          currentMetric = t.dataset.metric || 'revenue';
+          initOrUpdateChart(currentChartData);
         });
       });
     }
+
+    async function loadPageData(days) {
+      try {
+        const res = await fetch(api(`/api/admin/analytics/page-data?days=${days}`));
+        if (!res.ok) return;
+        const data = await res.json();
+
+        const stats = data?.stats || {};
+        const counts = data?.counts || {};
+        const statusCounts = data?.statusCounts || {};
+
+        setText('stat-total-revenue', formatCurrency(stats.totalRevenue || 0));
+        setText('stat-total-orders', stats.totalOrders || 0);
+        setText('stat-avg-order', formatCurrency(stats.avgOrderValue || 0));
+        setText('stat-today-revenue', formatCurrency(stats.todayRevenue || 0));
+        setText('stat-today-orders', stats.todayOrders || 0);
+
+        setText('count-customers', counts.customerCount || 0);
+        setText('count-products', counts.productCount || 0);
+        setText('stat-7d-revenue', formatCurrency(stats.last7DaysRevenue || 0));
+        setText('stat-7d-orders', stats.last7DaysOrders || 0);
+
+        renderStatusBreakdown(statusCounts, stats.totalOrders || 0);
+        renderTopProducts(data?.topProducts || []);
+        renderFunnel(stats.totalOrders || 0, statusCounts);
+
+        initOrUpdateChart(data?.chartData || []);
+      } catch {
+        // ignore
+      }
+    }
+
+    bindChartToggles();
+
+    const range = document.getElementById('time-range');
+    range?.addEventListener('change', () => {
+      const days = Number(range.value || 30) || 30;
+      loadPageData(days);
+    });
+
+    setTimeout(() => loadPageData(30), 0);
   </script>
 </AdminLayout>

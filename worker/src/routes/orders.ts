@@ -158,7 +158,7 @@ export async function handleOrders(
     const productIds = normalizedItems.map((i) => i.productId);
     const { data: productRows, error: productError } = await supabase
       .from(Tables.PRODUCTS)
-      .select('id, name, price, stock_status, is_active, stock_quantity')
+      .select('id, name, slug, main_image_url, price, stock_status, is_active, stock_quantity')
       .eq('brand_id', brandId)
       .in('id', productIds);
 
@@ -193,6 +193,8 @@ export async function handleOrders(
       orderItems.push({
         product_id: product.id,
         name: product.name,
+        slug: (product as any)?.slug ?? null,
+        image: (product as any)?.main_image_url ?? null,
         quantity: item.quantity,
         unit_price: unitPrice,
         line_total: lineTotalCents / 100,
