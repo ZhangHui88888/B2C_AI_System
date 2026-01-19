@@ -113,7 +113,7 @@ function formatMoney(amount: number | null): string {
   
   // Status filter
   document.getElementById('status-filter')?.addEventListener('change', (e) => {
-    const status = (e.target as HTMLSelectElement).value;
+    const status = e.target.value;
     window.location.href = `?status=${status}`;
   });
 
@@ -153,9 +153,9 @@ function formatMoney(amount: number | null): string {
 
   function bindCheckboxEvents() {
     document.getElementById('select-all')?.addEventListener('change', (e) => {
-      const checked = (e.target as HTMLInputElement).checked;
+      const checked = e.target.checked;
       document.querySelectorAll('.cart-checkbox:not(:disabled)').forEach((cb) => {
-        (cb as HTMLInputElement).checked = checked;
+        cb.checked = checked;
       });
       updateSelectedCount();
     });
@@ -251,7 +251,7 @@ function formatMoney(amount: number | null): string {
       const data = await res.json();
 
       const total = data?.pagination?.total ?? 0;
-      document.getElementById('total-count')!.textContent = String(total);
+      const totalEl = document.getElementById('total-count'); if (totalEl) totalEl.textContent = String(total);
       renderCarts(data?.carts || []);
       renderPagination(data?.pagination?.page || 1, data?.pagination?.totalPages || 0, initialStatus);
       bindCheckboxEvents();
@@ -281,12 +281,12 @@ function formatMoney(amount: number | null): string {
   });
 
   confirmBtn?.addEventListener('click', async () => {
-    const cartIds: string[] = [];
+    const cartIds = [];
     document.querySelectorAll('.cart-checkbox:checked').forEach((cb) => {
-      cartIds.push((cb as HTMLElement).dataset.id || '');
+      cartIds.push(cb.dataset?.id || '');
     });
 
-    const discountCode = (document.getElementById('discount-code') as HTMLInputElement)?.value;
+    const discountCode = document.getElementById('discount-code')?.value;
 
     try {
       const response = await fetch(api('/api/admin/marketing/abandoned-carts/send-recovery'), {
@@ -300,7 +300,7 @@ function formatMoney(amount: number | null): string {
 
       const result = await response.json();
       if (result.success) {
-        const sent = result.results?.filter((r: any) => r.status === 'sent').length || 0;
+        const sent = result.results?.filter((r) => r.status === 'sent').length || 0;
         alert(`成功发送 ${sent} 封挥回邮件`);
         window.location.reload();
       } else {

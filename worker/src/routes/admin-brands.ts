@@ -117,25 +117,25 @@ export async function handleAdminBrands(
       }
 
       // Check slug uniqueness
-      const { data: existing } = await supabase
+      const { data: existingList } = await supabase
         .from('brands')
         .select('id')
         .eq('slug', body.slug)
-        .single();
+        .limit(1);
 
-      if (existing) {
+      if (existingList && existingList.length > 0) {
         return errorResponse('Brand with this slug already exists', 400);
       }
 
       // Check domain uniqueness if provided
       if (body.domain) {
-        const { data: existingDomain } = await supabase
+        const { data: existingDomainList } = await supabase
           .from('brands')
           .select('id')
           .eq('domain', body.domain)
-          .single();
+          .limit(1);
 
-        if (existingDomain) {
+        if (existingDomainList && existingDomainList.length > 0) {
           return errorResponse('Brand with this domain already exists', 400);
         }
       }

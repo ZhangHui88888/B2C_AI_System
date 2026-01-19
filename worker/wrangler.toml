@@ -91,14 +91,13 @@ workers_dev = false
 [env.production.vars]
 ENVIRONMENT = "production"
 LOG_LEVEL = "warn"
-CORS_ORIGINS = "https://yourdomain.com,https://brand1.com,https://brand2.com"
+CORS_ORIGINS = "https://cmsbike.uk"
+OWNER_EMAIL = "652364972@qq.com"
 
-# Production routes (multi-domain)
-# routes = [
-#   { pattern = "api.yourdomain.com/*", zone_name = "yourdomain.com" },
-#   { pattern = "api.brand1.com/*", zone_name = "brand1.com" },
-#   { pattern = "api.brand2.com/*", zone_name = "brand2.com" }
-# ]
+# Production routes
+routes = [
+  { pattern = "api.cmsbike.uk/*", zone_name = "cmsbike.uk" }
+]
 
 # Production KV
 # [[env.production.kv_namespaces]]

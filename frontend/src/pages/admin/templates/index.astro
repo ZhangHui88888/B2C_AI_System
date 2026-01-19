@@ -212,13 +212,13 @@ const templateTypes: Record<string, { label: string; icon: string; color: string
       }
     }
 
-    function renderTemplates(templates: any[]) {
+    function renderTemplates(templates) {
       if (!templatesGrid) return;
       if (templates.length === 0) {
         templatesGrid.innerHTML = `<div class="col-span-full text-center py-12 text-gray-500">暂无模板</div>`;
         return;
       }
-      const typeColors: Record<string, string> = {
+      const typeColors = {
         email: 'bg-blue-100 text-blue-700',
         page: 'bg-purple-100 text-purple-700',
         content: 'bg-green-100 text-green-700',
@@ -244,13 +244,13 @@ const templateTypes: Record<string, { label: string; icon: string; color: string
     function attachTemplateEventListeners() {
       document.querySelectorAll('.edit-template').forEach(btn => {
         btn.addEventListener('click', () => {
-          const template = JSON.parse((btn as HTMLElement).dataset.template || '{}');
+          const template = JSON.parse(btn.dataset?.template || '{}');
           openModal(template);
         });
       });
       document.querySelectorAll('.delete-template').forEach(btn => {
         btn.addEventListener('click', async () => {
-          const id = (btn as HTMLElement).dataset.id;
+          const id = btn.dataset?.id;
           if (!confirm('删除此模板？')) return;
           const res = await fetch(`/api/admin/templates/${id}`, { method: 'DELETE' });
           if (res.ok) loadTemplates();

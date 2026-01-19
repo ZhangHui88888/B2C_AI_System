@@ -45,6 +45,30 @@ const countryOptions = [
   { value: 'SG', label: 'Singapore' },
   { value: 'NZ', label: 'New Zealand' },
 ];
+
+// Email template defaults (using placeholders that won't be parsed as JS)
+const orderConfirmationSubject = 'Your order #{{order_id}} has been confirmed!';
+const orderConfirmationBody = `Hi {{customer_name}},
+
+Thank you for your order! We've received your order #{{order_id}} and are preparing it for shipment.
+
+Order Total: {{order_total}}
+
+We'll send you another email when your order ships.
+
+Thanks for shopping with us!`;
+
+const shippingNotificationSubject = 'Your order #{{order_id}} has shipped!';
+const shippingNotificationBody = `Hi {{customer_name}},
+
+Great news! Your order #{{order_id}} is on its way!
+
+Tracking Number: {{tracking_number}}
+Carrier: {{carrier}}
+
+Track your package: {{tracking_url}}
+
+Thanks for shopping with us!`;
 ---
 
 <AdminLayout title="设置" activePage="settings">
@@ -220,19 +244,11 @@ const countryOptions = [
             <div class="space-y-3">
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-                <input type="text" name="email_order_confirmation_subject" class="w-full border-gray-300 rounded-lg text-sm" value="Your order #{{order_id}} has been confirmed!" />
+                <input type="text" name="email_order_confirmation_subject" class="w-full border-gray-300 rounded-lg text-sm" value={orderConfirmationSubject} />
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Body</label>
-                <textarea name="email_order_confirmation_body" rows="6" class="w-full border-gray-300 rounded-lg text-sm font-mono">Hi {{customer_name}},
-
-Thank you for your order! We've received your order #{{order_id}} and are preparing it for shipment.
-
-Order Total: {{order_total}}
-
-We'll send you another email when your order ships.
-
-Thanks for shopping with us!</textarea>
+                <textarea name="email_order_confirmation_body" rows="6" class="w-full border-gray-300 rounded-lg text-sm font-mono">{orderConfirmationBody}</textarea>
               </div>
               <div class="flex gap-2">
                 <button type="button" class="save-template-btn px-3 py-1.5 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700" data-template="order_confirmation">Save</button>
@@ -257,20 +273,11 @@ Thanks for shopping with us!</textarea>
             <div class="space-y-3">
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-                <input type="text" name="email_shipping_notification_subject" class="w-full border-gray-300 rounded-lg text-sm" value="Your order #{{order_id}} has shipped!" />
+                <input type="text" name="email_shipping_notification_subject" class="w-full border-gray-300 rounded-lg text-sm" value={shippingNotificationSubject} />
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Body</label>
-                <textarea name="email_shipping_notification_body" rows="6" class="w-full border-gray-300 rounded-lg text-sm font-mono">Hi {{customer_name}},
-
-Great news! Your order #{{order_id}} is on its way!
-
-Tracking Number: {{tracking_number}}
-Carrier: {{carrier}}
-
-Track your package: {{tracking_url}}
-
-Thanks for shopping with us!</textarea>
+                <textarea name="email_shipping_notification_body" rows="6" class="w-full border-gray-300 rounded-lg text-sm font-mono">{shippingNotificationBody}</textarea>
               </div>
               <div class="flex gap-2">
                 <button type="button" class="save-template-btn px-3 py-1.5 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700" data-template="shipping_notification">Save</button>

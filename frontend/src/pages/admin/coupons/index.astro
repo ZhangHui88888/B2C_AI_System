@@ -231,7 +231,7 @@ const typeLabels: Record<string, string> = {
   <script>
     const API_URL = import.meta.env.PUBLIC_API_URL || '';
     const modal = document.getElementById('coupon-modal');
-    const form = document.getElementById('coupon-form') as HTMLFormElement;
+    const form = document.getElementById('coupon-form');
     const modalTitle = document.getElementById('modal-title');
     const toast = document.getElementById('toast');
 
@@ -257,7 +257,7 @@ const typeLabels: Record<string, string> = {
       }
     }
     
-    function renderCoupons(coupons: any[], pagination: any) {
+    function renderCoupons(coupons, pagination) {
       const tbody = document.querySelector('tbody');
       const countEl = document.querySelector('.text-sm.text-gray-500');
       if (!tbody) return;
@@ -314,14 +314,14 @@ const typeLabels: Record<string, string> = {
     function attachCouponEventListeners() {
       document.querySelectorAll('.edit-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
-          const coupon = JSON.parse((btn as HTMLElement).dataset.coupon || '{}');
+          const coupon = JSON.parse(btn.dataset?.coupon || '{}');
           openModal(coupon);
         });
       });
       
       document.querySelectorAll('.delete-btn').forEach((btn) => {
         btn.addEventListener('click', async () => {
-          const id = (btn as HTMLElement).dataset.id;
+          const id = btn.dataset?.id;
           if (!confirm('删除这个优惠券？')) return;
           
           try {
@@ -342,7 +342,7 @@ const typeLabels: Record<string, string> = {
     // Load on init
     loadCoupons();
 
-    function showToast(message: string, type = 'success') {
+    function showToast(message, type = 'success') {
       if (!toast) return;
       toast.textContent = message;
       toast.className = `fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 z-50 ${
@@ -356,29 +356,30 @@ const typeLabels: Record<string, string> = {
       }, 3000);
     }
 
-    function openModal(coupon?: any) {
-      form.reset();
+    function openModal(coupon) {
+      form?.reset();
       if (coupon) {
-        modalTitle!.textContent = '编辑优惠券';
-        (form.elements.namedItem('id') as HTMLInputElement).value = coupon.id;
-        (form.elements.namedItem('code') as HTMLInputElement).value = coupon.code;
-        (form.elements.namedItem('description') as HTMLInputElement).value = coupon.description || '';
-        (form.elements.namedItem('type') as HTMLSelectElement).value = coupon.type;
-        (form.elements.namedItem('value') as HTMLInputElement).value = coupon.value;
-        (form.elements.namedItem('status') as HTMLSelectElement).value = coupon.status;
-        (form.elements.namedItem('min_order_amount') as HTMLInputElement).value = coupon.min_order_amount || '';
-        (form.elements.namedItem('max_discount_amount') as HTMLInputElement).value = coupon.max_discount_amount || '';
-        (form.elements.namedItem('usage_limit') as HTMLInputElement).value = coupon.usage_limit || '';
-        (form.elements.namedItem('usage_limit_per_customer') as HTMLInputElement).value = coupon.usage_limit_per_customer || '1';
-        if (coupon.starts_at) {
-          (form.elements.namedItem('starts_at') as HTMLInputElement).value = new Date(coupon.starts_at).toISOString().slice(0, 16);
+        if (modalTitle) modalTitle.textContent = '编辑优惠券';
+        const getEl = (n) => form?.elements?.namedItem(n);
+        if (getEl('id')) getEl('id').value = coupon.id;
+        if (getEl('code')) getEl('code').value = coupon.code;
+        if (getEl('description')) getEl('description').value = coupon.description || '';
+        if (getEl('type')) getEl('type').value = coupon.type;
+        if (getEl('value')) getEl('value').value = coupon.value;
+        if (getEl('status')) getEl('status').value = coupon.status;
+        if (getEl('min_order_amount')) getEl('min_order_amount').value = coupon.min_order_amount || '';
+        if (getEl('max_discount_amount')) getEl('max_discount_amount').value = coupon.max_discount_amount || '';
+        if (getEl('usage_limit')) getEl('usage_limit').value = coupon.usage_limit || '';
+        if (getEl('usage_limit_per_customer')) getEl('usage_limit_per_customer').value = coupon.usage_limit_per_customer || '1';
+        if (coupon.starts_at && getEl('starts_at')) {
+          getEl('starts_at').value = new Date(coupon.starts_at).toISOString().slice(0, 16);
         }
-        if (coupon.expires_at) {
-          (form.elements.namedItem('expires_at') as HTMLInputElement).value = new Date(coupon.expires_at).toISOString().slice(0, 16);
+        if (coupon.expires_at && getEl('expires_at')) {
+          getEl('expires_at').value = new Date(coupon.expires_at).toISOString().slice(0, 16);
         }
-        (form.elements.namedItem('first_order_only') as HTMLInputElement).checked = coupon.first_order_only;
+        if (getEl('first_order_only')) getEl('first_order_only').checked = coupon.first_order_only;
       } else {
-        modalTitle!.textContent = '添加优惠券';
+        if (modalTitle) modalTitle.textContent = '添加优惠券';
       }
       modal?.classList.remove('hidden');
     }
@@ -395,7 +396,7 @@ const typeLabels: Record<string, string> = {
 
     // Status filter
     document.getElementById('status-filter')?.addEventListener('change', (e) => {
-      const value = (e.target as HTMLSelectElement).value;
+      const value = e.target?.value;
       window.location.href = `/admin/coupons${value ? `?status=${value}` : ''}`;
     });
 
@@ -405,16 +406,16 @@ const typeLabels: Record<string, string> = {
       const formData = new FormData(form);
       const id = formData.get('id');
       
-      const data: Record<string, any> = {
-        code: (formData.get('code') as string).toUpperCase(),
+      const data = {
+        code: String(formData.get('code') || '').toUpperCase(),
         description: formData.get('description') || null,
         type: formData.get('type'),
-        value: parseFloat(formData.get('value') as string),
+        value: parseFloat(formData.get('value')) || 0,
         status: formData.get('status'),
-        min_order_amount: parseFloat(formData.get('min_order_amount') as string) || 0,
-        max_discount_amount: formData.get('max_discount_amount') ? parseFloat(formData.get('max_discount_amount') as string) : null,
-        usage_limit: formData.get('usage_limit') ? parseInt(formData.get('usage_limit') as string) : null,
-        usage_limit_per_customer: parseInt(formData.get('usage_limit_per_customer') as string) || 1,
+        min_order_amount: parseFloat(formData.get('min_order_amount')) || 0,
+        max_discount_amount: formData.get('max_discount_amount') ? parseFloat(formData.get('max_discount_amount')) : null,
+        usage_limit: formData.get('usage_limit') ? parseInt(formData.get('usage_limit')) : null,
+        usage_limit_per_customer: parseInt(formData.get('usage_limit_per_customer')) || 1,
         starts_at: formData.get('starts_at') || null,
         expires_at: formData.get('expires_at') || null,
         first_order_only: formData.get('first_order_only') === 'on',

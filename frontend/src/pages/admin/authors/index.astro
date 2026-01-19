@@ -198,7 +198,7 @@ const authors: any[] = [];
       }
     }
 
-    function renderAuthors(authors: any[]) {
+    function renderAuthors(authors) {
       if (!authorsGrid) return;
       if (authors.length === 0) {
         authorsGrid.innerHTML = `<div class="col-span-full text-center py-12 text-gray-500">暂无作者，点击添加作者按钮创建</div>`;
@@ -235,15 +235,15 @@ const authors: any[] = [];
     function attachAuthorEventListeners() {
       document.querySelectorAll('.edit-author').forEach(btn => {
         btn.addEventListener('click', () => {
-          const author = JSON.parse((btn as HTMLElement).dataset.author || '{}');
+          const author = JSON.parse(btn.dataset?.author || '{}');
           openModal(author);
         });
       });
       document.querySelectorAll('.delete-author').forEach(btn => {
         btn.addEventListener('click', async () => {
-          const id = (btn as HTMLElement).dataset.id;
+          const id = btn.dataset?.id;
           if (!confirm('删除此作者？')) return;
-          const result = await api.deleteAuthor(id!);
+          const result = await api.deleteAuthor(id);
           if (result.success) loadAuthors();
         });
       });
@@ -253,19 +253,19 @@ const authors: any[] = [];
 
     function openModal(author?: any) {
       editingId = author?.id || null;
-      modalTitle!.textContent = author ? '编辑作者' : '添加作者';
+      if (modalTitle) modalTitle.textContent = author ? '编辑作者' : '添加作者';
       
       // Reset form
       form.reset();
-      (document.getElementById('author-id') as HTMLInputElement).value = author?.id || '';
-      (document.getElementById('author-name') as HTMLInputElement).value = author?.name || '';
-      (document.getElementById('author-slug') as HTMLInputElement).value = author?.slug || '';
-      (document.getElementById('author-avatar') as HTMLInputElement).value = author?.avatar_url || '';
-      (document.getElementById('author-bio') as HTMLTextAreaElement).value = author?.bio || '';
-      (document.getElementById('author-credentials') as HTMLInputElement).value = (author?.credentials || []).join(', ');
-      (document.getElementById('author-twitter') as HTMLInputElement).value = author?.social_links?.twitter || '';
-      (document.getElementById('author-linkedin') as HTMLInputElement).value = author?.social_links?.linkedin || '';
-      (document.getElementById('author-active') as HTMLInputElement).checked = author?.is_active !== false;
+      const idEl = document.getElementById('author-id'); if (idEl) idEl.value = author?.id || '';
+      const nameEl = document.getElementById('author-name'); if (nameEl) nameEl.value = author?.name || '';
+      const slugEl = document.getElementById('author-slug'); if (slugEl) slugEl.value = author?.slug || '';
+      const avatarEl = document.getElementById('author-avatar'); if (avatarEl) avatarEl.value = author?.avatar_url || '';
+      const bioEl = document.getElementById('author-bio'); if (bioEl) bioEl.value = author?.bio || '';
+      const credEl = document.getElementById('author-credentials'); if (credEl) credEl.value = (author?.credentials || []).join(', ');
+      const twitterEl = document.getElementById('author-twitter'); if (twitterEl) twitterEl.value = author?.social_links?.twitter || '';
+      const linkedinEl = document.getElementById('author-linkedin'); if (linkedinEl) linkedinEl.value = author?.social_links?.linkedin || '';
+      const activeEl = document.getElementById('author-active'); if (activeEl) activeEl.checked = author?.is_active !== false;
 
       modal?.classList.remove('hidden');
     }
@@ -284,7 +284,7 @@ const authors: any[] = [];
     // Edit buttons
     document.querySelectorAll('.edit-author').forEach(btn => {
       btn.addEventListener('click', async (e) => {
-        const id = (e.target as HTMLElement).dataset.id;
+        const id = e.target?.dataset?.id;
         if (!id) return;
         
         try {
@@ -301,7 +301,7 @@ const authors: any[] = [];
     // Delete buttons
     document.querySelectorAll('.delete-author').forEach(btn => {
       btn.addEventListener('click', async (e) => {
-        const id = (e.target as HTMLElement).dataset.id;
+        const id = e.target?.dataset?.id;
         if (!id || !confirm('删除此作者？其内容将保留但变为未归属。')) return;
         
         try {
@@ -322,27 +322,27 @@ const authors: any[] = [];
       e.preventDefault();
       
       const formData = new FormData(form);
-      const credentialsStr = formData.get('credentials') as string;
+      const credentialsStr = formData.get('credentials');
       const credentials = credentialsStr ? credentialsStr.split(',').map(c => c.trim()).filter(Boolean) : [];
       
       const data = {
-        name: formData.get('name') as string,
-        slug: formData.get('slug') as string || undefined,
-        avatar_url: formData.get('avatar_url') as string || undefined,
-        bio: formData.get('bio') as string || undefined,
+        name: formData.get('name'),
+        slug: formData.get('slug') || undefined,
+        avatar_url: formData.get('avatar_url') || undefined,
+        bio: formData.get('bio') || undefined,
         credentials: credentials.length > 0 ? credentials : undefined,
         social_links: {
-          twitter: formData.get('twitter') as string || undefined,
-          linkedin: formData.get('linkedin') as string || undefined,
+          twitter: formData.get('twitter') || undefined,
+          linkedin: formData.get('linkedin') || undefined,
         },
-        is_active: (document.getElementById('author-active') as HTMLInputElement).checked,
+        is_active: document.getElementById('author-active')?.checked,
       };
 
       // Remove undefined values from social_links
       Object.keys(data.social_links).forEach(key => {
-        if (!(data.social_links as any)[key]) delete (data.social_links as any)[key];
+        if (!data.social_links[key]) delete data.social_links[key];
       });
-      if (Object.keys(data.social_links).length === 0) delete (data as any).social_links;
+      if (Object.keys(data.social_links).length === 0) delete data.social_links;
 
       try {
         let result;

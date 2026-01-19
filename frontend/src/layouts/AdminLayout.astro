@@ -165,6 +165,9 @@ const icons: Record<string, string> = {
       const closeBtn = document.getElementById('close-sidebar');
       const logoutBtn = document.getElementById('logout-btn');
 
+      let _supabaseClientPromise = null;
+      let _tokenCache = { value: null, expiresAtMs: 0, inFlight: null };
+
       function toggleSidebar(show) {
         sidebar?.classList.toggle('-translate-x-full', !show);
         overlay?.classList.toggle('hidden', !show);
@@ -176,21 +179,53 @@ const icons: Record<string, string> = {
 
       logoutBtn?.addEventListener('click', async () => {
         // Sign out via Supabase
-        const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-        const supabase = createClient(supabaseUrl, supabaseAnonKey);
-        await supabase.auth.signOut();
+        try {
+          const supabase = await getSupabaseClient();
+          await supabase.auth.signOut();
+        } catch {
+          // ignore
+        }
+        _tokenCache = { value: null, expiresAtMs: 0, inFlight: null };
         window.location.href = '/admin/login';
       });
 
-      async function getAccessToken() {
-        try {
+      async function getSupabaseClient() {
+        if (_supabaseClientPromise) return _supabaseClientPromise;
+        _supabaseClientPromise = (async () => {
           const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-          const supabase = createClient(supabaseUrl, supabaseAnonKey);
-          const { data } = await supabase.auth.getSession();
-          return data?.session?.access_token || null;
-        } catch {
-          return null;
+          return createClient(supabaseUrl, supabaseAnonKey);
+        })();
+        return _supabaseClientPromise;
+      }
+
+      async function getAccessToken() {
+        const now = Date.now();
+        if (_tokenCache.value && _tokenCache.expiresAtMs && now < _tokenCache.expiresAtMs - 30_000) {
+          return _tokenCache.value;
         }
+
+        if (_tokenCache.inFlight) return _tokenCache.inFlight;
+
+        _tokenCache.inFlight = (async () => {
+          try {
+            const supabase = await getSupabaseClient();
+            const { data } = await supabase.auth.getSession();
+            const session = data?.session || null;
+            const token = session?.access_token || null;
+            const expiresAtMs = typeof session?.expires_at === 'number' ? session.expires_at * 1000 : 0;
+            _tokenCache.value = token;
+            _tokenCache.expiresAtMs = expiresAtMs;
+            return token;
+          } catch {
+            _tokenCache.value = null;
+            _tokenCache.expiresAtMs = 0;
+            return null;
+          } finally {
+            _tokenCache.inFlight = null;
+          }
+        })();
+
+        return _tokenCache.inFlight;
       }
 
       function getCookie(name) {

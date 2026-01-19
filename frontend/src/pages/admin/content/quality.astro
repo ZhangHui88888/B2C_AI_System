@@ -225,13 +225,13 @@ const staleCount = 0;
     import { api } from '@lib/api';
 
     // Originality Check
-    const originalityForm = document.getElementById('originality-form') as HTMLFormElement;
-    const checkOriginalityBtn = document.getElementById('check-originality-btn') as HTMLButtonElement;
+    const originalityForm = document.getElementById('originality-form');
+    const checkOriginalityBtn = document.getElementById('check-originality-btn');
     const originalityResults = document.getElementById('originality-results');
 
     originalityForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const content = (document.getElementById('originality-content') as HTMLTextAreaElement).value;
+      const content = document.getElementById('originality-content')?.value || '';
       
       if (content.length < 50) {
         alert('内容至少需要 50 个字符');
@@ -259,7 +259,7 @@ const staleCount = 0;
       }
     });
 
-    function displayOriginalityResults(data: any) {
+    function displayOriginalityResults(data) {
       const score = data.score;
       const scoreEl = document.getElementById('originality-score');
       const indicatorEl = document.getElementById('score-indicator');
@@ -310,7 +310,7 @@ const staleCount = 0;
       if (data.analysis.commonPatterns?.length > 0) {
         patternsSection?.classList.remove('hidden');
         if (patternsList) {
-          patternsList.innerHTML = data.analysis.commonPatterns.map((p: string) => `<li>• ${p}</li>`).join('');
+          patternsList.innerHTML = data.analysis.commonPatterns.map((p) => `<li>• ${p}</li>`).join('');
         }
       } else {
         patternsSection?.classList.add('hidden');
@@ -322,7 +322,7 @@ const staleCount = 0;
       if (data.analysis.suggestions?.length > 0) {
         suggestionsSection?.classList.remove('hidden');
         if (suggestionsList) {
-          suggestionsList.innerHTML = data.analysis.suggestions.map((s: string) => `<li>• ${s}</li>`).join('');
+          suggestionsList.innerHTML = data.analysis.suggestions.map((s) => `<li>• ${s}</li>`).join('');
         }
       } else {
         suggestionsSection?.classList.add('hidden');
@@ -330,8 +330,8 @@ const staleCount = 0;
     }
 
     // Content Differentiation
-    const differentiateForm = document.getElementById('differentiate-form') as HTMLFormElement;
-    const differentiateBtn = document.getElementById('differentiate-btn') as HTMLButtonElement;
+    const differentiateForm = document.getElementById('differentiate-form');
+    const differentiateBtn = document.getElementById('differentiate-btn');
     const diffResults = document.getElementById('diff-results');
     const diffContent = document.getElementById('diff-content');
     const diffMetadata = document.getElementById('diff-metadata');
@@ -341,14 +341,14 @@ const staleCount = 0;
     differentiateForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
       
-      const productId = (document.getElementById('diff-product') as HTMLSelectElement).value;
-      const contentType = (document.getElementById('diff-type') as HTMLSelectElement).value as any;
-      const tone = (document.getElementById('diff-tone') as HTMLSelectElement).value as any;
-      const language = (document.getElementById('diff-language') as HTMLSelectElement).value;
-      const includeReviews = (document.getElementById('include-reviews') as HTMLInputElement).checked;
-      const includeSpecs = (document.getElementById('include-specs') as HTMLInputElement).checked;
-      const includeComparisons = (document.getElementById('include-comparisons') as HTMLInputElement).checked;
-      const baseContent = (document.getElementById('base-content') as HTMLTextAreaElement).value || undefined;
+      const productId = document.getElementById('diff-product')?.value;
+      const contentType = document.getElementById('diff-type')?.value;
+      const tone = document.getElementById('diff-tone')?.value;
+      const language = document.getElementById('diff-language')?.value;
+      const includeReviews = document.getElementById('include-reviews')?.checked;
+      const includeSpecs = document.getElementById('include-specs')?.checked;
+      const includeComparisons = document.getElementById('include-comparisons')?.checked;
+      const baseContent = document.getElementById('base-content')?.value || undefined;
 
       if (!productId) {
         alert('请选择一个产品');
@@ -417,7 +417,7 @@ const staleCount = 0;
     // Check originality of differentiated content
     document.getElementById('check-diff-originality-btn')?.addEventListener('click', () => {
       if (currentDiffResult.content) {
-        (document.getElementById('originality-content') as HTMLTextAreaElement).value = currentDiffResult.content;
+        const origEl = document.getElementById('originality-content'); if (origEl) origEl.value = currentDiffResult.content;
         originalityForm?.dispatchEvent(new Event('submit'));
       }
     });
@@ -426,7 +426,7 @@ const staleCount = 0;
     document.getElementById('save-diff-btn')?.addEventListener('click', async () => {
       if (!currentDiffResult.content) return;
       
-      const typeMap: Record<string, string> = {
+      const typeMap = {
         description: 'description',
         social_post: 'caption',
         email: 'description',
@@ -435,7 +435,7 @@ const staleCount = 0;
       
       try {
         const result = await api.saveContent({
-          type: typeMap[currentDiffResult.contentType] as any || 'description',
+          type: typeMap[currentDiffResult.contentType] || 'description',
           content: currentDiffResult.content,
           product_id: currentDiffResult.productId,
           status: 'draft',
@@ -459,7 +459,7 @@ const staleCount = 0;
     document.getElementById('load-stale-btn')?.addEventListener('click', async () => {
       const listEl = document.getElementById('stale-content-list');
       const emptyEl = document.getElementById('stale-empty');
-      const btn = document.getElementById('load-stale-btn') as HTMLButtonElement;
+      const btn = document.getElementById('load-stale-btn');
       
       btn.textContent = '加载中...';
       
@@ -475,7 +475,7 @@ const staleCount = 0;
             listEl?.classList.remove('hidden');
             
             if (listEl) {
-              listEl.innerHTML = result.data.data.map((item: any) => `
+              listEl.innerHTML = result.data.data.map((item) => `
                 <div class="p-3 bg-gray-50 rounded-lg flex items-start justify-between">
                   <div class="flex-1">
                     <div class="flex items-center gap-2 mb-1">

@@ -121,9 +121,9 @@ if (apiUrl) {
     <!-- Favicon -->
     <link rel="icon" href={brand.favicon_url || '/favicon.svg'} />
 
-    <style>{brandCssVars}</style>
-    <style>{brandThemeOverrides}</style>
-    {brandCustomCss && <style>{brandCustomCss}</style>}
+    <style set:html={brandCssVars}></style>
+    <style set:html={brandThemeOverrides}></style>
+    {brandCustomCss && <style set:html={brandCustomCss}></style>}
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
