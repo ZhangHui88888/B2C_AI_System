@@ -1,0 +1,35 @@
+---
+description: "Astro 前端编码规范，编辑前端文件时自动应用"
+globs: ["frontend/**/*.astro", "frontend/**/*.ts", "frontend/**/*.tsx"]
+---
+
+# Astro 前端规范
+
+## 项目结构
+- Pages in `src/pages/`（文件路由）
+- Components in `src/components/`（按功能域组织：catalog/, brands/, admin/）
+- Layouts in `src/layouts/`
+- Utilities in `src/lib/`
+- Styles in `src/styles/`
+
+## Astro 规范
+- 使用 `.astro` 组件优先，交互性组件用 `.tsx`
+- 页面级数据在 frontmatter（---）中获取
+- 充分利用 SSR，减少客户端 JS
+- 静态内容使用 `getStaticPaths` 预渲染
+
+## TailwindCSS
+- 优先使用 Tailwind 工具类，避免自定义 CSS
+- 响应式设计使用 `sm:` / `md:` / `lg:` 前缀
+- 自定义颜色和间距在 `tailwind.config` 中统一定义
+- 使用 @tailwindcss/forms 和 @tailwindcss/typography 插件
+
+## TypeScript
+- Strict mode，禁止 `any`
+- Supabase 类型从数据库 schema 自动生成
+- API 响应类型集中定义
+
+## Supabase 客户端
+- 仅使用 anon key 进行客户端操作
+- 不在前端暴露 service_role key
+- 实时订阅用 Supabase Realtime

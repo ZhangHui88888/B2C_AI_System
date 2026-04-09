@@ -1,0 +1,35 @@
+---
+description: "Cloudflare Worker 后端编码规范，编辑 Worker 文件时自动应用"
+globs: ["worker/**/*.ts"]
+---
+
+# Cloudflare Worker 规范
+
+## 项目结构
+- 入口：`src/index.ts`
+- 路由：`src/routes/`（按功能域拆分）
+- 工具：`src/utils/`
+- 配置：`wrangler.toml`
+- 本地 secrets：`.dev.vars`（不提交）
+
+## 中间件链
+固定顺序：CORS → Brand resolution → Auth
+- Brand 通过请求 hostname 或 header 解析
+- Auth 验证 JWT 或 session token
+- 中间件修改顺序需评估安全影响
+
+## Supabase 操作
+- 使用 service_role key（仅在 Worker 环境变量中）
+- 所有查询必须包含 brand_id 过滤条件
+- 批量操作需限制单次数量
+
+## Stripe 集成
+- Webhook 必须验证签名（`stripe.webhooks.constructEvent`）
+- 支付意图创建需包含幂等键
+- 金额计算在服务端完成，不信任客户端传入的价格
+
+## 部署
+- `npx wrangler dev` 本地开发
+- `npx wrangler deploy` 部署
+- 环境变量通过 `wrangler secret put` 设置
+- KV namespace 绑定在 `wrangler.toml` 中配置

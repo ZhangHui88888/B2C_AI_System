@@ -1,0 +1,141 @@
+---
+/**
+ * CMSBike 尺寸指南组件
+ * 帮助用户选择 14" 或 16" 轮径
+ */
+interface Props {
+  brand?: any;
+}
+
+const R2_BASE = 'https://assets.cmsbike.uk';
+
+const sizes = [
+  {
+    size: '14"',
+    title: 'Compact Series',
+    image: `${R2_BASE}/14-inch/black-side.jpg`,
+    pros: [
+      'Ultra-compact folded size',
+      'Lighter weight (~15kg)',
+      'Fits in small car trunks',
+      'Ideal for mixed commute'
+    ],
+    bestFor: 'Short commutes, public transit, limited storage',
+    models: ['CMS-6-14D', 'CMSBS-6-14D', 'CMSTD-6-14D'],
+    priceRange: '$495 - $999'
+  },
+  {
+    size: '16"',
+    title: 'Performance Series',
+    image: `${R2_BASE}/ebike-16/side-view.jpg`,
+    pros: [
+      'More stable ride',
+      'Better for longer distances',
+      'Smoother over bumps',
+      'Premium components'
+    ],
+    bestFor: 'Daily commuting, leisure rides, comfort priority',
+    models: ['CMS-16JP', 'CMS-16NB', 'CMSTD-6-16D'],
+    priceRange: '$799 - $1,290',
+    recommended: true
+  }
+];
+---
+
+<section class="py-20 bg-gradient-to-b from-gray-50 to-white">
+  <div class="container-custom">
+    <div class="text-center mb-16">
+      <span class="inline-block px-4 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium mb-4">
+        Size Guide
+      </span>
+      <h2 class="text-3xl lg:text-4xl font-bold text-gray-900">
+        14" or 16" Wheels?
+      </h2>
+      <p class="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
+        Both sizes fold in one second. Choose based on your riding style and storage needs.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
+      {sizes.map((item) => (
+        <div class={`relative rounded-2xl overflow-hidden ${item.recommended ? 'ring-2 ring-orange-500' : 'border border-gray-200'} bg-white`}>
+          {/* Recommended Badge */}
+          {item.recommended && (
+            <div class="absolute top-4 right-4 z-10">
+              <span class="px-3 py-1 bg-orange-500 text-white rounded-full text-sm font-medium">
+                Recommended
+              </span>
+            </div>
+          )}
+
+          {/* Image */}
+          <div class="aspect-[16/10] bg-gray-100 overflow-hidden">
+            {item.image ? (
+              <img 
+                src={item.image} 
+                alt={`${item.size} wheel bike`}
+                class="w-full h-full object-contain p-6"
+                loading="lazy"
+              />
+            ) : (
+              <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                <div class="text-center text-gray-400">
+                  <span class="text-6xl font-bold">{item.size}</span>
+                  <p class="mt-2 text-sm">Image coming soon</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Content */}
+          <div class="p-6">
+            <div class="flex items-center gap-3 mb-4">
+              <span class="text-4xl font-bold text-gray-900">{item.size}</span>
+              <div>
+                <h3 class="text-xl font-bold text-gray-900">{item.title}</h3>
+                <p class="text-orange-600 font-medium">{item.priceRange}</p>
+              </div>
+            </div>
+
+            {/* Pros */}
+            <ul class="space-y-2 mb-4">
+              {item.pros.map((pro) => (
+                <li class="flex items-start gap-2 text-gray-600">
+                  <svg class="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
+                  <span>{pro}</span>
+                </li>
+              ))}
+            </ul>
+
+            {/* Best For */}
+            <div class="p-4 bg-gray-50 rounded-xl mb-4">
+              <p class="text-sm text-gray-500 mb-1">Best for:</p>
+              <p class="text-gray-900 font-medium">{item.bestFor}</p>
+            </div>
+
+            {/* Models */}
+            <div class="flex flex-wrap gap-2">
+              {item.models.map((model) => (
+                <span class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
+                  {model}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    {/* CTA */}
+    <div class="text-center mt-12">
+      <a href="/products" class="inline-flex items-center gap-2 btn-primary bg-orange-500 hover:bg-orange-600 border-orange-500 px-8 py-4 text-lg">
+        View All Models
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+        </svg>
+      </a>
+    </div>
+  </div>
+</section>

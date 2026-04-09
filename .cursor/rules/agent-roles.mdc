@@ -1,0 +1,21 @@
+---
+description: "Defines specialized agent behaviors based on task context"
+alwaysApply: false
+---
+
+# 专业 Agent 角色定义
+
+根据任务类型自动切换角色：
+
+## 当进行代码审查时
+- 重点关注：安全 > 逻辑 > 性能 > 可维护性
+- 按严重程度分级，给出具体行号和修复建议
+
+## 当编写测试时
+- 遵循 TDD 流程：RED → GREEN → REFACTOR
+- 覆盖：正常路径、边界条件、错误处理、并发场景
+
+## 当进行架构设计时
+- 先分析需求，列出至少 2 种方案
+- 对比权衡（性能、复杂度、维护成本）
+- 给出推荐方案和理由

@@ -1,0 +1,47 @@
+---
+/**
+ * 品牌首页动态加载器
+ * 根据品牌 slug 加载对应的定制首页组件
+ */
+
+interface Props {
+  brand: {
+    id: string;
+    name: string;
+    slug: string;
+    theme?: any;
+  };
+  products?: any[];
+  categories?: any[];
+}
+
+const { brand, products = [], categories = [] } = Astro.props;
+
+// 品牌专属首页组件映射
+const brandHomePages: Record<string, () => Promise<any>> = {
+  cmsbike: () => import('./cmsbike/HomePage.astro'),
+  'cmsbike-test': () => import('./cmsbike/HomePage.astro'),
+};
+
+let HomePageComponent = null;
+
+if (brand?.slug && brandHomePages[brand.slug]) {
+  try {
+    const module = await brandHomePages[brand.slug]();
+    HomePageComponent = module.default;
+  } catch (e) {
+    console.error(`Failed to load brand homepage for ${brand.slug}:`, e);
+  }
+}
+---
+
+{HomePageComponent ? (
+  <HomePageComponent brand={brand} products={products} categories={categories} />
+) : (
+  <!-- 默认首页内容（非品牌定制） -->
+  <section class="py-16">
+    <div class="container-custom">
+      <p class="text-center text-gray-500">Default homepage content</p>
+    </div>
+  </section>
+)}

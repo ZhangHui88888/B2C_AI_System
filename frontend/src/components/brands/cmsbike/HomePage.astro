@@ -1,0 +1,94 @@
+---
+/**
+ * CMSBike 完整首页组件
+ * 整合所有品牌专属区块
+ */
+import CategoryShowcase from './CategoryShowcase.astro';
+import USPSection from './USPSection.astro';
+import SizeGuide from './SizeGuide.astro';
+import FeaturedProducts from './FeaturedProducts.astro';
+
+interface Props {
+  brand: {
+    id: string;
+    name: string;
+    slug: string;
+    theme?: any;
+  };
+  products?: any[];
+  categories?: any[];
+}
+
+const { brand, products = [], categories = [] } = Astro.props;
+---
+
+<!-- 分类入口 -->
+<CategoryShowcase brand={brand} />
+
+<!-- 明星产品 -->
+<FeaturedProducts brand={brand} products={products} />
+
+<!-- 品牌优势 -->
+<USPSection brand={brand} />
+
+<!-- 尺寸指南 -->
+<SizeGuide brand={brand} />
+
+<!-- 订阅区块 -->
+<section class="py-20 bg-gray-900 text-white">
+  <div class="container-custom">
+    <div class="max-w-3xl mx-auto text-center">
+      <h2 class="text-3xl lg:text-4xl font-bold mb-4">
+        Get <span class="text-orange-400">€50 Off</span> Your First Bike
+      </h2>
+      <p class="text-lg text-gray-300 mb-8">
+        Join our newsletter for exclusive deals, riding tips, and new model announcements.
+      </p>
+      
+      <form class="flex flex-col sm:flex-row gap-3 max-w-md mx-auto" onsubmit="return false;">
+        <input 
+          type="email" 
+          placeholder="Enter your email" 
+          class="flex-1 px-5 py-4 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20"
+          required 
+        />
+        <button 
+          type="submit" 
+          class="px-8 py-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition-colors"
+        >
+          Subscribe
+        </button>
+      </form>
+      
+      <p class="mt-4 text-sm text-gray-500">
+        Unsubscribe anytime. No spam, we promise.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- 信任徽章 -->
+<section class="py-12 bg-white border-t border-gray-100">
+  <div class="container-custom">
+    <div class="flex flex-wrap items-center justify-center gap-8 md:gap-16 opacity-60">
+      <div class="flex items-center gap-2 text-gray-600">
+        <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        <span class="font-medium">Secure Payment</span>
+      </div>
+      <div class="flex items-center gap-2 text-gray-600">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+        </svg>
+        <span class="font-medium">Visa / Mastercard / PayPal</span>
+      </div>
+      <div class="flex items-center gap-2 text-gray-600">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+        <span class="font-medium">EU Certified</span>
+      </div>
+    </div>
+  </div>
+</section>

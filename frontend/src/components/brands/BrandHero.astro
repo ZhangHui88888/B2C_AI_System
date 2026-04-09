@@ -1,0 +1,37 @@
+---
+/**
+ * 品牌 Hero 组件动态加载器
+ * 根据品牌 slug 加载对应的定制组件，无定制则使用默认组件
+ */
+import DefaultHero from './default/Hero.astro';
+
+interface Props {
+  brand: {
+    id: string;
+    name: string;
+    slug: string;
+    theme?: any;
+  };
+  [key: string]: any;
+}
+
+const { brand, ...rest } = Astro.props;
+
+// 品牌专属组件映射
+const brandComponents: Record<string, any> = {
+  cmsbike: () => import('./cmsbike/Hero.astro'),
+};
+
+let HeroComponent = DefaultHero;
+
+if (brand?.slug && brandComponents[brand.slug]) {
+  try {
+    const module = await brandComponents[brand.slug]();
+    HeroComponent = module.default;
+  } catch (e) {
+    console.error(`Failed to load brand component for ${brand.slug}:`, e);
+  }
+}
+---
+
+<HeroComponent brand={brand} {...rest} />

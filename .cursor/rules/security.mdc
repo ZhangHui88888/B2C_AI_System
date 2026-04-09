@@ -1,0 +1,32 @@
+---
+description: "安全约束规则，所有代码修改时自动检查"
+alwaysApply: true
+---
+
+# 安全约束
+
+## 禁止提交的内容
+- Supabase service_role key、anon key 的真实值
+- Stripe Secret Key / Webhook Secret
+- DeepSeek API Key
+- Resend API Key
+- .env / .dev.vars 文件
+- Cloudflare API Token
+
+## 数据库安全
+- 所有表必须启用 RLS
+- 生产环境仅允许 service_role 访问
+- 品牌数据隔离通过 Worker API 层强制执行
+- SQL 迁移脚本必须先在测试环境验证
+
+## API 安全
+- Worker 中间件链：CORS → Brand → Auth，顺序不可更改
+- Admin 接口必须验证管理员身份
+- 支付回调必须验证 Stripe webhook 签名
+- 公开接口需有速率限制
+
+## 前端安全
+- 用户输入展示前必须转义，防止 XSS
+- 敏感操作（支付、删除）需要二次确认
+- 不在前端代码中暴露 service_role key
+- 仅使用 anon key 进行客户端操作

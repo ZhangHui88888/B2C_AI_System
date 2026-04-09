@@ -1,0 +1,92 @@
+---
+/**
+ * CMSBike USP (Unique Selling Points) 区域
+ * 展示品牌核心优势
+ */
+interface Props {
+  brand?: any;
+}
+
+const usps = [
+  {
+    icon: 'clock',
+    title: 'One Second Fold',
+    description: 'Revolutionary folding mechanism lets you fold your bike in just one second. Perfect for train, bus, or office storage.'
+  },
+  {
+    icon: 'gear',
+    title: 'Shimano Components',
+    description: 'Premium Shimano Nexus internal gear hubs and derailleurs for smooth, reliable shifting every ride.'
+  },
+  {
+    icon: 'truck',
+    title: 'Free EU Shipping',
+    description: 'Free delivery across the European Union. Your bike arrives fully assembled and ready to ride.'
+  },
+  {
+    icon: 'shield',
+    title: '2-Year Warranty',
+    description: 'Every bike is backed by our comprehensive 2-year warranty and dedicated customer support.'
+  }
+];
+
+const iconPaths: Record<string, string> = {
+  clock: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+  gear: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z',
+  truck: 'M8 17h8M8 17H5.236a2 2 0 01-1.789-1.106l-2-4A2 2 0 013.236 9H8m0 8V9m8 8h2.764a2 2 0 001.789-1.106l2-4A2 2 0 0020.764 9H16m0 8V9m0 0H8',
+  shield: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'
+};
+---
+
+<section class="py-20 bg-white">
+  <div class="container-custom">
+    <div class="text-center mb-16">
+      <span class="inline-block px-4 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium mb-4">
+        Why CMS BIKE
+      </span>
+      <h2 class="text-3xl lg:text-4xl font-bold text-gray-900">
+        Built for Urban Life
+      </h2>
+      <p class="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
+        Every detail designed for the modern commuter who demands quality, convenience, and style.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      {usps.map((usp, index) => (
+        <div class="group text-center p-6 rounded-2xl hover:bg-gray-50 transition-colors">
+          {/* Icon */}
+          <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 text-white mb-6 group-hover:scale-110 transition-transform">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d={iconPaths[usp.icon]} />
+            </svg>
+          </div>
+
+          {/* Content */}
+          <h3 class="text-xl font-bold text-gray-900 mb-3">{usp.title}</h3>
+          <p class="text-gray-600 leading-relaxed">{usp.description}</p>
+        </div>
+      ))}
+    </div>
+
+    {/* Stats Bar */}
+    <div class="mt-16 grid grid-cols-2 md:grid-cols-4 gap-8 py-8 border-t border-b border-gray-200">
+      <div class="text-center">
+        <div class="text-3xl lg:text-4xl font-bold text-orange-600">1s</div>
+        <div class="text-sm text-gray-600 mt-1">Folding Time</div>
+      </div>
+      <div class="text-center">
+        <div class="text-3xl lg:text-4xl font-bold text-orange-600">12kg</div>
+        <div class="text-sm text-gray-600 mt-1">Lightweight Frame</div>
+      </div>
+      <div class="text-center">
+        <div class="text-3xl lg:text-4xl font-bold text-orange-600">50km</div>
+        <div class="text-sm text-gray-600 mt-1">E-Bike Range</div>
+      </div>
+      <div class="text-center">
+        <div class="text-3xl lg:text-4xl font-bold text-orange-600">2yr</div>
+        <div class="text-sm text-gray-600 mt-1">Full Warranty</div>
+      </div>
+    </div>
+  </div>
+</section>

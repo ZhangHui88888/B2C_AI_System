@@ -1,0 +1,126 @@
+---
+/**
+ * CMS BIKE 首页 Hero 组件（视频版）
+ * 支持自动播放的产品展示视频
+ */
+interface Props {
+  brand: {
+    id: string;
+    name: string;
+    slug: string;
+    theme?: any;
+  };
+  videoUrl?: string;
+  posterUrl?: string;
+}
+
+const { 
+  brand, 
+  videoUrl = 'https://assets.cmsbike.uk/14-inch/folding-demo.mp4',
+  posterUrl = ''
+} = Astro.props;
+---
+
+<section class="hero-section relative overflow-hidden">
+  <!-- 视频背景 -->
+  <div class="absolute inset-0 z-0">
+    <video
+      id="hero-video"
+      class="w-full h-full object-cover"
+      autoplay
+      muted
+      loop
+      playsinline
+      poster={posterUrl}
+    >
+      <source src={videoUrl} type="video/mp4" />
+    </video>
+    <!-- 渐变遮罩 -->
+    <div class="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
+  </div>
+
+  <!-- 内容 -->
+  <div class="container-custom relative z-10 py-20 lg:py-32">
+    <div class="max-w-2xl text-white">
+      <h1 class="text-4xl lg:text-6xl font-bold mb-6">
+        <span class="text-orange-400">Fold.</span> 
+        <span class="text-blue-400">Ride.</span> 
+        <span class="text-green-400">Explore.</span>
+      </h1>
+      <p class="text-xl lg:text-2xl text-gray-200 mb-8">
+        Premium folding bikes for urban explorers. Compact design, superior quality, European engineering.
+      </p>
+      <div class="flex flex-col sm:flex-row gap-4">
+        <a href="/products" class="btn-primary bg-orange-500 hover:bg-orange-600 border-orange-500 text-lg px-8 py-4">
+          Shop Bikes
+        </a>
+        <a href="/about" class="btn-outline border-white text-white hover:bg-white hover:text-gray-900 text-lg px-8 py-4">
+          Our Story
+        </a>
+      </div>
+      
+      <!-- 特点标签 -->
+      <div class="mt-12 flex flex-wrap gap-6 text-sm">
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+          </svg>
+          <span>Free EU Shipping</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+          </svg>
+          <span>2-Year Warranty</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+          </svg>
+          <span>30-Day Returns</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 视频控制按钮 -->
+  <button
+    id="video-toggle"
+    class="absolute bottom-6 right-6 z-20 bg-white/20 backdrop-blur-sm rounded-full p-3 hover:bg-white/30 transition-colors"
+    aria-label="Toggle video playback"
+  >
+    <svg id="pause-icon" class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+    </svg>
+    <svg id="play-icon" class="w-6 h-6 text-white hidden" fill="currentColor" viewBox="0 0 20 20">
+      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+    </svg>
+  </button>
+</section>
+
+<style>
+  .hero-section {
+    min-height: 80vh;
+    display: flex;
+    align-items: center;
+  }
+</style>
+
+<script>
+  const video = document.getElementById('hero-video') as HTMLVideoElement;
+  const toggleBtn = document.getElementById('video-toggle');
+  const pauseIcon = document.getElementById('pause-icon');
+  const playIcon = document.getElementById('play-icon');
+
+  toggleBtn?.addEventListener('click', () => {
+    if (video.paused) {
+      video.play();
+      pauseIcon?.classList.remove('hidden');
+      playIcon?.classList.add('hidden');
+    } else {
+      video.pause();
+      pauseIcon?.classList.add('hidden');
+      playIcon?.classList.remove('hidden');
+    }
+  });
+</script>

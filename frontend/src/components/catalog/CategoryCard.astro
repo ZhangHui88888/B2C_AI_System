@@ -6,15 +6,17 @@ export interface Props {
 }
 
 const { category } = Astro.props;
+
+const rawImageUrl = typeof category.image_url === 'string' ? category.image_url.trim() : '';
+const shouldInlinePlaceholder = !rawImageUrl || /via\.placeholder\.com/i.test(rawImageUrl) || !/^https?:\/\//i.test(rawImageUrl);
+
+const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#e5e7eb" offset="0"/><stop stop-color="#f3f4f6" offset="1"/></linearGradient></defs><rect width="800" height="600" fill="url(#g)"/><text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial" font-size="40" fill="#6b7280">${String(category.name || 'Category').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text></svg>`;
+const imageSrc = shouldInlinePlaceholder ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` : rawImageUrl;
 ---
 
 <a href={`/category/${category.slug}`} class="card block overflow-hidden">
   <div class="aspect-[4/3] bg-gray-100">
-    {category.image_url ? (
-      <img src={category.image_url} alt={category.name} class="h-full w-full object-cover" loading="lazy" />
-    ) : (
-      <div class="h-full w-full flex items-center justify-center text-gray-400 text-sm">Category</div>
-    )}
+    <img src={imageSrc} alt={category.name} class="h-full w-full object-cover" loading="lazy" />
   </div>
   <div class="p-4">
     <div class="font-semibold text-gray-900">{category.name}</div>

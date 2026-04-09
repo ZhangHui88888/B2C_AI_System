@@ -15,7 +15,19 @@ if (!brand) {
 
 const pageSize = 12;
 
-const apiOrigin = new URL(Astro.request.url).origin;
+// SSR 模式下使用配置的 API URL 或回退到 localhost
+const configuredApiUrl = import.meta.env.PUBLIC_API_URL;
+const apiOrigin = configuredApiUrl || 'http://localhost:8787';
+
+const requestUrl = new URL(Astro.request.url);
+const initialQuery = {
+  search: requestUrl.searchParams.get('search') || '',
+  category: requestUrl.searchParams.get('category') || '',
+  price_min: requestUrl.searchParams.get('price_min') ? Number(requestUrl.searchParams.get('price_min')) : undefined,
+  price_max: requestUrl.searchParams.get('price_max') ? Number(requestUrl.searchParams.get('price_max')) : undefined,
+  sort: requestUrl.searchParams.get('sort') || 'newest',
+  page: Number(requestUrl.searchParams.get('page') || '1') || 1,
+};
 
 const [categoriesData, initialProductsData, minPriceData, maxPriceData] = await Promise.all([
   fetch(new URL('/api/categories', apiOrigin).toString(), {
@@ -26,7 +38,15 @@ const [categoriesData, initialProductsData, minPriceData, maxPriceData] = await 
   fetch(new URL('/api/products/list', apiOrigin).toString(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-brand-id': brand.id },
-    body: JSON.stringify({ page: 1, limit: pageSize, sort: 'newest' }),
+    body: JSON.stringify({
+      page: initialQuery.page,
+      limit: pageSize,
+      sort: initialQuery.sort,
+      search: initialQuery.search || undefined,
+      category: initialQuery.category || undefined,
+      price_min: typeof initialQuery.price_min === 'number' && Number.isFinite(initialQuery.price_min) ? initialQuery.price_min : undefined,
+      price_max: typeof initialQuery.price_max === 'number' && Number.isFinite(initialQuery.price_max) ? initialQuery.price_max : undefined,
+    }),
   })
     .then((r) => r.json())
     .catch(() => null),
@@ -64,6 +84,8 @@ const categories = flattenCategories(categoriesData?.categories || []);
 const initialProducts = initialProductsData?.products || [];
 const totalCount = initialProductsData?.pagination?.total || 0;
 const initialTotalPages = Math.max(1, Math.ceil((totalCount || 0) / pageSize));
+
+const initialPage = initialProductsData?.pagination?.page ? Number(initialProductsData.pagination.page) : 1;
 
 const initialMinPrice = minPriceData?.products?.[0]?.price !== undefined ? Number(minPriceData.products[0].price) : undefined;
 const initialMaxPrice = maxPriceData?.products?.[0]?.price !== undefined ? Number(maxPriceData.products[0].price) : undefined;
@@ -151,7 +173,7 @@ const breadcrumbItems = [
 
           <div id="products-pagination" class="mt-10 flex items-center justify-center gap-2">
             <button class="btn-ghost py-2 px-3 text-sm" type="button" data-page="prev">Prev</button>
-            <span id="products-page" class="text-sm text-gray-700">1 / {initialTotalPages}</span>
+            <span id="products-page" class="text-sm text-gray-700">{initialPage} / {initialTotalPages}</span>
             <button class="btn-ghost py-2 px-3 text-sm" type="button" data-page="next">Next</button>
           </div>
         </div>
@@ -170,8 +192,19 @@ const breadcrumbItems = [
     )}
   </main>
 
-  <script type="module">
-    import { api } from '@lib/api';
+  <script type="module" define:vars={{ brandId: brand.id }}>
+    // 内联 API 客户端，避免路径别名问题
+    const apiClient = {
+      async getProducts(params) {
+        const res = await fetch('/api/products/list', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-brand-id': brandId },
+          body: JSON.stringify(params || {}),
+        });
+        const data = await res.json();
+        return { success: res.ok, data };
+      }
+    };
 
     const pageSize = 12;
 
@@ -234,7 +267,7 @@ const breadcrumbItems = [
       grid.innerHTML = products
         .map((p) => {
           const img = p.main_image_url
-            ? `<img src="${p.main_image_url}" alt="${p.name}" class="h-full w-full object-cover" loading="lazy" />`
+            ? `<img src="${p.main_image_url}" alt="${p.name}" class="h-full w-full object-contain p-4" loading="lazy" />`
             : `<div class="h-full w-full flex items-center justify-center text-gray-400 text-sm">No image</div>`;
 
           const compare = p.compare_price
@@ -263,7 +296,7 @@ const breadcrumbItems = [
     }
 
     async function fetchProducts(params) {
-      const res = await api.getProducts({
+      const res = await apiClient.getProducts({
         category: params.category || undefined,
         page: params.page,
         limit: pageSize,
@@ -356,10 +389,6 @@ const breadcrumbItems = [
     });
 
     syncControlsFromQuery();
-    const q = readQuery();
-    const hasParams = Array.from(new URL(window.location.href).searchParams.keys()).length > 0;
-    if (hasParams && (q.search || q.category || q.sort !== 'newest' || q.page > 1 || typeof q.price_min === 'number' || typeof q.price_max === 'number')) {
-      await refresh(true);
-    }
+    await refresh(true);
   </script>
 </Layout>

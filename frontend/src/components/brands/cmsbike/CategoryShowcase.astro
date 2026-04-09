@@ -1,0 +1,124 @@
+---
+/**
+ * CMSBike 分类展示组件
+ * 双栏大卡片：折叠车 vs 电动车
+ */
+interface Props {
+  brand: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+}
+
+const { brand } = Astro.props;
+
+const R2_BASE = 'https://assets.cmsbike.uk';
+
+const categories = [
+  {
+    title: 'Folding Bikes',
+    subtitle: 'Classic pedal power',
+    price: 'From $495',
+    href: '/products?category=folding-bikes',
+    image: `${R2_BASE}/14-inch/black-side.jpg`,
+    badge: '4 Models',
+    features: ['14" & 16" wheels', 'Shimano gears', 'One second fold']
+  },
+  {
+    title: 'Electric Bikes',
+    subtitle: 'Power-assisted commuting',
+    price: 'From $999',
+    href: '/products?category=electric-bikes',
+    image: `${R2_BASE}/ebike-16/lifestyle-charging.jpg`,
+    badge: '2 Models',
+    features: ['BAFANG motors', 'Samsung batteries', '40-50km range']
+  }
+];
+---
+
+<section class="py-16 bg-gray-50">
+  <div class="container-custom">
+    <div class="text-center mb-12">
+      <h2 class="text-3xl lg:text-4xl font-bold text-gray-900">Choose Your Ride</h2>
+      <p class="mt-3 text-lg text-gray-600">Two ways to fold and go</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      {categories.map((cat) => (
+        <a 
+          href={cat.href}
+          class="group relative overflow-hidden rounded-2xl bg-white shadow-lg hover:shadow-2xl transition-all duration-300"
+        >
+          {/* 图片区域 */}
+          <div class="aspect-[4/3] overflow-hidden bg-gray-100">
+            {cat.image ? (
+              <img 
+                src={cat.image} 
+                alt={cat.title}
+                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                loading="lazy"
+              />
+            ) : (
+              <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300">
+                <div class="text-center text-gray-500">
+                  <svg class="w-16 h-16 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span class="text-sm">Coming Soon</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 徽章 */}
+          <div class="absolute top-4 left-4">
+            <span class="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-sm font-medium text-gray-800 shadow">
+              {cat.badge}
+            </span>
+          </div>
+
+          {/* 内容区域 */}
+          <div class="p-6">
+            <div class="flex items-start justify-between">
+              <div>
+                <h3 class="text-2xl font-bold text-gray-900 group-hover:text-orange-600 transition-colors">
+                  {cat.title}
+                </h3>
+                <p class="text-gray-600 mt-1">{cat.subtitle}</p>
+              </div>
+              <span class="text-xl font-bold text-orange-600">{cat.price}</span>
+            </div>
+
+            {/* 特点列表 */}
+            <ul class="mt-4 space-y-2">
+              {cat.features.map((feature) => (
+                <li class="flex items-center gap-2 text-sm text-gray-600">
+                  <svg class="w-4 h-4 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
+                  {feature}
+                </li>
+              ))}
+            </ul>
+
+            {/* CTA */}
+            <div class="mt-6 flex items-center text-orange-600 font-medium group-hover:translate-x-2 transition-transform">
+              <span>Browse {cat.title}</span>
+              <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </div>
+          </div>
+
+          {/* Coming Soon 遮罩 */}
+          {cat.comingSoon && (
+            <div class="absolute inset-0 bg-black/5 flex items-center justify-center pointer-events-none">
+              <span class="sr-only">Coming Soon</span>
+            </div>
+          )}
+        </a>
+      ))}
+    </div>
+  </div>
+</section>

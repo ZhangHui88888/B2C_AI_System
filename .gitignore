@@ -36,3 +36,8 @@ coverage/
 # Misc
 *.tgz
 .cache/
+
+# Cursor memory (local state, not version-controlled)
+.cursor/memory/
+# Cursor MCP config (may contain credentials)
+.cursor/mcp.json
